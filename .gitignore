@@ -5,3 +5,4 @@
 mosquitto/ssl/
 nginx/ssl/
 node_modules/
+._*
