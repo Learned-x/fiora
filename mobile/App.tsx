@@ -19,7 +19,22 @@ export default function App() {
       password: process.env.EXPO_PUBLIC_MQTT_PASSWORD,
     });
 
-    client.on('connect', () => setMqttStatus('OK — connesso a HiveMQ Cloud'));
+    client.on('connect', () => {
+      setMqttStatus('OK — connesso a HiveMQ Cloud');
+      // Pubblica un messaggio di test
+      client.publish(
+        'fiora/vaso/test-device-001/telemetry',
+        JSON.stringify({
+          device_id: 'test-device-001',
+          timestamp: new Date().toISOString(),
+          umidita: 42,
+          luce: 850,
+          temperatura: 21.5,
+          batteria: 87
+        }),
+        { qos: 1 }
+      );
+    });
     client.on('error', (err) => setMqttStatus(`ERRORE — ${err.message}`));
 
     return () => {

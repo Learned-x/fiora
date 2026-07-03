@@ -1,13 +1,241 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// ─────────────────────────────────────────────────────────────────────────────
+// Fiora — Prisma Schema
+// Specifiche tecniche v1.4 + integrazione Trefle full-import
+// ─────────────────────────────────────────────────────────────────────────────
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String?   @unique @db.VarChar(255)
+  passwordHash  String?   @map("password_hash") @db.VarChar(255)
+  provider      String?   @db.VarChar(50)   // 'email' | 'google' | 'apple'
+  providerId    String?   @map("provider_id") @db.VarChar(255)
+  clima         String    @default("temperato") @db.VarChar(50)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()  // soft delete
+
+  plants              Plant[]
+  tasks               Task[]
+  actionLogs          ActionLog[]
+  photoDiary          PhotoDiary[]
+  refreshTokens       RefreshToken[]
+  smartVases          SmartVase[]
+  proposedSpecies     Species[]     @relation("ProposedBy")
+  approvedSpecies     Species[]     @relation("ApprovedBy")
+
+  @@map("users")
+}
+
+// ─── Trefle Raw (va definita prima di Species per la FK) ─────────────────────
+
+model TrefleSpeciesRaw {
+  trefleId         Int       @id @map("trefle_id")
+  slug             String    @db.Text
+  scientificName   String    @map("scientific_name") @db.Text
+  commonName       String?   @map("common_name") @db.Text
+  family           String?   @db.Text
+  familyCommonName String?   @map("family_common_name") @db.Text
+  genus            String?   @db.Text
+  rank             String?   @db.Text    // species, ssp, var, etc.
+  status           String?   @db.Text    // accepted, unknown...
+  data             Json                  // payload completo Trefle (JSONB)
+  updatedAtTrefle  DateTime? @map("updated_at_trefle") @db.Timestamptz()
+  syncedAt         DateTime  @default(now()) @map("synced_at") @db.Timestamptz()
+
+  species Species[]
+
+  @@index([scientificName], name: "idx_trefle_raw_scientific_name")
+  @@index([commonName], name: "idx_trefle_raw_common_name")
+  @@index([family], name: "idx_trefle_raw_family")
+  @@map("trefle_species_raw")
+}
+
+// ─── Species ─────────────────────────────────────────────────────────────────
+
+model Species {
+  id                   String   @id @default(uuid()) @db.Uuid
+  nomeComune           String   @map("nome_comune") @db.VarChar(255)
+  nomeScientifico      String?  @map("nome_scientifico") @db.VarChar(255)
+  categoria            String?  @db.VarChar(100)  // 'interno' | 'succulenta' | 'tropicale' | 'aromatica' | 'altro'
+  luce                 String   @db.VarChar(50)   // 'bassa' | 'media' | 'alta'
+  annaffiatura         String   @db.VarChar(50)   // 'poca' | 'media' | 'frequente'
+  umidita              String?  @db.VarChar(50)   // 'bassa' | 'media' | 'alta'
+  tempMin              Int?     @map("temp_min")
+  tempMax              Int?     @map("temp_max")
+  tossicita            Boolean?
+  noteCura             String?  @map("note_cura") @db.Text
+  sogliaUmidita        Int?     @map("soglia_umidita")
+  fonte                String   @db.VarChar(50)   // 'curato' | 'trefle' | 'utente'
+  stato                String   @default("attivo") @db.VarChar(50) // 'attivo' | 'in_revisione'
+
+  // Collegamento a Trefle (solo se fonte='trefle')
+  trefleId             Int?     @unique @map("trefle_id")
+  immaginePrincipaleUrl String? @map("immagine_principale_url") @db.VarChar(500)
+
+  // Moderazione (solo se fonte='utente')
+  propostoDao          String?  @map("proposto_da") @db.Uuid
+  approvatoDa          String?  @map("approvato_da") @db.Uuid
+
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trefleRaw    TrefleSpeciesRaw? @relation(fields: [trefleId], references: [trefleId])
+  proposedBy   User?             @relation("ProposedBy", fields: [propostoDao], references: [id])
+  approvedBy   User?             @relation("ApprovedBy", fields: [approvatoDa], references: [id])
+  plants       Plant[]
+
+  @@index([nomeComune], name: "idx_species_nome")
+  @@map("species")
+}
+
+// ─── Plants ──────────────────────────────────────────────────────────────────
+
+model Plant {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  nome           String    @db.VarChar(255)
+  tipo           String    @db.VarChar(50)   // 'pianta' | 'bouquet'
+  speciesId      String?   @map("species_id") @db.Uuid
+  posizione      String?   @db.VarChar(255)
+  fotoUrl        String?   @map("foto_url") @db.VarChar(500)
+  stato          String    @default("attivo") @db.VarChar(50) // 'attivo' | 'archiviato' | 'eliminato'
+  statoBouquet   String?   @map("stato_bouquet") @db.VarChar(50) // 'fresco' | 'in_cura' | 'appassendo' | 'concluso'
+  dataRicezione  DateTime? @map("data_ricezione") @db.Date  // per i bouquet
+  vasoId         String?   @map("vaso_id") @db.Uuid
+  note           String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species    Species?    @relation(fields: [speciesId], references: [id])
+  smartVase  SmartVase?  @relation(fields: [vasoId], references: [id])
+  tasks      Task[]
+  actionLogs ActionLog[]
+  photoDiary PhotoDiary[]
+  sensorReadings SensorReading[]
+
+  @@index([userId, stato], name: "idx_plants_user_stato")
+  @@map("plants")
+}
+
+// ─── SmartVases ──────────────────────────────────────────────────────────────
+
+model SmartVase {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  deviceId  String    @unique @map("device_id") @db.VarChar(255)
+  nome      String?   @db.VarChar(255)
+  stato     String    @default("disconnesso") @db.VarChar(50) // 'connesso' | 'disconnesso' | 'batteria_scarica'
+  batteria  Int?
+  lastSeen  DateTime? @map("last_seen") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plants         Plant[]
+  sensorReadings SensorReading[]
+
+  @@map("smart_vases")
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+model Task {
+  id           String    @id @default(uuid()) @db.Uuid
+  plantId      String    @map("plant_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  tipo         String    @db.VarChar(100) // 'annaffiatura' | 'concimazione' | 'nebulizzazione' | ...
+  sorgente     String    @db.VarChar(50)  // 'calendario' | 'sensore' | 'manuale'
+  stato        String    @default("pending") @db.VarChar(50) // 'pending' | 'completato' | 'rimandato' | 'saltato'
+  scadenza     DateTime  @db.Timestamptz()
+  completatoA  DateTime? @map("completato_a") @db.Timestamptz()
+  nota         String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scadenza], name: "idx_tasks_user_scadenza")
+  @@map("tasks")
+}
+
+// ─── ActionLogs ──────────────────────────────────────────────────────────────
+
+model ActionLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  plantId   String   @map("plant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tipo      String   @db.VarChar(100)
+  nota      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plantId, createdAt(sort: Desc)], name: "idx_action_logs_plant")
+  @@map("action_logs")
+}
+
+// ─── PhotoDiary ──────────────────────────────────────────────────────────────
+
+model PhotoDiary {
+  id        String   @id @default(uuid()) @db.Uuid
+  plantId   String   @map("plant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  fotoUrl   String   @map("foto_url") @db.VarChar(500)
+  nota      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("photo_diary")
+}
+
+// ─── RefreshTokens ───────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─── SensorReadings (TimescaleDB hypertable) ─────────────────────────────────
+//
+// ATTENZIONE: Prisma non gestisce nativamente le hypertable TimescaleDB.
+// Dopo la prima migration, eseguire manualmente:
+//   SELECT create_hypertable('sensor_readings', 'time');
+//   SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
+//
+// Queste istruzioni vanno in una migration custom separata (vedi README).
+
+model SensorReading {
+  time        DateTime @db.Timestamptz()
+  vasoId      String   @map("vaso_id") @db.Uuid
+  plantId     String?  @map("plant_id") @db.Uuid
+  umidita     Int?     @db.SmallInt
+  luce        Int?
+  temperatura Decimal? @db.Decimal(4, 1)
+  batteria    Int?     @db.SmallInt
+
+  smartVase SmartVase @relation(fields: [vasoId], references: [id], onDelete: Cascade)
+  plant     Plant?    @relation(fields: [plantId], references: [id])
+
+  @@id([vasoId, time])
+  @@index([vasoId, time(sort: Desc)], name: "idx_sensor_readings_vaso_time")
+  @@map("sensor_readings")
 }
