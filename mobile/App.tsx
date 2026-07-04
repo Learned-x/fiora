@@ -22,7 +22,7 @@ export default function App() {
     client.on('connect', () => {
       setMqttStatus('OK — connesso a HiveMQ Cloud');
       // Pubblica un messaggio di test
-      client.publish(
+      /*client.publish(
         'fiora/vaso/test-device-001/telemetry',
         JSON.stringify({
           device_id: 'test-device-001',
@@ -33,7 +33,7 @@ export default function App() {
           batteria: 87
         }),
         { qos: 1 }
-      );
+      );*/
     });
     client.on('error', (err) => setMqttStatus(`ERRORE — ${err.message}`));
 
