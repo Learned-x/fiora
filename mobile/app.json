@@ -31,7 +31,15 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useModularHeaders": true
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},
