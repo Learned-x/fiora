@@ -6,7 +6,7 @@ export const swaggerSpec = swaggerJsdoc({
     info: {
       title: 'Fiora API',
       version: '1.0.0',
-      description: 'API REST del backend Fiora — fase 1 (autenticazione).',
+      description: 'API REST del backend Fiora — autenticazione, piante, task, specie.',
     },
     servers: [{ url: '/', description: 'Server corrente' }],
     components: {

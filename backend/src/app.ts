@@ -18,6 +18,9 @@ app.use(express.json());
 
 // ── Documentazione API ────────────────────────────────────────────────────────
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/docs.json', (_req, res) => {
+  res.json(swaggerSpec);
+});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/auth', authRoutes);
