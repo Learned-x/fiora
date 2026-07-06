@@ -5,4 +5,7 @@
 mosquitto/ssl/
 nginx/ssl/
 node_modules/
+dist/
+docs/
+CLAUDE.md
 ._*

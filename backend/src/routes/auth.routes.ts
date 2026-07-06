@@ -2,18 +2,23 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import * as authService from '../services/auth.service';
+import * as oauthService from '../services/oauth.service';
 import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Rate limiter per endpoint di autenticazione (5 tentativi/minuto)
-const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Troppi tentativi, riprova tra un minuto' } },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Disabilitato in test per non far dipendere i test dall'ordine di esecuzione.
+const authLimiter =
+  process.env.NODE_ENV === 'test'
+    ? (_req: Request, _res: Response, next: () => void) => next()
+    : rateLimit({
+        windowMs: 60 * 1000,
+        max: 5,
+        message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Troppi tentativi, riprova tra un minuto' } },
+        standardHeaders: true,
+        legacyHeaders: false,
+      });
 
 // Helper: restituisce gli errori di validazione
 function handleValidation(req: Request, res: Response): boolean {
@@ -28,6 +33,27 @@ function handleValidation(req: Request, res: Response): boolean {
   return true;
 }
 
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Registrazione con email e password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, minLength: 8 }
+ *     responses:
+ *       201: { description: Utente creato, token restituiti }
+ *       400: { description: Errore di validazione }
+ *       409: { description: Email già registrata }
+ */
 // ── POST /auth/register ───────────────────────────────────────────────────────
 
 router.post(
@@ -53,6 +79,26 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login con email e password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200: { description: Login riuscito, token restituiti }
+ *       401: { description: Credenziali non valide }
+ */
 // ── POST /auth/login ──────────────────────────────────────────────────────────
 
 router.post(
@@ -78,6 +124,105 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/oauth/google:
+ *   post:
+ *     summary: Login/registrazione con ID token Google
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [idToken]
+ *             properties:
+ *               idToken: { type: string, description: "ID token restituito da Google Sign-In" }
+ *     responses:
+ *       200: { description: Login riuscito, token restituiti }
+ *       401: { description: Token Google non valido }
+ */
+// ── POST /auth/oauth/google ───────────────────────────────────────────────────
+
+router.post(
+  '/oauth/google',
+  authLimiter,
+  [body('idToken').notEmpty().withMessage('idToken obbligatorio')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      const result = await oauthService.loginWithGoogle(req.body.idToken);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /auth/oauth/apple:
+ *   post:
+ *     summary: Login/registrazione con identity token Apple
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [identityToken]
+ *             properties:
+ *               identityToken: { type: string, description: "Identity token restituito da Sign in with Apple" }
+ *     responses:
+ *       200: { description: Login riuscito, token restituiti }
+ *       401: { description: Token Apple non valido }
+ */
+// ── POST /auth/oauth/apple ────────────────────────────────────────────────────
+
+router.post(
+  '/oauth/apple',
+  authLimiter,
+  [body('identityToken').notEmpty().withMessage('identityToken obbligatorio')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      const result = await oauthService.loginWithApple(req.body.identityToken);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Rinnova access token con refresh token (rotation)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200: { description: Nuovi token restituiti }
+ *       401: { description: Refresh token non valido o scaduto }
+ */
 // ── POST /auth/refresh ────────────────────────────────────────────────────────
 
 router.post(
@@ -98,6 +243,24 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Invalida il refresh token corrente
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200: { description: Logout effettuato }
+ */
 // ── POST /auth/logout ─────────────────────────────────────────────────────────
 
 router.post(
@@ -115,6 +278,17 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/account:
+ *   delete:
+ *     summary: Richiede l'eliminazione dell'account (periodo di grazia 30gg)
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: "Eliminazione schedulata, restituisce graceUntil" }
+ *       401: { description: Token mancante, scaduto o non valido }
+ */
 // ── DELETE /auth/account ──────────────────────────────────────────────────────
 
 router.delete('/account', requireAuth, async (req: Request, res: Response) => {
@@ -126,6 +300,17 @@ router.delete('/account', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/account/cancel-deletion:
+ *   post:
+ *     summary: Annulla una richiesta di eliminazione account in corso
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Eliminazione annullata }
+ *       401: { description: Token mancante, scaduto o non valido }
+ */
 // ── POST /auth/account/cancel-deletion ───────────────────────────────────────
 
 router.post('/account/cancel-deletion', requireAuth, async (req: Request, res: Response) => {

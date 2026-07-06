@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls backend *)",
+      "Bash(find backend/prisma -type f -not -path \"*/node_modules/*\")",
+      "Bash(cat backend/.env.development)",
+      "Bash(cat backend/.env.development.example)",
+      "Bash(npm ls *)",
+      "Bash(npm install *)",
+      "Bash(npx jest *)",
+      "Bash(npx tsc *)",
+      "Bash(docker compose *)",
+      "Bash(grep -rl \"GOOGLE_CLIENT_ID\" --include=\"*.env*\" .)",
+      "Bash(find . -maxdepth 3 -iname \"*.env*\" -not -path \"*/node_modules/*\")",
+      "Bash(npx expo *)"
+    ]
+  }
+}

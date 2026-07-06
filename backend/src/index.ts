@@ -6,6 +6,7 @@ dotenv.config();
 // @ts-ignore
 import app from './app';
 import { connectMqtt } from './lib/mqtt';
+import './jobs/account-deletion.job';
 
 const PORT = process.env.PORT || 3000;
 

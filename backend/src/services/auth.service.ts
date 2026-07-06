@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
+import { accountDeletionQueue } from '../lib/bullmq';
 
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES_DAYS = Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS) || 30;
@@ -10,17 +11,17 @@ const BCRYPT_ROUNDS = 12;
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
 
-function generateAccessToken(userId: string): string {
+export function generateAccessToken(userId: string): string {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET!, {
     expiresIn: ACCESS_TOKEN_EXPIRES_IN as any,
   });
 }
 
-function generateRefreshToken(): string {
+export function generateRefreshToken(): string {
   return crypto.randomBytes(64).toString('hex');
 }
 
-async function saveRefreshToken(userId: string, token: string): Promise<void> {
+export async function saveRefreshToken(userId: string, token: string): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
 
@@ -105,6 +106,7 @@ export async function logout(token: string) {
 export async function requestAccountDeletion(userId: string) {
   const graceUntil = new Date();
   graceUntil.setDate(graceUntil.getDate() + 30);
+  const delayMs = graceUntil.getTime() - Date.now();
 
   await prisma.user.update({
     where: { id: userId },
@@ -116,6 +118,13 @@ export async function requestAccountDeletion(userId: string) {
 
   // Aggiungi alla blacklist Redis per invalidare gli access token attivi
   await redis.setex(`blacklist:${userId}`, 30 * 24 * 60 * 60, '1');
+
+  // Pianifica l'eliminazione definitiva dopo il periodo di grazia
+  await accountDeletionQueue.add(
+    'delete-account',
+    { userId },
+    { delay: delayMs, jobId: `delete-account-${userId}` }
+  );
 
   return { graceUntil };
 }
@@ -129,4 +138,8 @@ export async function cancelAccountDeletion(userId: string) {
   });
 
   await redis.del(`blacklist:${userId}`);
+
+  // Rimuove il job schedulato per l'eliminazione definitiva, se presente
+  const job = await accountDeletionQueue.getJob(`delete-account-${userId}`);
+  if (job) await job.remove();
 }

@@ -1,0 +1,112 @@
+import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-rsa';
+import { OAuth2Client } from 'google-auth-library';
+import { prisma } from '../lib/prisma';
+import { generateAccessToken, generateRefreshToken, saveRefreshToken } from './auth.service';
+
+const googleClient = new OAuth2Client();
+
+const googleAudiences = [process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_IOS_CLIENT_ID].filter(
+  (id): id is string => !!id
+);
+
+const appleJwks = jwksClient({
+  jwksUri: 'https://appleid.apple.com/auth/keys',
+  cache: true,
+  cacheMaxAge: 24 * 60 * 60 * 1000,
+});
+
+function getAppleSigningKey(header: jwt.JwtHeader): Promise<string> {
+  return new Promise((resolve, reject) => {
+    appleJwks.getSigningKey(header.kid!, (err, key) => {
+      if (err || !key) return reject(err || new Error('Chiave Apple non trovata'));
+      resolve(key.getPublicKey());
+    });
+  });
+}
+
+// ── Trova o crea l'utente in base a provider + email ──────────────────────────
+
+async function findOrCreateOAuthUser(provider: 'google' | 'apple', providerId: string, email: string | null) {
+  // 1. Utente già collegato a questo provider
+  let user = await prisma.user.findFirst({ where: { provider, providerId } });
+  if (user) return user;
+
+  // 2. Account email esistente con la stessa email → collega i due account
+  if (email) {
+    user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      return prisma.user.update({
+        where: { id: user.id },
+        data: { provider, providerId },
+      });
+    }
+  }
+
+  // 3. Nuovo utente
+  return prisma.user.create({
+    data: { email: email ?? undefined, provider, providerId },
+  });
+}
+
+async function issueTokensFor(userId: string) {
+  const accessToken = generateAccessToken(userId);
+  const refreshToken = generateRefreshToken();
+  await saveRefreshToken(userId, refreshToken);
+  return { accessToken, refreshToken };
+}
+
+// ── Login con Google ───────────────────────────────────────────────────────────
+
+export async function loginWithGoogle(idToken: string) {
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: googleAudiences,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Google non valido' };
+  }
+
+  if (!payload?.sub) {
+    throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Google non valido' };
+  }
+
+  const user = await findOrCreateOAuthUser('google', payload.sub, payload.email ?? null);
+  const tokens = await issueTokensFor(user.id);
+
+  return { ...tokens, user: { id: user.id, email: user.email } };
+}
+
+// ── Login con Apple ────────────────────────────────────────────────────────────
+
+export async function loginWithApple(identityToken: string) {
+  let decoded: jwt.JwtPayload;
+  try {
+    const header = jwt.decode(identityToken, { complete: true })?.header;
+    if (!header) throw new Error('Token malformato');
+
+    const publicKey = await getAppleSigningKey(header);
+    decoded = jwt.verify(identityToken, publicKey, {
+      algorithms: ['RS256'],
+      audience: process.env.APPLE_CLIENT_ID,
+      issuer: 'https://appleid.apple.com',
+    }) as jwt.JwtPayload;
+  } catch {
+    throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Apple non valido' };
+  }
+
+  if (!decoded.sub) {
+    throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Apple non valido' };
+  }
+
+  // Apple fornisce l'email solo al primo login (o nel body della richiesta come fallback)
+  const email = (decoded.email as string | undefined) ?? null;
+
+  const user = await findOrCreateOAuthUser('apple', decoded.sub, email);
+  const tokens = await issueTokensFor(user.id);
+
+  return { ...tokens, user: { id: user.id, email: user.email } };
+}

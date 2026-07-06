@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<template id="__bundler_thumbnail" data-bg-color="#F2F2F7">
+  <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="400" fill="#F2F2F7"/>
+    <rect x="120" y="80" width="160" height="260" rx="24" fill="#1C1C1E" opacity=".08"/>
+    <circle cx="200" cy="180" r="44" fill="#34C759"/>
+    <path d="M200 148C200 148 180 165 180 178C180 187 189 194 200 194C211 194 220 187 220 178C220 165 200 148 200 148Z" fill="white" opacity=".9"/>
+    <path d="M200 194V208M193 202H207" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="152" y="228" width="96" height="10" rx="5" fill="#1C1C1E" opacity=".12"/>
+    <rect x="164" y="248" width="72" height="8" rx="4" fill="#1C1C1E" opacity=".07"/>
+    <rect x="148" y="276" width="104" height="36" rx="12" fill="#34C759" opacity=".9"/>
+  </svg>
+</template>
+<body>
+<x-dc>
+
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    * { -webkit-tap-highlight-color:transparent; box-sizing:border-box; }
+    ::-webkit-scrollbar { display:none; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:#1C1C1E;display:flex;align-items:center;justify-content:center;padding:48px 24px;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ showDark }}" hint-size="393px,852px">
+
+<div style="height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;background:{{ bg }};padding-top:62px">
+
+<!-- DASHBOARD EDIT SHEET -->
+<sc-if value="{{ dashEditVisible }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeDashEdit }}" style="position:absolute;inset:0;z-index:200;background:rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:flex-end">
+  <div onClick="{{ stopProp }}" style="background:{{ card }};border-radius:20px 20px 0 0;padding:8px 16px 40px;animation:slideUp .22s ease">
+    <div style="width:36px;height:5px;border-radius:3px;background:{{ t3 }};margin:10px auto 20px;opacity:.5"></div>
+    <div style="font-size:20px;font-weight:700;color:{{ t1 }};letter-spacing:-.4px;margin-bottom:4px">Personalizza homepage</div>
+    <div style="font-size:14px;color:{{ t2 }};margin-bottom:20px">Scegli quali vasi mostrare nella dashboard.</div>
+    <div style="border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+      <sc-for list="{{ allVaseToggles }}" as="vt" hint-placeholder-count="4">
+      <div style="background:{{ card2 }};padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;align-items:center;gap:12px">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,199,89,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{{ vt.emoji }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;color:{{ t1 }};margin-bottom:1px">{{ vt.plantNome }}</div>
+          <div style="font-size:12px;color:{{ t2 }}">{{ vt.deviceId }} · {{ vt.humText }}</div>
+        </div>
+        <div onClick="{{ vt.toggle }}" style="{{ vt.toggleStyle }}">
+          <div style="{{ vt.knobStyle }}"></div>
+        </div>
+      </div>
+      </sc-for>
+    </div>
+    <div onClick="{{ closeDashEdit }}" style="margin-top:16px;background:{{ acc }};border-radius:13px;padding:14px;font-size:16px;font-weight:600;color:white;text-align:center;cursor:pointer">Fatto</div>
+  </div>
+</div>
+</sc-if>
+
+<!-- SNOOZE SHEET -->
+<sc-if value="{{ snoozeVisible }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ hideSnooze }}" style="position:absolute;inset:0;z-index:200;background:rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:flex-end">
+  <div onClick="{{ stopProp }}" style="background:{{ card }};border-radius:20px 20px 0 0;padding:8px 16px 36px;animation:slideUp .22s ease">
+    <div style="width:36px;height:5px;border-radius:3px;background:{{ t3 }};margin:10px auto 20px;opacity:.5"></div>
+    <div style="font-size:17px;font-weight:600;color:{{ t1 }};margin-bottom:3px">Rimanda di…</div>
+    <div style="font-size:13px;color:{{ t2 }};margin-bottom:20px">Il task riapparirà alla nuova scadenza</div>
+    <div style="border-radius:13px;overflow:hidden">
+      <div onClick="{{ snooze2h }}" style="background:{{ card2 }};padding:16px;font-size:17px;color:{{ t1 }};cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid {{ bord }}">
+        <span>Tra 2 ore</span><span style="color:{{ t2 }}">+2h</span>
+      </div>
+      <div onClick="{{ snoozeTomorrow }}" style="background:{{ card2 }};padding:16px;font-size:17px;color:{{ t1 }};cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid {{ bord }}">
+        <span>Domani</span><span style="color:{{ t2 }}">+1 giorno</span>
+      </div>
+      <div onClick="{{ snooze2d }}" style="background:{{ card2 }};padding:16px;font-size:17px;color:{{ t1 }};cursor:pointer;display:flex;justify-content:space-between">
+        <span>Tra 2 giorni</span><span style="color:{{ t2 }}">+2 giorni</span>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ ONBOARDING ══ -->
+<sc-if value="{{ showOnboarding }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;display:flex;flex-direction:column;overflow-y:auto;background:{{ bg }}">
+
+  <div style="padding:36px 24px 0;display:flex;align-items:center;gap:8px">
+    <div style="width:32px;height:32px;border-radius:9px;background:{{ acc }};display:flex;align-items:center;justify-content:center">
+      <svg width="17" height="20" viewBox="0 0 17 20" fill="none"><path d="M8.5 1C8.5 1 3 6 3 11C3 14.3 5.5 17 8.5 17S14 14.3 14 11C14 6 8.5 1 8.5 1Z" fill="white" opacity=".95"/><path d="M8.5 17V19.5M6 18.5H11" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </div>
+    <span style="font-size:17px;font-weight:600;color:{{ t1 }}">fiora</span>
+  </div>
+
+  <!-- Step 0: Clima -->
+  <sc-if value="{{ showStep0 }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1;padding:32px 24px;display:flex;flex-direction:column;animation:fadeUp .3s ease">
+    <div style="font-size:13px;font-weight:500;color:{{ t2 }};margin-bottom:8px">1 di 3</div>
+    <div style="font-size:28px;font-weight:700;color:{{ t1 }};letter-spacing:-.5px;margin-bottom:6px">Dove vivi?</div>
+    <div style="font-size:15px;color:{{ t2 }};margin-bottom:28px;line-height:1.4">Adattiamo la cura al tuo clima.</div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ climates }}" as="clim" hint-placeholder-count="5">
+      <div onClick="{{ clim.onClick }}" style="{{ clim.cardStyle }}">
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500;color:{{ t1 }}">{{ clim.label }}</div>
+          <div style="font-size:13px;color:{{ t2 }};margin-top:1px">{{ clim.sub }}</div>
+        </div>
+        <div style="{{ clim.check }}">
+          <sc-if value="{{ clim.selected }}" hint-placeholder-val="{{ false }}">
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </sc-if>
+        </div>
+      </div>
+      </sc-for>
+    </div>
+    <div onClick="{{ nextOnboarding }}" style="{{ continueBtnStyle }}">Continua</div>
+  </div>
+  </sc-if>
+
+  <!-- Step 1: Account -->
+  <sc-if value="{{ showStep1 }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;padding:32px 24px;display:flex;flex-direction:column;animation:fadeUp .3s ease">
+    <div style="font-size:13px;font-weight:500;color:{{ t2 }};margin-bottom:8px">2 di 3</div>
+    <div style="font-size:28px;font-weight:700;color:{{ t1 }};letter-spacing:-.5px;margin-bottom:6px">Crea account</div>
+    <div style="font-size:15px;color:{{ t2 }};margin-bottom:32px">I tuoi dati sincronizzati ovunque.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div onClick="{{ nextOnboarding }}" style="background:{{ card }};border-radius:13px;padding:15px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:{{ sha }}">
+        <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#4285F4"/><path d="M17.8 10.2c0-.5-.05-1-.13-1.5H10v2.8h4.38c-.19.97-.76 1.8-1.62 2.35v1.95h2.62c1.53-1.41 2.42-3.49 2.42-5.6Z" fill="#fff"/><path d="M10 18.1c2.2 0 4.05-.73 5.38-1.98l-2.62-1.95c-.73.49-1.66.78-2.76.78-2.12 0-3.92-1.43-4.56-3.36H2.74v2.01A8.1 8.1 0 0 0 10 18.1Z" fill="#fff"/><path d="M5.44 11.59c-.16-.49-.26-1-.26-1.59s.1-1.1.26-1.59V6.4H2.74A8.1 8.1 0 0 0 1.9 10c0 1.31.31 2.55.84 3.6l2.7-2.01Z" fill="#fff"/><path d="M10 4.56c1.2 0 2.27.41 3.11 1.22l2.34-2.34A8.1 8.1 0 0 0 10 1.9 8.1 8.1 0 0 0 2.74 6.4l2.7 2.01c.64-1.93 2.44-3.35 4.56-3.35Z" fill="#fff"/></svg>
+        <span style="font-size:16px;font-weight:500;color:{{ t1 }}">Continua con Google</span>
+      </div>
+      <div onClick="{{ nextOnboarding }}" style="background:{{ card }};border-radius:13px;padding:15px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:{{ sha }}">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="{{ t1 }}"><path d="M16.1 10.4c0-2.7 2.2-4 2.3-4.1-1.3-1.9-3.3-2.1-4-2.2-1.7-.2-3.3 1-4.2 1-.9 0-2.2-1-3.6-1C4.4 4.1 2 5.8 2 9.6c0 2.4.9 4.9 2.1 6.5.9 1.3 2 2.8 3.4 2.8 1.4 0 1.9-.9 3.5-.9 1.6 0 2.1.9 3.5.9 1.5 0 2.4-1.4 3.3-2.7.7-1 1-2 1-2.1-.1 0-2.7-1-2.7-3.7ZM13.5 3c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.1 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.5 3.1-1.5Z"/></svg>
+        <span style="font-size:16px;font-weight:500;color:{{ t1 }}">Continua con Apple</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+        <div style="flex:1;height:1px;background:{{ bord }}"></div>
+        <span style="font-size:13px;color:{{ t3 }}">oppure</span>
+        <div style="flex:1;height:1px;background:{{ bord }}"></div>
+      </div>
+      <div onClick="{{ nextOnboarding }}" style="border:1.5px solid {{ acc }};border-radius:13px;padding:14px;text-align:center;cursor:pointer">
+        <span style="font-size:16px;font-weight:500;color:{{ acc }}">Continua con email</span>
+      </div>
+    </div>
+    <div style="margin-top:auto;padding-top:20px;text-align:center">
+      <span onClick="{{ nextOnboarding }}" style="font-size:15px;color:{{ t2 }};cursor:pointer">Salta per ora</span>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- Step 2: Prima pianta -->
+  <sc-if value="{{ showStep2 }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;padding:32px 24px;display:flex;flex-direction:column;animation:fadeUp .3s ease">
+    <div style="font-size:13px;font-weight:500;color:{{ t2 }};margin-bottom:8px">3 di 3</div>
+    <div style="font-size:28px;font-weight:700;color:{{ t1 }};letter-spacing:-.5px;margin-bottom:6px">Cosa aggiungi?</div>
+    <div style="font-size:15px;color:{{ t2 }};margin-bottom:28px">Inizia la tua collezione.</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:auto">
+      <div onClick="{{ nextOnboarding }}" style="background:{{ card }};border-radius:13px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:{{ sha }}">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(52,199,89,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌿</div>
+        <div style="flex:1"><div style="font-size:16px;font-weight:600;color:{{ t1 }};margin-bottom:2px">Pianta</div><div style="font-size:13px;color:{{ t2 }}">Cerca nel catalogo o aggiungi manualmente</div></div>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div onClick="{{ nextOnboarding }}" style="background:{{ card }};border-radius:13px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:{{ sha }}">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💐</div>
+        <div style="flex:1"><div style="font-size:16px;font-weight:600;color:{{ t1 }};margin-bottom:2px">Bouquet</div><div style="font-size:13px;color:{{ t2 }}">Fiori recisi e bouquet ricevuti in regalo</div></div>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div style="padding-top:24px;text-align:center">
+      <span onClick="{{ nextOnboarding }}" style="font-size:15px;color:{{ t2 }};cursor:pointer">Aggiungo dopo</span>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- Step 3: Welcome -->
+  <sc-if value="{{ showStep3 }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;animation:fadeUp .4s ease">
+    <div style="width:80px;height:80px;border-radius:24px;background:{{ acc }};display:flex;align-items:center;justify-content:center;margin-bottom:28px">
+      <svg width="44" height="50" viewBox="0 0 44 50" fill="none"><path d="M22 2C22 2 10 11 10 22C10 29.7 15.4 36 22 36C28.6 36 34 29.7 34 22C34 11 22 2 22 2Z" fill="white" opacity=".95"/><path d="M22 36V47M16 42.5H28" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </div>
+    <div style="font-size:28px;font-weight:700;color:{{ t1 }};letter-spacing:-.5px;margin-bottom:10px">Benvenuto in Fiora</div>
+    <div style="font-size:16px;color:{{ t2 }};margin-bottom:48px;line-height:1.5;max-width:240px">Inizia a prenderti cura delle tue piante ogni giorno.</div>
+    <div onClick="{{ nextOnboarding }}" style="width:100%;background:{{ acc }};border-radius:14px;padding:16px;font-size:17px;font-weight:600;color:white;cursor:pointer">Inizia</div>
+  </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
+<!-- ══ APP ══ -->
+<sc-if value="{{ showApp }}" hint-placeholder-val="{{ false }}">
+
+  <div style="flex:1;overflow-y:auto;overflow-x:clip;-webkit-overflow-scrolling:touch;background:{{ bg }}">
+
+    <!-- OGGI -->
+    <sc-if value="{{ showOggi }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:16px 16px 24px;animation:fadeUp .25s ease">
+      <div style="font-size:13px;font-weight:500;color:{{ t2 }};margin-bottom:2px">{{ todayFormatted }}</div>
+      <div style="font-size:30px;font-weight:700;color:{{ t1 }};letter-spacing:-.6px;margin-bottom:16px">Oggi</div>
+
+      <!-- Smart pot preview strip -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px">Vasi Smart</div>
+        <div onClick="{{ openDashEdit }}" style="font-size:14px;color:{{ acc }};cursor:pointer;font-weight:500">Personalizza</div>
+      </div>
+      <div style="{{ smartPotContainerStyle }}">
+        <sc-for list="{{ smartPotCards }}" as="spc" hint-placeholder-count="2">
+        <div onClick="{{ spc.onClick }}" style="{{ spc.cardStyle }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-size:18px;line-height:1">{{ spc.emoji }}</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <div style="{{ spc.statusDot }}"></div>
+              <span style="font-size:11px;color:{{ t2 }}">{{ spc.deviceShort }}</span>
+            </div>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:{{ t1 }};margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ spc.nome }}</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11px;color:{{ t2 }}">Umidità</span>
+              <span style="{{ spc.humStyle }}">{{ spc.humText }}</span>
+            </div>
+            <div style="height:3px;background:{{ bord }};border-radius:2px;overflow:hidden">
+              <div style="{{ spc.humBar }}"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px">
+              <span style="font-size:11px;color:{{ t2 }}">Temp.</span>
+              <span style="font-size:11px;font-weight:500;color:{{ acc }}">{{ spc.tempText }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11px;color:{{ t2 }}">Luce</span>
+              <span style="font-size:11px;font-weight:500;color:{{ amb }}">{{ spc.luxText }}</span>
+            </div>
+          </div>
+        </div>
+        </sc-for>
+      </div>
+
+      <!-- Sensor group -->
+      <sc-if value="{{ hasSensorTasks }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;font-weight:600;color:{{ red }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">Da sensore</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }}">
+        <sc-for list="{{ sensorTasks }}" as="task" hint-placeholder-count="1">
+        <div style="padding:14px 16px;border-bottom:1px solid {{ bord }}">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px">
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ red }};margin-top:5px;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:16px;font-weight:500;color:{{ t1 }};margin-bottom:2px">{{ task.label }}</div>
+              <div style="font-size:13px;color:{{ t2 }}">{{ task.detail }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;padding-left:18px">
+            <div onClick="{{ task.complete }}" style="{{ taskBtnA }}">Completa</div>
+            <div onClick="{{ task.snooze }}" style="{{ taskBtnB }}">Rimanda</div>
+            <div onClick="{{ task.skip }}" style="{{ taskBtnC }}">Salta</div>
+          </div>
+        </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- Cal group -->
+      <sc-if value="{{ hasCalTasks }}" hint-placeholder-val="{{ true }}">
+      <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">In calendario</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }}">
+        <sc-for list="{{ calTasks }}" as="task" hint-placeholder-count="3">
+        <div style="padding:14px 16px;border-bottom:1px solid {{ bord }}">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px">
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ acc }};margin-top:5px;flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:16px;font-weight:500;color:{{ t1 }};margin-bottom:2px">{{ task.label }}</div>
+              <div style="font-size:13px;color:{{ t2 }}">{{ task.detail }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;padding-left:18px">
+            <div onClick="{{ task.complete }}" style="{{ taskBtnA }}">Completa</div>
+            <div onClick="{{ task.snooze }}" style="{{ taskBtnB }}">Rimanda</div>
+            <div onClick="{{ task.skip }}" style="{{ taskBtnC }}">Salta</div>
+          </div>
+        </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- Done -->
+      <sc-if value="{{ hasDone }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;font-weight:600;color:{{ t3 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">Completati</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }};opacity:.5">
+        <sc-for list="{{ doneTasks }}" as="dt" hint-placeholder-count="1">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid {{ bord }}">
+          <div style="width:20px;height:20px;border-radius:50%;background:{{ acc }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="11" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span style="font-size:15px;color:{{ t2 }};text-decoration:line-through">{{ dt.label }}</span>
+        </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- All done -->
+      <sc-if value="{{ allDone }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:48px 0">
+        <div style="width:56px;height:56px;border-radius:50%;background:{{ acc }};display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="28" height="20" viewBox="0 0 28 20" fill="none"><path d="M2 10L10 18L26 2" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:600;color:{{ t1 }};margin-bottom:4px">Tutto a posto</div>
+        <div style="font-size:14px;color:{{ t2 }}">Nessun task in sospeso oggi.</div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- COLLEZIONE -->
+    <sc-if value="{{ showCollezione }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:16px 16px 24px;animation:fadeUp .25s ease">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:30px;font-weight:700;color:{{ t1 }};letter-spacing:-.6px">Piante</div>
+        <div onClick="{{ goToAddPlant }}" style="width:32px;height:32px;border-radius:50%;background:{{ acc }};display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5v11M1.5 7h11" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ collFilters }}" as="cf" hint-placeholder-count="4">
+        <div onClick="{{ cf.onClick }}" style="{{ cf.chipStyle }}">{{ cf.label }}</div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <sc-for list="{{ filteredPlants }}" as="item" hint-placeholder-count="4">
+        <div onClick="{{ item.openDetail }}" style="background:{{ card }};border-radius:16px;padding:16px;cursor:pointer;box-shadow:{{ sha }}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:30px;line-height:1">{{ item.emoji }}</div>
+            <sc-if value="{{ item.hasAlert }}" hint-placeholder-val="{{ false }}">
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ red }};margin-top:4px"></div>
+            </sc-if>
+            <sc-if value="{{ item.isBouquet }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:10px;font-weight:600;color:{{ blu }};background:{{ bluBg }};padding:3px 7px;border-radius:6px">bouquet</div>
+            </sc-if>
+          </div>
+          <div style="font-size:15px;font-weight:600;color:{{ t1 }};margin-bottom:2px">{{ item.nome }}</div>
+          <div style="font-size:12px;color:{{ t2 }};font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.speciesLabel }}</div>
+          <sc-if value="{{ item.hasSmartPot }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:4px;margin-top:8px">
+            <div style="width:5px;height:5px;border-radius:50%;background:{{ acc }}"></div>
+            <span style="font-size:11px;color:{{ t2 }}">smart</span>
+          </div>
+          </sc-if>
+        </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- DETTAGLIO PIANTA -->
+    <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ hasPlant }}" hint-placeholder-val="{{ true }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+
+      <!-- Nav -->
+      <div style="display:flex;align-items:center;padding:14px 16px 8px;gap:6px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Piante</span>
+        </div>
+        <div style="flex:1"></div>
+        <span style="font-size:15px;color:{{ acc }};cursor:pointer">Modifica</span>
+      </div>
+
+      <!-- Header -->
+      <div style="padding:12px 16px 20px;text-align:center">
+        <div style="font-size:60px;line-height:1;margin-bottom:12px">{{ plant.emoji }}</div>
+        <div style="font-size:24px;font-weight:700;color:{{ t1 }};letter-spacing:-.4px;margin-bottom:3px">{{ plant.nome }}</div>
+        <div style="font-size:14px;color:{{ t2 }};margin-bottom:2px">{{ plant.nomeComune }}</div>
+        <sc-if value="{{ plant.showSci }}" hint-placeholder-val="{{ true }}">
+        <div style="font-size:13px;color:{{ t3 }};font-style:italic">{{ plant.nomeScientifico }}</div>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px">
+          <div style="font-size:13px;color:{{ t2 }}">📍 {{ plant.room }}</div>
+          <div style="width:3px;height:3px;border-radius:50%;background:{{ t3 }}"></div>
+          <div style="font-size:13px;color:{{ t2 }}">💧 {{ plant.lastWatered }}</div>
+        </div>
+      </div>
+
+      <!-- Sensori -->
+      <sc-if value="{{ plant.hasSmartPot }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:0 16px 20px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          Vaso Smart
+          <div style="display:flex;align-items:center;gap:4px;font-weight:400;text-transform:none;letter-spacing:0">
+            <div style="width:5px;height:5px;border-radius:50%;background:{{ acc }}"></div>
+            <span style="color:{{ acc }}">Connesso</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ plant.humColor }};margin-bottom:3px">{{ plant.humidityText }}</div>
+            <div style="font-size:11px;color:{{ t2 }};margin-bottom:4px">umidità</div>
+            <div style="font-size:11px;font-weight:500;color:{{ plant.humColor }}">{{ plant.humidityStatus }}</div>
+          </div>
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ amb }};margin-bottom:3px">{{ plant.lightText }}</div>
+            <div style="font-size:11px;color:{{ t2 }};margin-bottom:4px">lux</div>
+            <div style="font-size:11px;font-weight:500;color:{{ amb }}">{{ plant.lightStatus }}</div>
+          </div>
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ acc }};margin-bottom:3px">{{ plant.tempText }}</div>
+            <div style="font-size:11px;color:{{ t2 }};margin-bottom:4px">temp.</div>
+            <div style="font-size:11px;font-weight:500;color:{{ acc }}">{{ plant.tempStatus }}</div>
+          </div>
+        </div>
+        <div style="background:{{ card }};border-radius:13px;padding:14px;box-shadow:{{ sha }}">
+          <div style="font-size:12px;color:{{ t2 }};margin-bottom:8px;display:flex;justify-content:space-between">
+            <span>Umidità · 24h</span><span style="color:{{ plant.humColor }};font-weight:500">{{ plant.humidityText }}</span>
+          </div>
+          {{ humiditySparkline }}
+          <div style="display:flex;justify-content:space-between;margin-top:4px">
+            <span style="font-size:10px;color:{{ t3 }}">ieri</span><span style="font-size:10px;color:{{ t3 }}">ora</span>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- Guida -->
+      <div style="padding:0 16px 20px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Guida alla cura</div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <span style="font-size:15px;width:28px">☀️</span>
+            <span style="font-size:14px;color:{{ t2 }};width:90px;flex-shrink:0">Luce</span>
+            <span style="font-size:14px;color:{{ t1 }};flex:1">{{ plant.careLight }}</span>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <span style="font-size:15px;width:28px">💧</span>
+            <span style="font-size:14px;color:{{ t2 }};width:90px;flex-shrink:0">Annaffiatura</span>
+            <span style="font-size:14px;color:{{ t1 }};flex:1">{{ plant.careWater }}</span>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <span style="font-size:15px;width:28px">🌡️</span>
+            <span style="font-size:14px;color:{{ t2 }};width:90px;flex-shrink:0">Temperatura</span>
+            <span style="font-size:14px;color:{{ t1 }};flex:1">{{ plant.careTemp }}</span>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px">
+            <span style="font-size:15px;width:28px">⚠️</span>
+            <span style="font-size:14px;color:{{ t2 }};width:90px;flex-shrink:0">Tossicità</span>
+            <div style="flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="{{ plant.toxBadge }}">{{ plant.toxLevel }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Azioni -->
+      <div style="padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:{{ acc }};border-radius:13px;padding:14px;text-align:center;cursor:pointer">
+          <div style="font-size:14px;font-weight:600;color:white">💧 Annaffia</div>
+        </div>
+        <div style="background:{{ card }};border-radius:13px;padding:14px;text-align:center;cursor:pointer;box-shadow:{{ sha }}">
+          <div style="font-size:14px;font-weight:500;color:{{ t1 }}">🌿 Concima</div>
+        </div>
+        <div onClick="{{ openStoricoCure }}" style="background:{{ card }};border-radius:13px;padding:14px;text-align:center;cursor:pointer;box-shadow:{{ sha }}">
+          <div style="font-size:14px;font-weight:500;color:{{ t1 }}">Storico cure</div>
+        </div>
+        <div onClick="{{ startPairing }}" style="background:{{ card }};border-radius:13px;padding:14px;text-align:center;cursor:pointer;box-shadow:{{ sha }}">
+          <div style="font-size:14px;font-weight:500;color:{{ t1 }}">Vaso Smart</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+    </sc-if>
+
+    <!-- DETTAGLIO BOUQUET -->
+    <sc-if value="{{ showDetailBouquet }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ hasBouquet }}" hint-placeholder-val="{{ true }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px;gap:6px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Piante</span>
+        </div>
+      </div>
+      <div style="padding:12px 16px 20px;text-align:center">
+        <div style="font-size:56px;line-height:1;margin-bottom:12px">💐</div>
+        <div style="font-size:24px;font-weight:700;color:{{ t1 }};letter-spacing:-.4px;margin-bottom:6px">{{ bouquet.nome }}</div>
+        <div style="font-size:13px;color:{{ t2 }}">Ricevuto {{ bouquet.dataRicezione }}</div>
+        <div style="{{ bouquet.statoBadge }}">{{ bouquet.statoLabel }}</div>
+      </div>
+      <!-- Ciclo di vita -->
+      <div style="padding:0 16px 20px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Ciclo di vita</div>
+        <div style="background:{{ card }};border-radius:14px;padding:16px;box-shadow:{{ sha }}">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+            <sc-for list="{{ bouquetStages }}" as="st" hint-placeholder-count="4">
+            <div style="text-align:center;flex:1">
+              <div style="{{ st.dotStyle }}"></div>
+              <div style="{{ st.labelStyle }}">{{ st.label }}</div>
+            </div>
+            </sc-for>
+          </div>
+          <div style="height:4px;background:{{ bord }};border-radius:2px;overflow:hidden">
+            <div style="{{ bouquetProgressBar }}"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Fiori nel bouquet -->
+      <sc-if value="{{ hasBouquetFiori }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:0 16px 20px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Fiori nel bouquet</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ bouquetFioriBadges }}" as="fb" hint-placeholder-count="4">
+            <div style="padding:6px 13px;border-radius:20px;background:{{ card }};border:1px solid {{ bord }};font-size:13px;color:{{ t1 }};box-shadow:{{ sha }}">{{ fb.nome }}</div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+      <!-- Task -->
+      <div style="padding:0 16px 20px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Task attivi</div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <div style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;align-items:center;justify-content:space-between">
+            <div><div style="font-size:15px;color:{{ t1 }}">Cambia l'acqua</div><div style="font-size:13px;color:{{ t2 }};margin-top:1px">Ogni 2 giorni</div></div>
+            <div style="font-size:12px;font-weight:600;color:{{ red }};background:rgba(255,59,48,0.1);padding:4px 10px;border-radius:8px">oggi</div>
+          </div>
+          <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+            <div><div style="font-size:15px;color:{{ t1 }}">Taglia gli steli</div><div style="font-size:13px;color:{{ t2 }};margin-top:1px">Tra 3 giorni</div></div>
+            <div style="font-size:12px;color:{{ t2 }}">3 gg</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 16px">
+        <div style="background:{{ card }};border-radius:14px;padding:14px 16px;box-shadow:{{ sha }}">
+          <div style="font-size:13px;color:{{ t2 }};line-height:1.6">✂️ Taglia gli steli in diagonale ogni 2 giorni<br>🌊 Cambia l'acqua ogni 2 giorni<br>🌡️ Evita calore diretto e correnti d'aria</div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+    </sc-if>
+
+    <!-- VASI SMART -->
+    <sc-if value="{{ showVasiSmart }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer;flex-shrink:0">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Impostazioni</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">Vasi Smart</div>
+        <div onClick="{{ startPairing }}" style="font-size:16px;color:{{ acc }};cursor:pointer;flex-shrink:0">+ Aggiungi</div>
+      </div>
+      <div style="padding:16px 16px 0">
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <sc-for list="{{ vaseList }}" as="vaso" hint-placeholder-count="2">
+          <div onClick="{{ vaso.openDetail }}" style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;align-items:center;gap:12px;cursor:pointer">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,199,89,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="14" height="18" viewBox="0 0 14 18" fill="none"><path d="M7 1C7 1 2 5.5 2 10C2 13.3 4.2 16 7 16C9.8 16 12 13.3 12 10C12 5.5 7 1 7 1Z" fill="{{ acc }}" opacity=".7"/><path d="M7 16V17.5M4.5 17H9.5" stroke="{{ acc }}" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:500;color:{{ t1 }};margin-bottom:1px">{{ vaso.nome }}</div>
+              <div style="font-size:13px;color:{{ t2 }}">{{ vaso.deviceId }} · {{ vaso.plantNome }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-right:8px">
+              <div style="font-size:12px;color:{{ t2 }};font-weight:500">{{ vaso.batteria }}%</div>
+              <div style="width:44px;height:3px;background:{{ bord }};border-radius:2px;overflow:hidden">
+                <div style="{{ vaso.battBar }}"></div>
+              </div>
+            </div>
+            <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;{{ vaso.statusDot }}"></div>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- VASO DETAIL -->
+    <sc-if value="{{ showVasoDetail }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ hasVaso }}" hint-placeholder-val="{{ true }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Vasi Smart</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">{{ vaso.nome }}</div>
+        <div style="width:80px"></div>
+      </div>
+      <div style="padding:12px 16px 0">
+        <!-- Stato -->
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:{{ sha }}">
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:15px;color:{{ t2 }}">Stato</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="width:7px;height:7px;border-radius:50%;{{ vaso.statusDot }}"></div>
+              <span style="{{ vaso.statoStyle }}">{{ vaso.statoLabel }}</span>
+            </div>
+          </div>
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between">
+            <span style="font-size:15px;color:{{ t2 }}">Dispositivo</span>
+            <span style="font-size:15px;color:{{ t1 }};font-weight:500">{{ vaso.deviceId }}</span>
+          </div>
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:15px;color:{{ t2 }}">Batteria</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:52px;height:4px;background:{{ bord }};border-radius:2px;overflow:hidden"><div style="{{ vaso.battBar }}"></div></div>
+              <span style="font-size:15px;color:{{ t1 }};font-weight:500">{{ vaso.batteria }}%</span>
+            </div>
+          </div>
+          <div style="padding:13px 16px;display:flex;justify-content:space-between">
+            <span style="font-size:15px;color:{{ t2 }}">Pianta</span>
+            <span style="font-size:15px;color:{{ t1 }};font-weight:500">{{ vaso.plantNome }}</span>
+          </div>
+        </div>
+
+        <!-- Metriche live -->
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Ultima lettura · {{ vaso.lastSeen }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ vaso.humColor }};margin-bottom:3px">{{ vaso.humidita }}%</div>
+            <div style="font-size:11px;color:{{ t2 }}">umidità</div>
+          </div>
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ amb }};margin-bottom:3px">{{ vaso.luce }}</div>
+            <div style="font-size:11px;color:{{ t2 }}">lux</div>
+          </div>
+          <div style="background:{{ card }};border-radius:13px;padding:14px 8px;text-align:center;box-shadow:{{ sha }}">
+            <div style="font-size:22px;font-weight:700;color:{{ acc }};margin-bottom:3px">{{ vaso.temperatura }}°</div>
+            <div style="font-size:11px;color:{{ t2 }}">temp.</div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div style="background:{{ card }};border-radius:13px;padding:14px;margin-bottom:16px;box-shadow:{{ sha }}">
+          <div style="font-size:12px;color:{{ t2 }};margin-bottom:8px;display:flex;justify-content:space-between">
+            <span>Umidità · 24h</span><span style="color:{{ vaso.humColor }};font-weight:500">{{ vaso.humidita }}%</span>
+          </div>
+          {{ vasoSparkline }}
+          <div style="display:flex;justify-content:space-between;margin-top:4px">
+            <span style="font-size:10px;color:{{ t3 }}">ieri</span><span style="font-size:10px;color:{{ t3 }}">ora</span>
+          </div>
+        </div>
+
+        <!-- Azioni -->
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Gestione</div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <div style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+            <span style="font-size:15px;color:{{ t1 }}">Riconfigura WiFi</span>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+            <span style="font-size:15px;color:{{ t1 }}">Rinomina vaso</span>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="padding:14px 16px;cursor:pointer">
+            <span style="font-size:15px;color:{{ red }}">Rimuovi vaso</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+    </sc-if>
+
+    <!-- STORICO CURE -->
+    <sc-if value="{{ showStoricoCure }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Indietro</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">Storico cure</div>
+        <div style="width:80px"></div>
+      </div>
+      <div style="display:flex;gap:6px;padding:10px 16px;overflow-x:auto">
+        <sc-for list="{{ storiciFilters }}" as="sf" hint-placeholder-count="3">
+        <div onClick="{{ sf.onClick }}" style="{{ sf.chipStyle }}">{{ sf.label }}</div>
+        </sc-for>
+      </div>
+      <div style="padding:4px 16px">
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <sc-for list="{{ storiciFiltered }}" as="log" hint-placeholder-count="5">
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }};display:flex;align-items:center;gap:12px">
+            <div style="{{ log.dotStyle }}"></div>
+            <div style="flex:1">
+              <div style="font-size:15px;color:{{ t1 }};margin-bottom:1px">{{ log.tipoLabel }}</div>
+              <div style="font-size:12px;color:{{ t2 }}">{{ log.data }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+              <div style="{{ log.statoBadge }}">{{ log.statoLabel }}</div>
+              <div style="{{ log.sorgenteBadge }}">{{ log.sorgente }}</div>
+            </div>
+          </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- PAIRING -->
+    <sc-if value="{{ showPairing }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:fadeUp .25s ease">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px;gap:6px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Indietro</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">Connetti Vaso</div>
+        <div style="width:80px"></div>
+      </div>
+
+      <sc-if value="{{ pairingStep0 }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:20px 20px 28px">
+        <sc-if value="{{ bleNotFound }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:32px 0 24px">
+          <div style="width:64px;height:64px;border-radius:50%;border:2px solid {{ bord }};border-top-color:{{ acc }};animation:spin 1.2s linear infinite;margin:0 auto 24px"></div>
+          <div style="font-size:18px;font-weight:600;color:{{ t1 }};margin-bottom:6px">Ricerca in corso…</div>
+          <div style="font-size:14px;color:{{ t2 }};line-height:1.5;max-width:210px;margin:0 auto 32px">Assicurati che il vaso sia acceso e il LED lampeggi.</div>
+        </div>
+        <div onClick="{{ startBLEScan }}" style="background:{{ card }};border-radius:13px;padding:15px;text-align:center;cursor:pointer;box-shadow:{{ sha }}">
+          <span style="font-size:16px;font-weight:500;color:{{ acc }}">Cerca vasi nelle vicinanze</span>
+        </div>
+        </sc-if>
+        <sc-if value="{{ bleFound }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:fadeUp .25s ease">
+          <div style="font-size:12px;font-weight:600;color:{{ acc }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">1 dispositivo trovato</div>
+          <div onClick="{{ selectBLEDevice }}" style="background:{{ card }};border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;margin-bottom:16px;box-shadow:{{ sha }}">
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(52,199,89,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="22" viewBox="0 0 18 22" fill="none"><path d="M9 1v20M9 1l6 6M9 1L3 7M9 21l6-6M9 21L3 15" stroke="{{ acc }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:16px;font-weight:600;color:{{ t1 }};margin-bottom:2px">Fiora-A4B2</div>
+              <div style="font-size:13px;color:{{ t2 }}">Vaso Smart · Bluetooth LE</div>
+            </div>
+            <div style="background:{{ acc }};border-radius:8px;padding:6px 12px">
+              <span style="font-size:13px;font-weight:600;color:white">Connetti</span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ pairingStep1 }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 20px 28px;animation:fadeUp .25s ease">
+        <div style="font-size:20px;font-weight:600;color:{{ t1 }};margin-bottom:4px">Rete WiFi</div>
+        <div style="font-size:14px;color:{{ t2 }};margin-bottom:24px;line-height:1.4">Inserisci le credenziali della rete di casa per connettere il vaso.</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:{{ t2 }};letter-spacing:.4px;margin-bottom:6px">NOME RETE (SSID)</div>
+            <div style="background:{{ card }};border-radius:11px;padding:13px 14px;font-size:15px;color:{{ t1 }};box-shadow:{{ sha }}">CasaMia_5G</div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:{{ t2 }};letter-spacing:.4px;margin-bottom:6px">PASSWORD</div>
+            <div style="background:{{ card }};border-radius:11px;padding:13px 14px;font-size:15px;color:{{ t3 }};letter-spacing:4px;box-shadow:{{ sha }}">••••••••••</div>
+          </div>
+        </div>
+        <div style="background:rgba(52,199,89,0.08);border-radius:11px;padding:12px 14px;margin-bottom:22px;font-size:13px;color:{{ t2 }};line-height:1.4">🔒 Le credenziali vengono trasmesse in modo cifrato direttamente al vaso.</div>
+        <div onClick="{{ submitWifi }}" style="background:{{ acc }};border-radius:13px;padding:15px;font-size:16px;font-weight:600;color:white;text-align:center;cursor:pointer">Configura il vaso</div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ pairingStep2 }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:70px 24px;text-align:center">
+        <div style="width:56px;height:56px;border-radius:50%;border:2px solid {{ bord }};border-top-color:{{ acc }};animation:spin 1s linear infinite;margin:0 auto 24px"></div>
+        <div style="font-size:18px;font-weight:600;color:{{ t1 }};margin-bottom:6px">Configurazione…</div>
+        <div style="font-size:14px;color:{{ t2 }}">Il vaso si connette al WiFi e al server.</div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ pairingStep3 }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:56px 24px;text-align:center;animation:fadeUp .4s ease">
+        <div style="width:64px;height:64px;border-radius:50%;background:{{ acc }};display:flex;align-items:center;justify-content:center;margin:0 auto 22px">
+          <svg width="30" height="22" viewBox="0 0 30 22" fill="none"><path d="M2 11L11 20L28 2" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:{{ t1 }};margin-bottom:6px;letter-spacing:-.3px">Vaso connesso</div>
+        <div style="font-size:15px;color:{{ t2 }};margin-bottom:28px">Fiora-A4B2 è ora collegato alla Monstera.</div>
+        <div style="background:{{ card }};border-radius:14px;padding:16px;margin-bottom:24px;text-align:left;box-shadow:{{ sha }}">
+          <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:12px">PRIMO RILEVAMENTO</div>
+          <div style="display:flex;gap:20px">
+            <div><div style="font-size:18px;font-weight:700;color:{{ red }}">28%</div><div style="font-size:11px;color:{{ t2 }};margin-top:1px">umidità</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:{{ amb }}">580</div><div style="font-size:11px;color:{{ t2 }};margin-top:1px">lux</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:{{ acc }}">21°</div><div style="font-size:11px;color:{{ t2 }};margin-top:1px">temp.</div></div>
+          </div>
+        </div>
+        <div onClick="{{ goBack }}" style="background:{{ acc }};border-radius:13px;padding:15px;font-size:16px;font-weight:600;color:white;cursor:pointer">Fatto</div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- CATALOGO -->
+    <sc-if value="{{ showCatalogo }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Indietro</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">Catalogo specie</div>
+        <div style="width:80px"></div>
+      </div>
+      <div style="padding:8px 16px 12px">
+        <div style="background:{{ card }};border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:{{ sha }}">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="{{ t3 }}" stroke-width="1.4"/><path d="M10 10L13 13" stroke="{{ t3 }}" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span style="font-size:15px;color:{{ t3 }}">Cerca per nome…</span>
+        </div>
+      </div>
+      <div style="padding:0 16px">
+        <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">{{ catalogoCount }} specie disponibili</div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <sc-for list="{{ catalogoList }}" as="sp" hint-placeholder-count="6">
+          <div onClick="{{ sp.onSelect }}" style="padding:12px 16px;border-bottom:1px solid {{ bord }};display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+            <div>
+              <div style="font-size:15px;color:{{ t1 }};margin-bottom:1px">{{ sp.nome }}</div>
+              <div style="font-size:12px;color:{{ t2 }};font-style:italic">{{ sp.sci }}</div>
+            </div>
+            <div style="font-size:11px;color:{{ t2 }};background:{{ card2 }};padding:3px 8px;border-radius:6px;flex-shrink:0;margin-left:10px">{{ sp.cat }}</div>
+          </div>
+          </sc-for>
+        </div>
+        <div style="text-align:center;padding:16px 0">
+          <span style="font-size:14px;color:{{ acc }};cursor:pointer">Specie non trovata? Proponi una nuova</span>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- AGGIUNGI -->
+    <sc-if value="{{ showAddPlant }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:fadeUp .25s ease;padding-bottom:24px">
+      <div style="display:flex;align-items:center;padding:14px 16px 8px">
+        <div onClick="{{ goBack }}" style="display:flex;align-items:center;gap:3px;cursor:pointer">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M8 1L1.5 7.5L8 14" stroke="{{ acc }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size:17px;color:{{ acc }}">Piante</span>
+        </div>
+        <div style="flex:1;font-size:17px;font-weight:600;color:{{ t1 }};text-align:center">Aggiungi</div>
+        <div style="width:70px"></div>
+      </div>
+
+      <sc-if value="{{ addTypeNotSelected }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:16px 16px;animation:fadeUp .25s ease">
+        <div style="font-size:16px;color:{{ t2 }};margin-bottom:20px">Cosa vuoi aggiungere?</div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+          <div onClick="{{ selectPianta }}" style="padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;border-bottom:1px solid {{ bord }}">
+            <div style="width:40px;height:40px;border-radius:11px;background:rgba(52,199,89,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🌿</div>
+            <div style="flex:1"><div style="font-size:16px;font-weight:500;color:{{ t1 }};margin-bottom:2px">Pianta</div><div style="font-size:13px;color:{{ t2 }}">Cerca dal catalogo</div></div>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div onClick="{{ selectBouquet }}" style="padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer">
+            <div style="width:40px;height:40px;border-radius:11px;background:rgba(10,132,255,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💐</div>
+            <div style="flex:1"><div style="font-size:16px;font-weight:500;color:{{ t1 }};margin-bottom:2px">Bouquet</div><div style="font-size:13px;color:{{ t2 }}">Fiori recisi e bouquet</div></div>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ addTypePianta }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 16px;animation:fadeUp .25s ease">
+        <div style="height:120px;border-radius:14px;background:{{ card }};border:1.5px dashed {{ bord }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;margin-bottom:16px;box-shadow:{{ sha }}">
+          <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><circle cx="12" cy="9" r="4" stroke="{{ t3 }}" stroke-width="1.5"/><rect x="1" y="4" width="22" height="15" rx="4" stroke="{{ t3 }}" stroke-width="1.5"/><path d="M7 4V3a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1" stroke="{{ t3 }}" stroke-width="1.5"/></svg>
+          <span style="font-size:13px;color:{{ t3 }}">Aggiungi foto (opzionale)</span>
+        </div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }};margin-bottom:12px">
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:4px">NOME</div>
+            <div style="font-size:16px;color:{{ t1 }}">La mia Monstera</div>
+          </div>
+          <div onClick="{{ openCatalogo }}" style="padding:13px 16px;border-bottom:1px solid {{ bord }};cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:4px">SPECIE</div>
+              <div style="font-size:16px;color:{{ t1 }};margin-bottom:1px">Monstera</div>
+              <div style="font-size:12px;color:{{ t2 }};font-style:italic">Monstera deliciosa</div>
+            </div>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:4px">POSIZIONE</div>
+              <div style="font-size:16px;color:{{ t1 }}">Soggiorno</div>
+            </div>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div style="background:{{ card }};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:{{ sha }};margin-bottom:20px">
+          <div><div style="font-size:15px;color:{{ t1 }};margin-bottom:2px">Collega Vaso Smart</div><div style="font-size:13px;color:{{ t2 }}">Avvia il pairing</div></div>
+          <div style="width:44px;height:26px;border-radius:13px;background:{{ acc }};display:flex;align-items:center;padding:2px;flex-shrink:0">
+            <div style="width:20px;height:20px;border-radius:50%;background:white;margin-left:auto;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>
+          </div>
+        </div>
+        <div style="background:{{ acc }};border-radius:13px;padding:15px;font-size:16px;font-weight:600;color:white;text-align:center;cursor:pointer">Salva pianta</div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ addTypeBouquet }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 16px;animation:fadeUp .25s ease">
+        <div style="height:120px;border-radius:14px;background:{{ card }};border:1.5px dashed {{ bord }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;margin-bottom:16px;box-shadow:{{ sha }}">
+          <span style="font-size:28px">💐</span>
+          <span style="font-size:13px;color:{{ t3 }}">Aggiungi foto (opzionale)</span>
+        </div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }};margin-bottom:12px">
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:4px">NOME</div>
+            <div style="font-size:16px;color:{{ t1 }}">Bouquet compleanno</div>
+          </div>
+          <div style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:4px">DATA RICEZIONE</div>
+              <div style="font-size:16px;color:{{ t1 }}">{{ todayFormatted }}</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="2" stroke="{{ t3 }}" stroke-width="1.3"/><path d="M1 6h12M4 1v2M10 1v2" stroke="{{ t3 }}" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div style="background:{{ card }};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:{{ sha }};margin-bottom:20px">
+          <div><div style="font-size:15px;color:{{ t1 }};margin-bottom:2px">Già in acqua</div><div style="font-size:13px;color:{{ t2 }}">Ti ricordiamo di immergerlo subito</div></div>
+          <div style="width:44px;height:26px;border-radius:13px;background:{{ acc }};display:flex;align-items:center;padding:2px;flex-shrink:0">
+            <div style="width:20px;height:20px;border-radius:50%;background:white;margin-left:auto;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>
+          </div>
+        </div>
+        <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }};margin-bottom:12px">
+          <div style="padding:13px 16px;border-bottom:1px solid {{ bord }}">
+            <div style="font-size:11px;font-weight:600;color:{{ t2 }};letter-spacing:.5px;margin-bottom:10px">FIORI NEL BOUQUET</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ bouquetFioriChips }}" as="fc" hint-placeholder-count="6">
+                <div onClick="{{ fc.toggle }}" style="{{ fc.chipStyle }}">{{ fc.nome }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <sc-if value="{{ hasFioriSel }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:6px">
+            <sc-for list="{{ bouquetFioriChips }}" as="fc" hint-placeholder-count="0">
+              <sc-if value="{{ fc.sel }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;background:{{ acc }};color:white">{{ fc.nome }}</div>
+              </sc-if>
+            </sc-for>
+          </div>
+          </sc-if>
+        </div>
+        <div style="background:{{ acc }};border-radius:13px;padding:15px;font-size:16px;font-weight:600;color:white;text-align:center;cursor:pointer">Salva bouquet</div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- IMPOSTAZIONI -->
+    <sc-if value="{{ showImpostazioni }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:16px 16px 24px;animation:fadeUp .25s ease">
+      <div style="font-size:30px;font-weight:700;color:{{ t1 }};letter-spacing:-.6px;margin-bottom:20px">Impostazioni</div>
+
+      <!-- Profilo -->
+      <div style="background:{{ card }};border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:24px;box-shadow:{{ sha }}">
+        <div style="width:52px;height:52px;border-radius:50%;background:{{ acc }};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌿</div>
+        <div>
+          <div style="font-size:17px;font-weight:600;color:{{ t1 }};margin-bottom:1px">Utente Fiora</div>
+          <div style="font-size:14px;color:{{ t2 }}">utente@email.com</div>
+        </div>
+      </div>
+
+      <!-- Aspetto -->
+      <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">Aspetto</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }}">
+        <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:16px;color:{{ t1 }};margin-bottom:1px">Modalità scura</div>
+            <div style="font-size:13px;color:{{ t2 }}">Adatta alla luminosità ambientale</div>
+          </div>
+          <div onClick="{{ toggleDark }}" style="{{ darkToggle }}">
+            <div style="{{ darkKnob }}"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferenze -->
+      <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">Preferenze</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }}">
+        <div style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:16px;color:{{ t1 }}">Clima</span>
+          <span style="font-size:15px;color:{{ t2 }}">Temperato</span>
+        </div>
+        <div style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:16px;color:{{ t1 }}">Promemoria</span>
+          <span style="font-size:15px;color:{{ t2 }}">Mattina 9:00</span>
+        </div>
+        <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:16px;color:{{ t1 }};margin-bottom:1px">Nome scientifico</div>
+            <div style="font-size:13px;color:{{ t2 }}">Mostra nomi latini</div>
+          </div>
+          <div onClick="{{ toggleNomiSci }}" style="{{ nomiSciToggle }}">
+            <div style="{{ nomiSciKnob }}"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dispositivi -->
+      <div style="font-size:12px;font-weight:600;color:{{ t2 }};text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:0 4px">Dispositivi</div>
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;margin-bottom:20px;box-shadow:{{ sha }}">
+        <div onClick="{{ openVasiSmart }}" style="padding:14px 16px;border-bottom:1px solid {{ bord }};display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+          <span style="font-size:16px;color:{{ t1 }}">Vasi Smart</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:15px;color:{{ acc }};font-weight:500">2 connessi</span>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="{{ t3 }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:16px;color:{{ t1 }}">Notifiche</span>
+          <span style="font-size:15px;color:{{ acc }};font-weight:500">Attive</span>
+        </div>
+      </div>
+
+      <!-- Account -->
+      <div style="background:{{ card }};border-radius:14px;overflow:hidden;box-shadow:{{ sha }}">
+        <div style="padding:14px 16px;border-bottom:1px solid {{ bord }}">
+          <span style="font-size:16px;color:{{ t1 }}">Privacy e dati</span>
+        </div>
+        <div style="padding:14px 16px">
+          <span style="font-size:16px;color:{{ red }}">Esci dall'account</span>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+
+  <!-- TAB BAR -->
+  <div style="background:{{ card }};border-top:1px solid {{ bord }};padding:8px 0 4px;flex-shrink:0">
+    <div style="display:flex;justify-content:space-around;align-items:center">
+      <sc-for list="{{ tabsLeft }}" as="tab" hint-placeholder-count="2">
+      <div onClick="{{ tab.onClick }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 16px;cursor:pointer">
+        {{ tab.iconEl }}
+        <span style="{{ tab.labelStyle }}">{{ tab.label }}</span>
+      </div>
+      </sc-for>
+      <div onClick="{{ goToAddPlant }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 16px;cursor:pointer">
+        <div style="width:48px;height:48px;border-radius:24px;background:{{ acc }};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(52,199,89,0.35);margin-top:-20px">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 4v14M4 11h14" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <span style="font-size:10px;color:{{ t2 }};font-weight:400;margin-top:1px">Aggiungi</span>
+      </div>
+      <sc-for list="{{ tabsRight }}" as="tab" hint-placeholder-count="2">
+      <div onClick="{{ tab.onClick }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 16px;cursor:pointer">
+        {{ tab.iconEl }}
+        <span style="{{ tab.labelStyle }}">{{ tab.label }}</span>
+      </div>
+      </sc-for>
+    </div>
+  </div>
+
+</sc-if>
+
+</div>
+</x-import>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = {
+    screen: 'onboarding', onboardingStep: 0, selectedClimate: null,
+    activeTab: 'oggi', completedTasks: [], skippedTasks: [],
+    pairingStep: 0, bleFound: false,
+    selectedPlantId: 1, selectedVasoId: 1,
+    snoozeVisible: false, snoozeTaskId: null,
+    collFilter: 'tutti', showNomiScientifici: true,
+    addPlantType: null, storiciFilter: 'tutti', bouquetFiori: [],
+    showDark: false,
+    dashEditVisible: false,
+    pinnedVases: [1, 2],
+  };
+
+  _plants = [
+    { id:1, nome:'Monstera', nomeComune:'Monstera', nomeScientifico:'Monstera deliciosa',
+      tipo:'pianta', emoji:'🌿', hasSmartPot:true, connected:true, vasoId:1,
+      humidity:28, humidityStatus:'Asciutto', light:580, lightStatus:'Sufficiente', temp:21, tempStatus:'Ottimale',
+      status:'alert', room:'Soggiorno', lastWatered:'5 giorni fa',
+      histHumidity:[63,58,53,47,42,37,33,30,28],
+      careLight:'Media, evita sole diretto', careWater:'Quando il terreno è asciutto',
+      careTemp:'18–29°C', careTox:'Media — tossica per animali domestici' },
+    { id:2, nome:'Pothos', nomeComune:'Pothos', nomeScientifico:'Epipremnum aureum',
+      tipo:'pianta', emoji:'🪴', hasSmartPot:true, connected:true, vasoId:2,
+      humidity:52, humidityStatus:'Umido', light:420, lightStatus:'Sufficiente', temp:22, tempStatus:'Ottimale',
+      status:'ok', room:'Cucina', lastWatered:'2 giorni fa',
+      histHumidity:[44,49,54,58,61,57,55,53,52],
+      careLight:'Bassa o media, adattabile', careWater:'Ogni 7–10 giorni',
+      careTemp:'15–29°C', careTox:'Bassa — irritante se ingerito' },
+    { id:3, nome:'Orchidea', nomeComune:'Orchidea', nomeScientifico:'Phalaenopsis sp.',
+      tipo:'pianta', emoji:'🌸', hasSmartPot:false, connected:false,
+      status:'ok', room:'Camera', lastWatered:'4 giorni fa',
+      careLight:'Luce indiretta brillante', careWater:'Ogni 7–10 giorni',
+      careTemp:'18–28°C', careTox:'Nessuna — sicura per persone e animali' },
+    { id:4, nome:'Sansevieria', nomeComune:'Sansevieria', nomeScientifico:'Dracaena trifasciata',
+      tipo:'pianta', emoji:'🌱', hasSmartPot:false, connected:false,
+      status:'ok', room:'Bagno', lastWatered:'12 giorni fa',
+      careLight:'Da bassa ad alta', careWater:'Ogni 2–6 settimane',
+      careTemp:'15–30°C', careTox:'Bassa — lievemente tossica se ingerita' },
+    { id:5, nome:'Bouquet compleanno', tipo:'bouquet', emoji:'💐',
+      hasSmartPot:false, connected:false, stato_bouquet:'in_cura', dataRicezione:'3 giorni fa', status:'ok',
+      fiori:['Rose rosse','Tulipani bianchi','Eucalipto','Gypsophila'] },
+  ];
+
+  _vases = [
+    { id:1, nome:'Vaso Monstera', deviceId:'Fiora-A4B2', plantId:1, stato:'connesso', batteria:87, lastSeen:'ora',
+      humidita:28, luce:580, temperatura:21, histHumidity:[63,58,53,47,42,37,33,30,28] },
+    { id:2, nome:'Vaso Pothos', deviceId:'Fiora-C9E1', plantId:2, stato:'connesso', batteria:34, lastSeen:'3 min fa',
+      humidita:52, luce:420, temperatura:22, histHumidity:[44,49,54,58,61,57,55,53,52] },
+    { id:3, nome:'Vaso Orchidea', deviceId:'Fiora-D3F7', plantId:3, stato:'connesso', batteria:71, lastSeen:'1 min fa',
+      humidita:61, luce:310, temperatura:20, histHumidity:[55,57,60,62,64,63,61,61,61] },
+    { id:4, nome:'Vaso Sansevieria', deviceId:'Fiora-B8A1', plantId:4, stato:'disconnesso', batteria:8, lastSeen:'2 ore fa',
+      humidita:18, luce:90, temperatura:19, histHumidity:[30,26,24,22,21,20,19,18,18] },
+  ];
+
+  _tasks = [
+    { id:1, plantId:1, label:'Annaffia la Monstera', sorgente:'sensore', detail:'Terreno asciutto · 28% umidità' },
+    { id:2, plantId:2, label:'Concima il Pothos', sorgente:'calendario', detail:'Ogni 30 giorni in primavera' },
+    { id:3, plantId:3, label:"Annaffia l'Orchidea", sorgente:'calendario', detail:'Stimato su specie e clima' },
+    { id:4, plantId:5, label:"Cambia l'acqua al bouquet", sorgente:'calendario', detail:'Ogni 2 giorni' },
+  ];
+
+  _storici = [
+    { id:1, plantId:1, tipo:'annaffiatura', stato:'completato', sorgente:'sensore', data:'Oggi, 09:15' },
+    { id:2, plantId:1, tipo:'concimazione', stato:'completato', sorgente:'calendario', data:'Ieri, 10:30' },
+    { id:3, plantId:1, tipo:'annaffiatura', stato:'saltato', sorgente:'calendario', data:'3 giorni fa' },
+    { id:4, plantId:1, tipo:'nebulizzazione', stato:'completato', sorgente:'manuale', data:'5 giorni fa' },
+    { id:5, plantId:1, tipo:'annaffiatura', stato:'completato', sorgente:'calendario', data:'1 settimana fa' },
+    { id:6, plantId:1, tipo:'concimazione', stato:'rimandato', sorgente:'calendario', data:'10 giorni fa' },
+  ];
+
+  _catalogo = [
+    { id:'monstera', nome:'Monstera', sci:'Monstera deliciosa', cat:'Tropicale' },
+    { id:'pothos', nome:'Pothos', sci:'Epipremnum aureum', cat:'Tropicale' },
+    { id:'orchidea', nome:'Orchidea', sci:'Phalaenopsis sp.', cat:'Epifita' },
+    { id:'sansevieria', nome:'Sansevieria', sci:'Dracaena trifasciata', cat:'Succulenta' },
+    { id:'aloe', nome:'Aloe vera', sci:'Aloe barbadensis', cat:'Succulenta' },
+    { id:'ficus', nome:'Ficus', sci:'Ficus benjamina', cat:'Tropicale' },
+    { id:'calathea', nome:'Calathea', sci:'Calathea orbifolia', cat:'Tropicale' },
+    { id:'zamio', nome:'Zamioculcas', sci:'Zamioculcas zamiifolia', cat:'Tropicale' },
+  ];
+
+  _climates = [
+    { id:'temperato', label:'Temperato', sub:'Nord Italia, Europa centrale' },
+    { id:'mediterraneo', label:'Mediterraneo', sub:'Centro-Sud Italia, Spagna' },
+    { id:'tropicale', label:'Tropicale', sub:"Caldo e umido tutto l'anno" },
+    { id:'freddo', label:'Freddo', sub:'Inverni rigidi, climi continentali' },
+    { id:'appartamento', label:'Appartamento riscaldato', sub:'Stagionalità ridotta' },
+  ];
+
+  selectClimate(id) { this.setState({ selectedClimate: id }); }
+  nextOnboarding() {
+    const s = this.state.onboardingStep;
+    if (s < 3) this.setState({ onboardingStep: s + 1 });
+    else this.setState({ screen: 'oggi', activeTab: 'oggi' });
+  }
+  setTab(tab) { this.setState({ activeTab: tab, screen: tab }); }
+  openPlant(id) {
+    const p = this._plants.find(pl => pl.id === id);
+    this.setState({ screen: p && p.tipo === 'bouquet' ? 'detail-bouquet' : 'detail', selectedPlantId: id });
+  }
+  goBack() {
+    const { screen, activeTab } = this.state;
+    const map = {
+      'vaso-detail':'vasi-smart',
+      'storico-cure':'detail', 'catalogo':'add-plant',
+      'detail':activeTab, 'detail-bouquet':activeTab,
+      'pairing':activeTab, 'add-plant':activeTab,
+    };
+    this.setState({ screen: map[screen] || activeTab });
+  }
+  goToAddPlant() { this.setState({ screen:'add-plant', addPlantType:null }); }
+  selectPianta() { this.setState({ addPlantType:'pianta' }); }
+  selectBouquet() { this.setState({ addPlantType:'bouquet' }); }
+  openCatalogo() { this.setState({ screen:'catalogo' }); }
+  openVasiSmart() { this.setState({ screen:'vasi-smart' }); }
+  openVasoDetail(id) { this.setState({ screen:'vaso-detail', selectedVasoId:id }); }
+  openStoricoCure() { this.setState({ screen:'storico-cure' }); }
+  setStoriciFilter(f) { this.setState({ storiciFilter:f }); }
+  startPairing() { this.setState({ screen:'pairing', pairingStep:0, bleFound:false }); }
+  startBLEScan() { setTimeout(() => this.setState({ bleFound:true }), 2000); }
+  selectBLEDevice() { this.setState({ pairingStep:1 }); }
+  submitWifi() { this.setState({ pairingStep:2 }); setTimeout(() => this.setState({ pairingStep:3 }), 2800); }
+  completeTask(id) { this.setState(s => ({ completedTasks:[...s.completedTasks.filter(x=>x!==id), id] })); }
+  skipTask(id) { this.setState(s => ({ skippedTasks:[...s.skippedTasks, id] })); }
+  showSnoozeSheet(id) { this.setState({ snoozeVisible:true, snoozeTaskId:id }); }
+  hideSnooze() { this.setState({ snoozeVisible:false, snoozeTaskId:null }); }
+  doSnooze() {
+    const id = this.state.snoozeTaskId;
+    if (id != null) this.setState(s => ({ skippedTasks:[...s.skippedTasks, id], snoozeVisible:false, snoozeTaskId:null }));
+  }
+  toggleDark() { this.setState(s => ({ showDark:!s.showDark })); }
+  toggleNomiSci() { this.setState(s => ({ showNomiScientifici:!s.showNomiScientifici })); }
+  openDashEdit() { this.setState({ dashEditVisible:true }); }
+  closeDashEdit() { this.setState({ dashEditVisible:false }); }
+  togglePinnedVase(id) {
+    this.setState(s => {
+      const pinned = s.pinnedVases;
+      const next = pinned.includes(id) ? pinned.filter(x=>x!==id) : [...pinned, id];
+      return { pinnedVases: next.length > 0 ? next : pinned }; // keep at least 1
+    });
+  }
+  setCollFilter(f) { this.setState({ collFilter:f }); }
+
+  makeSparkline(data, color, h) {
+    const min=Math.min(...data), max=Math.max(...data), rng=max-min||1, w=220;
+    const pts=data.map((v,i)=>[(i/(data.length-1))*w, h-((v-min)/rng)*(h-8)-4]);
+    const line='M '+pts.map(p=>p.join(',')).join(' L ');
+    const area=line+` L ${w},${h} L 0,${h} Z`;
+    const gid='g'+Math.abs(color.split('').reduce((a,c)=>a+c.charCodeAt(0),0));
+    return React.createElement('svg',{width:w,height:h,style:{display:'block',width:'100%'}},
+      React.createElement('defs',{},
+        React.createElement('linearGradient',{id:gid,x1:'0',y1:'0',x2:'0',y2:'1'},
+          React.createElement('stop',{offset:'0%',stopColor:color,stopOpacity:'0.18'}),
+          React.createElement('stop',{offset:'100%',stopColor:color,stopOpacity:'0'})
+        )
+      ),
+      React.createElement('path',{d:area,fill:`url(#${gid})`}),
+      React.createElement('path',{d:line,fill:'none',stroke:color,strokeWidth:'1.8',strokeLinecap:'round',strokeLinejoin:'round'}),
+      React.createElement('circle',{cx:pts[pts.length-1][0],cy:pts[pts.length-1][1],r:'3',fill:color})
+    );
+  }
+
+  makeTabIcon(id, active, acc, t2) {
+    const c=active?acc:t2, sw=1.7;
+    if(id==='oggi') return React.createElement('svg',{width:22,height:22,viewBox:'0 0 22 22',fill:'none'},
+      React.createElement('circle',{cx:11,cy:11,r:4,stroke:c,strokeWidth:sw,fill:active?c:'none'}),
+      React.createElement('path',{d:'M11 2v2M11 18v2M2 11h2M18 11h2M4.6 4.6l1.4 1.4M15 15l1.4 1.4M4.6 17.4l1.4-1.4M15 7l1.4-1.4',stroke:c,strokeWidth:1.4,strokeLinecap:'round'})
+    );
+    if(id==='collezione') return React.createElement('svg',{width:22,height:22,viewBox:'0 0 22 22',fill:'none'},
+      React.createElement('rect',{x:2,y:2,width:8,height:8,rx:2,stroke:c,strokeWidth:sw,fill:active?c:'none'}),
+      React.createElement('rect',{x:12,y:2,width:8,height:8,rx:2,stroke:c,strokeWidth:sw}),
+      React.createElement('rect',{x:2,y:12,width:8,height:8,rx:2,stroke:c,strokeWidth:sw}),
+      React.createElement('rect',{x:12,y:12,width:8,height:8,rx:2,stroke:c,strokeWidth:sw})
+    );
+    if(id==='vasi-smart') return React.createElement('svg',{width:22,height:22,viewBox:'0 0 22 22',fill:'none'},
+      React.createElement('path',{d:'M3 15c0-2.2 1.8-4 4-4h8c2.2 0 4 1.8 4 4v1H3v-1z',stroke:c,strokeWidth:sw,fill:active?c:'none'}),
+      React.createElement('path',{d:'M8 11V8M14 11V8',stroke:c,strokeWidth:sw,strokeLinecap:'round'}),
+      React.createElement('ellipse',{cx:11,cy:7.5,rx:4,ry:1.8,stroke:c,strokeWidth:sw,fill:'none'})
+    );
+    return React.createElement('svg',{width:22,height:22,viewBox:'0 0 22 22',fill:'none'},
+      React.createElement('circle',{cx:11,cy:9,r:3.5,stroke:c,strokeWidth:sw,fill:active?c:'none'}),
+      React.createElement('path',{d:'M4 20c0-3.9 3.1-7 7-7s7 3.1 7 7',stroke:c,strokeWidth:sw,strokeLinecap:'round'})
+    );
+  }
+
+  renderVals() {
+    const { screen, onboardingStep, selectedClimate, activeTab, completedTasks, skippedTasks,
+      pairingStep, bleFound, selectedPlantId, selectedVasoId, snoozeVisible,
+      collFilter, showNomiScientifici, addPlantType, storiciFilter, showDark,
+      dashEditVisible, pinnedVases } = this.state;
+
+    // Theme
+    const bg    = showDark ? '#000000' : '#F2F2F7';
+    const card  = showDark ? '#1C1C1E' : '#FFFFFF';
+    const card2 = showDark ? '#2C2C2E' : '#F2F2F7';
+    const t1    = showDark ? '#FFFFFF' : '#000000';
+    const t2    = showDark ? '#8E8E93' : '#6C6C70';
+    const t3    = showDark ? '#48484A' : '#AEAEB2';
+    const acc   = showDark ? '#32D74B' : '#34C759';
+    const red   = showDark ? '#FF453A' : '#FF3B30';
+    const blu   = showDark ? '#0A84FF' : '#007AFF';
+    const amb   = showDark ? '#FF9F0A' : '#FF9500';
+    const bord  = showDark ? 'rgba(84,84,88,0.55)' : 'rgba(60,60,67,0.18)';
+    const sha   = showDark ? 'none' : '0 1px 3px rgba(0,0,0,0.05),0 3px 8px rgba(0,0,0,0.04)';
+    const bluBg = showDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)';
+
+    // Screen flags
+    const showOnboarding=screen==='onboarding', showApp=!showOnboarding;
+    const showStep0=onboardingStep===0, showStep1=onboardingStep===1;
+    const showStep2=onboardingStep===2, showStep3=onboardingStep===3;
+    const showOggi=screen==='oggi', showCollezione=screen==='collezione';
+    const showDetail=screen==='detail', showDetailBouquet=screen==='detail-bouquet';
+    const showVasiSmart=screen==='vasi-smart', showVasoDetail=screen==='vaso-detail';
+    const showStoricoCure=screen==='storico-cure', showCatalogo=screen==='catalogo';
+    const showPairing=screen==='pairing', showAddPlant=screen==='add-plant';
+    const showImpostazioni=screen==='impostazioni';
+    const pairingStep0=pairingStep===0, pairingStep1=pairingStep===1;
+    const pairingStep2=pairingStep===2, pairingStep3=pairingStep===3;
+    const bleNotFound=!bleFound;
+    const addTypeNotSelected=addPlantType===null, addTypePianta=addPlantType==='pianta', addTypeBouquet=addPlantType==='bouquet';
+
+    // Onboarding
+    const canProceed = onboardingStep!==0 || !!selectedClimate;
+    const continueBtnStyle = { background:canProceed?acc:'rgba(52,199,89,0.15)', borderRadius:14,
+      padding:'15px', fontSize:17, fontWeight:600,
+      color:canProceed?'white':'rgba(52,199,89,0.6)', textAlign:'center',
+      cursor:canProceed?'pointer':'default', marginTop:24, display:'block' };
+    const climates = this._climates.map(c => ({
+      ...c, selected:c.id===selectedClimate, onClick:()=>this.selectClimate(c.id),
+      cardStyle:{ padding:'13px 14px', borderRadius:12, cursor:'pointer',
+        background:c.id===selectedClimate?`rgba(52,199,89,${showDark?'0.12':'0.08'})`:card,
+        border:`1.5px solid ${c.id===selectedClimate?acc:bord}`,
+        display:'flex', alignItems:'center', gap:12,
+        boxShadow:c.id===selectedClimate?'none':sha },
+      check:{ width:20, height:20, borderRadius:'50%', flexShrink:0,
+        background:c.id===selectedClimate?acc:'transparent',
+        border:`1.5px solid ${c.id===selectedClimate?acc:bord}`,
+        display:'flex', alignItems:'center', justifyContent:'center' },
+    }));
+
+    // Tasks
+    const completedSet=new Set(completedTasks), skippedSet=new Set(skippedTasks);
+    const btnBase = { fontSize:13, fontWeight:500, cursor:'pointer', padding:'7px 0', flex:1, textAlign:'center', borderRadius:8 };
+    const taskBtnA = { ...btnBase, color:acc, background:`rgba(52,199,89,${showDark?'0.12':'0.08'})` };
+    const taskBtnB = { ...btnBase, color:blu, background:`rgba(${showDark?'10,132,255':'0,122,255'},${showDark?'0.12':'0.08'})` };
+    const taskBtnC = { ...btnBase, color:t2, background:showDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.04)' };
+
+    const allTasks = this._tasks.map(t => ({
+      ...t,
+      complete:()=>this.completeTask(t.id),
+      snooze:()=>this.showSnoozeSheet(t.id),
+      skip:()=>this.skipTask(t.id),
+    }));
+    const activeTasks = allTasks.filter(t=>!completedSet.has(t.id)&&!skippedSet.has(t.id));
+    const sensorTasks = activeTasks.filter(t=>t.sorgente==='sensore');
+    const calTasks = activeTasks.filter(t=>t.sorgente!=='sensore');
+    const doneTasks = allTasks.filter(t=>completedSet.has(t.id));
+    const hasSensorTasks=sensorTasks.length>0, hasCalTasks=calTasks.length>0;
+    const hasDone=doneTasks.length>0, allDone=activeTasks.length===0;
+
+    // Collection
+    const filterDefs=[{id:'tutti',label:'Tutti'},{id:'piante',label:'Piante'},{id:'bouquet',label:'Bouquet'},{id:'smart',label:'Smart'}];
+    const collFilters=filterDefs.map(f=>({...f, onClick:()=>this.setCollFilter(f.id),
+      chipStyle:{ padding:'6px 14px', borderRadius:20, fontSize:13, fontWeight:500, whiteSpace:'nowrap',
+        cursor:'pointer', flexShrink:0,
+        background:collFilter===f.id?acc:card,
+        color:collFilter===f.id?'white':t2,
+        boxShadow:collFilter===f.id?'none':sha },
+    }));
+    const allMapped=this._plants.map(p=>({
+      ...p, openDetail:()=>this.openPlant(p.id), isBouquet:p.tipo==='bouquet', hasAlert:p.status==='alert',
+      speciesLabel:p.tipo==='bouquet'?(p.stato_bouquet==='in_cura'?'In cura':p.stato_bouquet||'')
+        :(showNomiScientifici?p.nomeScientifico:p.nomeComune),
+    }));
+    const filteredPlants=allMapped.filter(p=>{
+      if(collFilter==='piante') return !p.isBouquet;
+      if(collFilter==='bouquet') return p.isBouquet;
+      if(collFilter==='smart') return p.hasSmartPot;
+      return true;
+    });
+
+    // Plant detail
+    const rp=this._plants.find(p=>p.id===selectedPlantId)||this._plants[0];
+    const humC=rp&&rp.humidity<35?red:acc;
+    const toxMap = {
+      'Nessuna': { level:'Nessuna', color:'#34C759', bg: showDark?'rgba(52,199,89,0.14)':'rgba(52,199,89,0.1)' },
+      'Bassa':   { level:'Bassa',   color:amb,       bg: showDark?'rgba(255,149,0,0.14)':'rgba(255,149,0,0.1)' },
+      'Media':   { level:'Media',   color:amb,       bg: showDark?'rgba(255,149,0,0.14)':'rgba(255,149,0,0.1)' },
+      'Alta':    { level:'Alta',    color:red,        bg: showDark?'rgba(255,59,48,0.14)':'rgba(255,59,48,0.1)' },
+    };
+    const getTox = (careTox) => {
+      const key = Object.keys(toxMap).find(k => careTox.startsWith(k)) || 'Nessuna';
+      const t = toxMap[key];
+      return {
+        toxLevel: t.level,
+        toxDesc: careTox.replace(t.level + ' — ', ''),
+        toxBadge: { fontSize:11, fontWeight:600, color:t.color,
+          background:t.bg, padding:'3px 8px', borderRadius:6, flexShrink:0 },
+      };
+    };
+    const plant=rp&&rp.tipo==='pianta'?{...rp,
+      showSci:showNomiScientifici&&!!rp.nomeScientifico,
+      humColor:humC,
+      humidityText:rp.humidity+'%', lightText:String(rp.light||0), tempText:(rp.temp||0)+'°',
+      humidityValStyle:{fontSize:22,fontWeight:700,color:humC,marginBottom:3},
+      humidityLabelStyle:{fontSize:11,fontWeight:500,color:humC},
+      ...getTox(rp.careTox||''),
+    }:null;
+    const hasPlant=!!plant;
+    const humiditySparkline=plant&&plant.histHumidity?this.makeSparkline(plant.histHumidity,humC,44):null;
+
+    // Bouquet
+    const rb=this._plants.find(p=>p.id===selectedPlantId&&p.tipo==='bouquet');
+    const bMap={fresco:0,in_cura:1,appassendo:2,concluso:3};
+    const bIdx=rb?(bMap[rb.stato_bouquet]||0):0;
+    const bLabs=['Fresco','In cura','Appassendo','Concluso'];
+    const bouquetStages=bLabs.map((label,i)=>({
+      label,
+      dotStyle:{width:8,height:8,borderRadius:'50%',margin:'0 auto 4px',background:i<=bIdx?acc:bord},
+      labelStyle:{fontSize:10,color:i===bIdx?acc:t3,fontWeight:i===bIdx?600:400},
+    }));
+    const bouquetProgressBar={height:'100%',borderRadius:2,width:((bIdx/3)*100)+'%',background:acc,transition:'width .3s'};
+    const bouquet=rb?{...rb,
+      statoBadge:{display:'inline-block',marginTop:8,fontSize:13,fontWeight:600,color:acc,background:showDark?'rgba(50,215,75,0.12)':'rgba(52,199,89,0.1)',padding:'4px 12px',borderRadius:20},
+      statoLabel:bLabs[bIdx],
+    }:null;
+    const hasBouquet=!!bouquet;
+    const bouquetFioriBadges=rb&&rb.fiori?rb.fiori.map(f=>({nome:f})):[];
+    const hasBouquetFiori=bouquetFioriBadges.length>0;
+    const _fioriPreset=['Rose','Tulipani','Orchidee','Girasoli','Lavanda','Margherite','Lilium','Peonie','Ranuncoli','Eucalipto','Gypsophila','Fresie'];
+    const {bouquetFiori}=this.state;
+    const bouquetFioriChips=_fioriPreset.map(f=>{const on=bouquetFiori.includes(f);return{nome:f,sel:on,chipStyle:{padding:'6px 13px',borderRadius:20,fontSize:13,fontWeight:on?600:500,cursor:'pointer',border:`1.5px solid ${on?acc:bord}`,background:on?(showDark?'rgba(50,215,75,0.15)':'rgba(52,199,89,0.1)'):card,color:on?acc:t1},toggle:()=>this.setState(s=>({bouquetFiori:s.bouquetFiori.includes(f)?s.bouquetFiori.filter(x=>x!==f):[...s.bouquetFiori,f]}))};});
+    const hasFioriSel=bouquetFiori.length>0;
+
+    // Vases
+    const vaseList=this._vases.map(v=>{
+      const pn=this._plants.find(p=>p.id===v.plantId);
+      const bc=v.batteria<30?red:v.batteria<60?amb:acc;
+      return {...v, plantNome:pn?pn.nome:'—', openDetail:()=>this.openVasoDetail(v.id),
+        statusDot:`background:${v.stato==='connesso'?acc:red}`,
+        battBar:{height:'100%',borderRadius:2,width:v.batteria+'%',background:bc}};
+    });
+
+    // Vaso detail
+    const rv=this._vases.find(v=>v.id===selectedVasoId)||this._vases[0];
+    const vp=rv?this._plants.find(p=>p.id===rv.plantId):null;
+    const vbc=rv&&rv.batteria<30?red:rv&&rv.batteria<60?amb:acc;
+    const vhc=rv&&rv.humidita<35?red:acc;
+    const vaso=rv?{...rv, plantNome:vp?vp.nome:'—',
+      statoStyle:{fontSize:15,fontWeight:500,color:rv.stato==='connesso'?acc:red},
+      statoLabel:rv.stato==='connesso'?'Connesso':'Disconnesso',
+      statusDot:`background:${rv.stato==='connesso'?acc:red}`,
+      battBar:{height:'100%',borderRadius:2,width:rv.batteria+'%',background:vbc},
+      humColor:vhc,
+    }:null;
+    const hasVaso=!!vaso;
+    const vasoSparkline=vaso&&vaso.histHumidity?this.makeSparkline(vaso.histHumidity,vhc,44):null;
+
+    // Storico
+    const sfDefs=[{id:'tutti',label:'Tutti'},{id:'annaffiatura',label:'Annaffiature'},{id:'concimazione',label:'Concimazioni'}];
+    const storiciFilters=sfDefs.map(f=>({...f,onClick:()=>this.setStoriciFilter(f.id),
+      chipStyle:{padding:'6px 14px',borderRadius:20,fontSize:13,fontWeight:500,whiteSpace:'nowrap',cursor:'pointer',flexShrink:0,
+        background:storiciFilter===f.id?acc:card,color:storiciFilter===f.id?'white':t2,boxShadow:storiciFilter===f.id?'none':sha},
+    }));
+    const tLabs={annaffiatura:'Annaffiatura',concimazione:'Concimazione',nebulizzazione:'Nebulizzazione',rinvaso:'Rinvaso'};
+    const sC={completato:acc,saltato:t2,rimandato:amb};
+    const sorgC={sensore:red,calendario:t2,manuale:blu};
+    const storiciFiltered=this._storici
+      .filter(l=>l.plantId===selectedPlantId)
+      .filter(l=>storiciFilter==='tutti'||l.tipo===storiciFilter)
+      .map(l=>({...l,tipoLabel:tLabs[l.tipo]||l.tipo,
+        dotStyle:{width:8,height:8,borderRadius:'50%',flexShrink:0,background:sC[l.stato]||t2},
+        statoBadge:{fontSize:12,fontWeight:500,color:sC[l.stato]||t2},
+        statoLabel:l.stato.charAt(0).toUpperCase()+l.stato.slice(1),
+        sorgenteBadge:{fontSize:11,color:sorgC[l.sorgente]||t2},
+      }));
+
+    const catalogoList=this._catalogo.map(sp=>({...sp,onSelect:()=>this.goBack()}));
+    const catalogoCount=this._catalogo.length;
+
+    // Toggles
+    const mkToggle=(on)=>({ width:44, height:26, borderRadius:13, cursor:'pointer', padding:2,
+      display:'flex', alignItems:'center', flexShrink:0,
+      background:on?acc:'rgba(120,120,128,0.32)', transition:'background .2s' });
+    const mkKnob=(on)=>({ width:20, height:20, borderRadius:'50%', background:'white',
+      marginLeft:on?'auto':0, transition:'margin .2s',
+      boxShadow:'0 2px 4px rgba(0,0,0,0.25)' });
+    const darkToggle=mkToggle(showDark), darkKnob=mkKnob(showDark);
+    const nomiSciToggle=mkToggle(showNomiScientifici), nomiSciKnob=mkKnob(showNomiScientifici);
+
+    const mkTab=t=>({...t,onClick:()=>this.setTab(t.id),iconEl:this.makeTabIcon(t.id,activeTab===t.id,acc,t2),labelStyle:{fontSize:10,color:activeTab===t.id?acc:t2,fontWeight:activeTab===t.id?600:400,marginTop:1}});
+    const tabsLeft=[{id:'oggi',label:'Oggi'},{id:'collezione',label:'Piante'}].map(mkTab);
+    const tabsRight=[{id:'vasi-smart',label:'Vasi'},{id:'impostazioni',label:'Impostazioni'}].map(mkTab);
+
+    const todayRaw=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+    const todayFormatted=todayRaw.charAt(0).toUpperCase()+todayRaw.slice(1);
+
+    // Smart pot preview cards for homepage (only pinned)
+    const pinnedList = this._vases.filter(v => pinnedVases.includes(v.id));
+    const fewCards = pinnedList.length <= 2;
+    const smartPotContainerStyle = fewCards
+      ? { display:'grid', gridTemplateColumns:`repeat(${pinnedList.length}, 1fr)`, gap:10, marginBottom:20 }
+      : { display:'flex', gap:10, marginBottom:20, overflowX:'auto', WebkitOverflowScrolling:'touch', scrollbarWidth:'none', msOverflowStyle:'none', margin:'0 -16px', padding:'0 16px 4px' };
+
+    const smartPotCards = pinnedList.map(v => {
+        const pl = this._plants.find(p => p.id === v.plantId);
+        const isLow = v.humidita < 35;
+        const humColor = isLow ? red : acc;
+        return {
+          nome: pl ? pl.nome : v.nome,
+          emoji: pl ? pl.emoji : '🌿',
+          deviceShort: v.deviceId.split('-')[1] || v.deviceId,
+          humText: v.humidita + '%',
+          tempText: v.temperatura + '°',
+          luxText: v.luce + ' lx',
+          humStyle: { fontSize:11, fontWeight:600, color:humColor },
+          humBar: { height:'100%', borderRadius:2, width: Math.min(v.humidita, 100)+'%', background:humColor },
+          statusDot: { width:6, height:6, borderRadius:'50%', flexShrink:0,
+            background: v.stato==='connesso' ? acc : red },
+          cardStyle: { background:card, borderRadius:16, padding:'14px 14px 12px',
+            cursor:'pointer', boxShadow:sha,
+            ...(fewCards ? {} : { flexShrink:0, width:148 }) },
+          onClick: () => this.openPlant(v.plantId),
+        };
+      });
+
+    // All vase toggles for the dash edit sheet
+    const allVaseToggles = this._vases.map(v => {
+      const pl = this._plants.find(p => p.id === v.plantId);
+      const on = pinnedVases.includes(v.id);
+      return {
+        emoji: pl ? pl.emoji : '🌿',
+        plantNome: pl ? pl.nome : v.nome,
+        deviceId: v.deviceId,
+        humText: v.humidita + '%',
+        toggle: () => this.togglePinnedVase(v.id),
+        toggleStyle: mkToggle(on),
+        knobStyle: mkKnob(on),
+      };
+    });
+
+    return {
+      trueVal:true, showDark, bg, card, card2, t1, t2, t3, acc, red, blu, amb, bord, sha, bluBg,
+      showOnboarding, showApp, showStep0, showStep1, showStep2, showStep3,
+      showOggi, showCollezione, showDetail, showDetailBouquet, showVasiSmart, showVasoDetail,
+      showStoricoCure, showCatalogo, showPairing, showAddPlant, showImpostazioni,
+      pairingStep0, pairingStep1, pairingStep2, pairingStep3, bleFound, bleNotFound,
+      addTypeNotSelected, addTypePianta, addTypeBouquet,
+      todayFormatted, climates, canProceed, continueBtnStyle,
+      nextOnboarding:()=>this.nextOnboarding(),
+      taskBtnA, taskBtnB, taskBtnC,
+      sensorTasks, calTasks, doneTasks, hasSensorTasks, hasCalTasks, hasDone, allDone,
+      smartPotCards, smartPotContainerStyle, allVaseToggles, dashEditVisible,
+      collFilters, filteredPlants,
+      plant, hasPlant, humiditySparkline,
+      bouquet, hasBouquet, bouquetStages, bouquetProgressBar, bouquetFioriBadges, hasBouquetFiori, bouquetFioriChips, hasFioriSel,
+      vaseList, vaso, hasVaso, vasoSparkline,
+      storiciFilters, storiciFiltered,
+      catalogoList, catalogoCount,
+      darkToggle, darkKnob, nomiSciToggle, nomiSciKnob,
+      tabsLeft, tabsRight,
+      openDashEdit:()=>this.openDashEdit(), closeDashEdit:()=>this.closeDashEdit(),
+      goBack:()=>this.goBack(), goToAddPlant:()=>this.goToAddPlant(),
+      selectPianta:()=>this.selectPianta(), selectBouquet:()=>this.selectBouquet(),
+      openCatalogo:()=>this.openCatalogo(), openVasiSmart:()=>this.openVasiSmart(),
+      openStoricoCure:()=>this.openStoricoCure(), startPairing:()=>this.startPairing(),
+      startBLEScan:()=>this.startBLEScan(), selectBLEDevice:()=>this.selectBLEDevice(),
+      submitWifi:()=>this.submitWifi(),
+      hideSnooze:()=>this.hideSnooze(), stopProp:(e)=>e.stopPropagation(),
+      snooze2h:()=>this.doSnooze(), snoozeTomorrow:()=>this.doSnooze(), snooze2d:()=>this.doSnooze(),
+      toggleDark:()=>this.toggleDark(), toggleNomiSci:()=>this.toggleNomiSci(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
