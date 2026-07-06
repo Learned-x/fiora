@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { SocialButton } from '../../src/components/SocialButton';
 import { useAuthStore } from '../../src/store/auth.store';
+import { GoogleSignInCancelledError } from '../../src/services/oauth';
 
 export default function AuthScreen() {
   const theme = useTheme();
@@ -13,7 +14,8 @@ export default function AuthScreen() {
     try {
       await loginWithGoogle();
       router.replace('/home');
-    } catch {
+    } catch (err) {
+      if (err instanceof GoogleSignInCancelledError) return;
       Alert.alert('Login Google fallito', useAuthStore.getState().error ?? 'Riprova più tardi');
     }
   }

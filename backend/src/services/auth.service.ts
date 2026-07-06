@@ -32,7 +32,7 @@ export async function saveRefreshToken(userId: string, token: string): Promise<v
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
-export async function register(email: string, password: string) {
+export async function register(email: string, password: string, name?: string) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw { code: 'AUTH_EMAIL_ALREADY_EXISTS', status: 409, message: 'Email già registrata' };
@@ -41,14 +41,14 @@ export async function register(email: string, password: string) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   const user = await prisma.user.create({
-    data: { email, passwordHash, provider: 'email' },
+    data: { email, passwordHash, name, provider: 'email' },
   });
 
   const accessToken = generateAccessToken(user.id);
   const refreshToken = generateRefreshToken();
   await saveRefreshToken(user.id, refreshToken);
 
-  return { accessToken, refreshToken, user: { id: user.id, email: user.email } };
+  return { accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name } };
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export async function login(email: string, password: string) {
   const refreshToken = generateRefreshToken();
   await saveRefreshToken(user.id, refreshToken);
 
-  return { accessToken, refreshToken, user: { id: user.id, email: user.email } };
+  return { accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name } };
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────

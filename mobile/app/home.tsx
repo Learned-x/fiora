@@ -43,7 +43,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.t1 }]}>Benvenuto in Fiora</Text>
+        <Text style={[styles.title, { color: theme.t1 }]}>
+          {user?.name ? `Ciao, ${user.name}` : 'Benvenuto in Fiora'}
+        </Text>
         <Text style={[styles.email, { color: theme.t2 }]}>{user?.email ?? 'Utente'}</Text>
 
         <View style={styles.debug}>

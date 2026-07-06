@@ -49,6 +49,7 @@ function handleValidation(req: Request, res: Response): boolean {
  *             properties:
  *               email: { type: string, format: email }
  *               password: { type: string, minLength: 8 }
+ *               name: { type: string, maxLength: 100, description: "Nome visualizzato (opzionale)" }
  *     responses:
  *       201: { description: Utente creato, token restituiti }
  *       400: { description: Errore di validazione }
@@ -62,13 +63,14 @@ router.post(
   [
     body('email').isEmail().normalizeEmail().withMessage('Email non valida'),
     body('password').isLength({ min: 8 }).withMessage('Password minimo 8 caratteri'),
+    body('name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Nome non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
 
     try {
-      const { email, password } = req.body;
-      const result = await authService.register(email, password);
+      const { email, password, name } = req.body;
+      const result = await authService.register(email, password, name);
       res.status(201).json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({

@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { AxiosError } from 'axios';
 import { api, setOnSessionExpired } from '../services/api';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../services/storage';
-import { signInWithGoogle } from '../services/oauth';
+import { GoogleSignInCancelledError, signInWithGoogle } from '../services/oauth';
 
 interface User {
   id: string;
   email: string | null;
+  name: string | null;
 }
 
 interface AuthResponse {
@@ -25,7 +26,7 @@ interface AuthState {
   isLoading: boolean;
   isRestoring: boolean;
   error: string | null;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -44,10 +45,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isRestoring: true,
   error: null,
 
-  register: async (email, password) => {
+  register: async (email, password, name) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post<{ data: AuthResponse }>('/auth/register', { email, password });
+      const response = await api.post<{ data: AuthResponse }>('/auth/register', { email, password, name });
       const { accessToken, refreshToken, user } = response.data.data;
       await saveTokens(accessToken, refreshToken);
       set({ user, isAuthenticated: true, isLoading: false });
@@ -79,7 +80,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       await saveTokens(accessToken, refreshToken);
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (err) {
-      set({ isLoading: false, error: extractErrorMessage(err, 'Login Google fallito') });
+      if (err instanceof GoogleSignInCancelledError) {
+        set({ isLoading: false });
+      } else {
+        set({ isLoading: false, error: extractErrorMessage(err, 'Login Google fallito') });
+      }
       throw err;
     }
   },

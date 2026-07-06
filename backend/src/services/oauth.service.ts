@@ -27,10 +27,21 @@ function getAppleSigningKey(header: jwt.JwtHeader): Promise<string> {
 
 // ── Trova o crea l'utente in base a provider + email ──────────────────────────
 
-async function findOrCreateOAuthUser(provider: 'google' | 'apple', providerId: string, email: string | null) {
+async function findOrCreateOAuthUser(
+  provider: 'google' | 'apple',
+  providerId: string,
+  email: string | null,
+  name: string | null
+) {
   // 1. Utente già collegato a questo provider
   let user = await prisma.user.findFirst({ where: { provider, providerId } });
-  if (user) return user;
+  if (user) {
+    // Backfill del nome se mancante (es. utenti creati prima del campo name)
+    if (!user.name && name) {
+      user = await prisma.user.update({ where: { id: user.id }, data: { name } });
+    }
+    return user;
+  }
 
   // 2. Account email esistente con la stessa email → collega i due account
   if (email) {
@@ -38,14 +49,14 @@ async function findOrCreateOAuthUser(provider: 'google' | 'apple', providerId: s
     if (user) {
       return prisma.user.update({
         where: { id: user.id },
-        data: { provider, providerId },
+        data: { provider, providerId, name: user.name ?? name },
       });
     }
   }
 
   // 3. Nuovo utente
   return prisma.user.create({
-    data: { email: email ?? undefined, provider, providerId },
+    data: { email: email ?? undefined, name: name ?? undefined, provider, providerId },
   });
 }
 
@@ -74,10 +85,10 @@ export async function loginWithGoogle(idToken: string) {
     throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Google non valido' };
   }
 
-  const user = await findOrCreateOAuthUser('google', payload.sub, payload.email ?? null);
+  const user = await findOrCreateOAuthUser('google', payload.sub, payload.email ?? null, payload.name ?? null);
   const tokens = await issueTokensFor(user.id);
 
-  return { ...tokens, user: { id: user.id, email: user.email } };
+  return { ...tokens, user: { id: user.id, email: user.email, name: user.name } };
 }
 
 // ── Login con Apple ────────────────────────────────────────────────────────────
@@ -105,8 +116,9 @@ export async function loginWithApple(identityToken: string) {
   // Apple fornisce l'email solo al primo login (o nel body della richiesta come fallback)
   const email = (decoded.email as string | undefined) ?? null;
 
-  const user = await findOrCreateOAuthUser('apple', decoded.sub, email);
+  // Apple non include il nome nel token: arriverà solo dal body al primo login (gestito in futuro)
+  const user = await findOrCreateOAuthUser('apple', decoded.sub, email, null);
   const tokens = await issueTokensFor(user.id);
 
-  return { ...tokens, user: { id: user.id, email: user.email } };
+  return { ...tokens, user: { id: user.id, email: user.email, name: user.name } };
 }

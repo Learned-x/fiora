@@ -10,12 +10,13 @@ import { useAuthStore } from '../../src/store/auth.store';
 export default function RegisterScreen() {
   const theme = useTheme();
   const { register, isLoading } = useAuthStore();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   async function handleRegister() {
     try {
-      await register(email.trim(), password);
+      await register(email.trim(), password, name.trim() || undefined);
       router.replace('/home');
     } catch {
       Alert.alert('Registrazione fallita', useAuthStore.getState().error ?? 'Riprova più tardi');
@@ -29,6 +30,12 @@ export default function RegisterScreen() {
         <Text style={[styles.subtitle, { color: theme.t2 }]}>Password minimo 8 caratteri.</Text>
 
         <View style={styles.form}>
+          <TextInput
+            placeholder="Nome (opzionale)"
+            autoCapitalize="words"
+            value={name}
+            onChangeText={setName}
+          />
           <TextInput
             placeholder="Email"
             autoCapitalize="none"
