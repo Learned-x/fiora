@@ -3,6 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes';
+import plantRoutes from './routes/plant.routes';
+import taskRoutes from './routes/task.routes';
+import speciesRoutes from './routes/species.routes';
+import { requireAuth } from './middleware/auth.middleware';
 import { swaggerSpec } from './lib/swagger';
 
 const app = express();
@@ -17,6 +21,9 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/auth', authRoutes);
+app.use('/plants', requireAuth, plantRoutes);
+app.use('/tasks', requireAuth, taskRoutes);
+app.use('/species', requireAuth, speciesRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
