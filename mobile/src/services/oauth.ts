@@ -6,12 +6,17 @@ GoogleSignin.configure({
 });
 
 export async function signInWithGoogle(): Promise<string> {
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  const response = await GoogleSignin.signIn();
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
 
-  if (response.type !== 'success' || !response.data.idToken) {
-    throw new Error('Nessun id_token ricevuto da Google');
+    if (response.type !== 'success' || !response.data.idToken) {
+      throw new Error('Nessun id_token ricevuto da Google');
+    }
+
+    return response.data.idToken;
+  } catch (err) {
+    console.error('[oauth] Google Sign-In error:', JSON.stringify(err, Object.getOwnPropertyNames(err as object)));
+    throw err;
   }
-
-  return response.data.idToken;
 }
