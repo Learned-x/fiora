@@ -23,10 +23,10 @@ Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobi
 - Repository GitHub privato
 
 ### Prossimi passi
-- Fase 5 (foto diario MinIO) oppure Fase 6 (MQTT → sensor_readings + schermate Vasi)
+- **Fase 4.5 (consolidamento)** — vedi `docs/fiora-specifiche-integrazioni-v1.md` §1: /auth/me + PATCH /users/me, clima onboarding salvato, fix task su archiviazione, reminder concimazione+bouquet+stato automatico, tipi task allineati, modulazione clima, storico cure, app_options, migration campi User, seed 10 specie
+- Poi Fase 5 (foto diario MinIO)
 - Apple Sign-In mobile: in attesa credenziali Apple Developer personali
 - Valutare inversione onboarding: prima login, poi selezione clima (idea utente 2026-07-08, da decidere in fase successiva)
-- Backend: manca endpoint GET action logs (serve per "Storico cure" nel dettaglio pianta)
 
 ### Note build iOS locale (npx expo run:ios)
 - Lo spazio nei path ("SSD Lexar", "Fiora TG") rompe script di build RN/Expo. Patch attive:
@@ -118,17 +118,20 @@ docker compose -f docker-compose.dev.yml ps        # stato container
 - Tutti coperti da `.gitignore`
 
 ## Roadmap fasi
+(dettaglio revisioni in `docs/fiora-specifiche-integrazioni-v1.md`)
 - **Fase 0** ✅ Setup infrastruttura
 - **Fase 1** ✅ Backend Core + Autenticazione
 - **Fase 2** ✅ CRUD piante + task (+ catalogo specie read-only)
-- **Fase 3** Reminder engine (BullMQ)
-- **Fase 4** App mobile UI (schermate principali)
+- **Fase 3** ✅ Reminder engine (BullMQ)
+- **Fase 4** ✅ App mobile UI (schermate principali)
+- **Fase 4.5** Consolidamento: profilo (/auth/me, PATCH /users/me), clima onboarding, fix archiviazione, reminder bouquet+concimazione, app_options, storico cure, migration campi User
 - **Fase 5** Foto diario (MinIO)
-- **Fase 6** Integrazione vaso smart (MQTT → DB)
+- **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE)
 - **Fase 7** Alert sensori
 - **Fase 8** Notifiche push (Expo)
-- **Fase 9** Catalogo specie + Trefle (import massivo)
-- **Fase 10** OAuth + rifinitura UI
+- **Fase 9** Catalogo esteso: import massivo Trefle in DB locale (437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
+- **Fase 10** Apple Sign-In + rifinitura UI (inversione onboarding, fiori bouquet, empty state suggerimenti)
+- **Post-MVP** Email transazionali, offline SQLite, cambio email
 
 ## Note importanti
 - Prisma 7: il campo `url` NON va in `schema.prisma` ma in `prisma.config.ts` (già configurato)

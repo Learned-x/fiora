@@ -6,5 +6,4 @@ mosquitto/ssl/
 nginx/ssl/
 node_modules/
 dist/
-docs/
 ._*
