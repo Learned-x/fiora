@@ -16,7 +16,7 @@ export default function LoginScreen() {
   async function handleLogin() {
     try {
       await login(email.trim(), password);
-      router.replace('/home');
+      router.replace('/(tabs)');
     } catch {
       Alert.alert('Accesso fallito', useAuthStore.getState().error ?? 'Credenziali non valide');
     }

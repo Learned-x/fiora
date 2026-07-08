@@ -1,0 +1,165 @@
+import { useCallback, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
+import { useTheme } from '../../src/theme/useTheme';
+import { listPlants } from '../../src/services/plants.api';
+import type { Plant } from '../../src/types/models';
+import { plantEmoji } from '../../src/lib/plantUi';
+
+type Filter = 'tutti' | 'piante' | 'bouquet' | 'archiviate';
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'tutti', label: 'Tutte' },
+  { key: 'piante', label: 'Piante' },
+  { key: 'bouquet', label: 'Bouquet' },
+  { key: 'archiviate', label: 'Archiviate' },
+];
+
+export default function PlantsScreen() {
+  const theme = useTheme();
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [filter, setFilter] = useState<Filter>('tutti');
+  const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async (currentFilter: Filter) => {
+    try {
+      const stato = currentFilter === 'archiviate' ? 'archiviato' : 'attivo';
+      setPlants(await listPlants(stato));
+      setLoaded(true);
+    } catch {
+      // errore rete: pull-to-refresh per riprovare
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(filter);
+    }, [load, filter])
+  );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load(filter);
+    setRefreshing(false);
+  }
+
+  const filtered = plants.filter((p) => {
+    if (filter === 'piante') return p.tipo === 'pianta';
+    if (filter === 'bouquet') return p.tipo === 'bouquet';
+    return true;
+  });
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.t1 }]}>Piante</Text>
+        <Pressable onPress={() => router.push('/add-plant')} style={[styles.addBtn, { backgroundColor: theme.acc }]}>
+          <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+            <Path d="M7 1.5v11M1.5 7h11" stroke="white" strokeWidth={2} strokeLinecap="round" />
+          </Svg>
+        </Pressable>
+      </View>
+
+      <View style={styles.chips}>
+        {FILTERS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={[
+                styles.chip,
+                active ? { backgroundColor: theme.acc } : { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.bord },
+              ]}
+            >
+              <Text style={[styles.chipText, { color: active ? 'white' : theme.t1, fontWeight: active ? '600' : '400' }]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.t2} />}
+        ListEmptyComponent={
+          loaded ? (
+            <View style={styles.empty}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>🪴</Text>
+              <Text style={[styles.emptyTitle, { color: theme.t1 }]}>Nessuna pianta</Text>
+              <Text style={[styles.emptySub, { color: theme.t2 }]}>Aggiungi la tua prima pianta con il pulsante +.</Text>
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => router.push(`/plant/${item.id}`)}
+            style={[styles.card, { backgroundColor: theme.card }]}
+          >
+            <View style={styles.cardTop}>
+              <Text style={{ fontSize: 30, lineHeight: 34 }}>{plantEmoji(item)}</Text>
+              {item.tipo === 'bouquet' && (
+                <View style={[styles.bouquetBadge, { backgroundColor: 'rgba(10,132,255,0.1)' }]}>
+                  <Text style={[styles.bouquetBadgeText, { color: theme.blu }]}>bouquet</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.cardName, { color: theme.t1 }]} numberOfLines={1}>
+              {item.nome}
+            </Text>
+            <Text style={[styles.cardSpecies, { color: theme.t2 }]} numberOfLines={1}>
+              {item.species?.nomeComune ?? (item.tipo === 'bouquet' ? 'Fiori recisi' : 'Specie non impostata')}
+            </Text>
+            {(item._count?.tasks ?? 0) > 0 && (
+              <View style={styles.taskHint}>
+                <View style={[styles.taskDot, { backgroundColor: theme.amb }]} />
+                <Text style={[styles.taskHintText, { color: theme.t2 }]}>
+                  {item._count!.tasks} task
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        )}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    marginBottom: 16,
+  },
+  title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.6 },
+  addBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  chips: { flexDirection: 'row', gap: 7, paddingHorizontal: 16, marginBottom: 16 },
+  chip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 18 },
+  chipText: { fontSize: 13 },
+  list: { paddingHorizontal: 16, paddingBottom: 24, flexGrow: 1 },
+  row: { gap: 12, marginBottom: 12 },
+  card: { flex: 1, borderRadius: 16, padding: 16 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },
+  bouquetBadge: { paddingVertical: 3, paddingHorizontal: 7, borderRadius: 6 },
+  bouquetBadgeText: { fontSize: 10, fontWeight: '600' },
+  cardName: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  cardSpecies: { fontSize: 12, fontStyle: 'italic' },
+  taskHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  taskDot: { width: 5, height: 5, borderRadius: 3 },
+  taskHintText: { fontSize: 11 },
+  empty: { alignItems: 'center', paddingTop: 80 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
+  emptySub: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40 },
+});

@@ -17,7 +17,7 @@ export default function RegisterScreen() {
   async function handleRegister() {
     try {
       await register(email.trim(), password, name.trim() || undefined);
-      router.replace('/home');
+      router.replace('/(tabs)');
     } catch {
       Alert.alert('Registrazione fallita', useAuthStore.getState().error ?? 'Riprova più tardi');
     }

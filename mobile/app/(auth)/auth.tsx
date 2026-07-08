@@ -13,7 +13,7 @@ export default function AuthScreen() {
   async function handleGoogle() {
     try {
       await loginWithGoogle();
-      router.replace('/home');
+      router.replace('/(tabs)');
     } catch (err) {
       if (err instanceof GoogleSignInCancelledError) return;
       Alert.alert('Login Google fallito', useAuthStore.getState().error ?? 'Riprova più tardi');
