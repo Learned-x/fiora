@@ -7,3 +7,4 @@ export const redisConnection = {
 };
 
 export const accountDeletionQueue = new Queue('account-deletion', { connection: redisConnection });
+export const reminderQueue = new Queue('reminder-engine', { connection: redisConnection });
