@@ -7,6 +7,7 @@ export interface UpdateProfileInput {
   mostraNomiScientifici?: boolean;
   orarioReminder?: string;
   onboardingDone?: boolean;
+  pushToken?: string | null;
 }
 
 const profileSelect = {
@@ -17,6 +18,7 @@ const profileSelect = {
   onboardingDone: true,
   mostraNomiScientifici: true,
   orarioReminder: true,
+  pushToken: true,
 } as const;
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
@@ -33,6 +35,7 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
       ...(input.mostraNomiScientifici !== undefined && { mostraNomiScientifici: input.mostraNomiScientifici }),
       ...(input.orarioReminder !== undefined && { orarioReminder: input.orarioReminder }),
       ...(input.onboardingDone !== undefined && { onboardingDone: input.onboardingDone }),
+      ...(input.pushToken !== undefined && { pushToken: input.pushToken }),
     },
     select: profileSelect,
   });

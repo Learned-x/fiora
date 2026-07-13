@@ -8,4 +8,9 @@ export const reminderQueue = {
   upsertJobScheduler: jest.fn(),
 };
 
+export const notificationQueue = {
+  add: jest.fn(),
+  upsertJobScheduler: jest.fn(),
+};
+
 export const redisConnection = {};

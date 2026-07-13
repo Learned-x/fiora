@@ -101,6 +101,7 @@ export async function getProfile(userId: string) {
       onboardingDone: true,
       mostraNomiScientifici: true,
       orarioReminder: true,
+      pushToken: true,
       deletedAt: true,
     },
   });

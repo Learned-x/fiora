@@ -37,6 +37,7 @@ function handleValidation(req: Request, res: Response): boolean {
  *               mostraNomiScientifici: { type: boolean }
  *               orarioReminder: { type: string, maxLength: 50 }
  *               onboardingDone: { type: boolean }
+ *               pushToken: { type: string, nullable: true, maxLength: 255 }
  *     responses:
  *       200: { description: Profilo aggiornato }
  *       400: { description: Errore di validazione }
@@ -51,6 +52,10 @@ router.patch(
     body('mostraNomiScientifici').optional().isBoolean().withMessage('mostraNomiScientifici non valido'),
     body('orarioReminder').optional().isString().isLength({ max: 50 }).withMessage('orarioReminder non valido'),
     body('onboardingDone').optional().isBoolean().withMessage('onboardingDone non valido'),
+    body('pushToken')
+      .optional({ values: 'undefined' })
+      .custom((v) => v === null || (typeof v === 'string' && v.length >= 1 && v.length <= 255))
+      .withMessage('pushToken non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
@@ -62,6 +67,7 @@ router.patch(
         mostraNomiScientifici: req.body.mostraNomiScientifici,
         orarioReminder: req.body.orarioReminder,
         onboardingDone: req.body.onboardingDone,
+        pushToken: req.body.pushToken,
       });
       res.json({ success: true, data: profile });
     } catch (err: any) {

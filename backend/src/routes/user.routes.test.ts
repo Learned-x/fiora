@@ -47,4 +47,36 @@ describe('PATCH /users/me', () => {
 
     expect(res.status).toBe(200);
   });
+
+  it('accetta pushToken stringa', async () => {
+    (userService.updateProfile as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      pushToken: 'ExponentPushToken[abc]',
+    });
+
+    const res = await auth(request(app).patch('/users/me')).send({
+      pushToken: 'ExponentPushToken[abc]',
+    });
+
+    expect(res.status).toBe(200);
+    expect((userService.updateProfile as jest.Mock).mock.calls[0][1].pushToken).toBe(
+      'ExponentPushToken[abc]'
+    );
+  });
+
+  it('accetta pushToken null per disattivare le notifiche', async () => {
+    (userService.updateProfile as jest.Mock).mockResolvedValue({ id: 'user-1', pushToken: null });
+
+    const res = await auth(request(app).patch('/users/me')).send({ pushToken: null });
+
+    expect(res.status).toBe(200);
+    expect((userService.updateProfile as jest.Mock).mock.calls[0][1].pushToken).toBeNull();
+  });
+
+  it('rifiuta pushToken non stringa', async () => {
+    const res = await auth(request(app).patch('/users/me')).send({ pushToken: 42 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
 });

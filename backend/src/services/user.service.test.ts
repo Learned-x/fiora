@@ -48,6 +48,26 @@ describe('user.service updateProfile', () => {
     expect(args.data.onboardingDone).toBe(true);
   });
 
+  it('aggiorna pushToken con una stringa', async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+    (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', pushToken: 'ExponentPushToken[abc]' });
+
+    await userService.updateProfile('user-1', { pushToken: 'ExponentPushToken[abc]' });
+
+    const args = (prisma.user.update as jest.Mock).mock.calls[0][0];
+    expect(args.data.pushToken).toBe('ExponentPushToken[abc]');
+  });
+
+  it('azzera pushToken con null esplicito', async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+    (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', pushToken: null });
+
+    await userService.updateProfile('user-1', { pushToken: null });
+
+    const args = (prisma.user.update as jest.Mock).mock.calls[0][0];
+    expect(args.data.pushToken).toBeNull();
+  });
+
   it('rifiuta se utente non trovato', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 

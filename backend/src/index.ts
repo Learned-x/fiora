@@ -9,6 +9,7 @@ import { connectMqtt } from './lib/mqtt';
 import './jobs/account-deletion.job';
 import './jobs/reminder.job';
 import { scheduleReminderJob } from './jobs/reminder.job';
+import { schedulePushReminderJob } from './jobs/notification.job';
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,4 +17,5 @@ app.listen(PORT, () => {
   console.log(`Fiora backend in ascolto su http://localhost:${PORT}`);
   connectMqtt();
   scheduleReminderJob();
+  schedulePushReminderJob();
 });
