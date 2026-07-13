@@ -5,13 +5,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import type { ThemeColors } from '../../src/theme/colors';
-import {
-  completeTask,
-  createTask,
-  deletePlant,
-  getPlant,
-  updatePlant,
-} from '../../src/services/plants.api';
+import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import { annaffiaturaLabel, formatDay, luceLabel, plantEmoji, TASK_LABELS } from '../../src/lib/plantUi';
 
@@ -83,55 +77,7 @@ export default function PlantDetailScreen() {
 
   function handleEdit() {
     if (!plant) return;
-    const options = [];
-
-    options.push({
-      text: 'Modifica dettagli',
-      onPress: () => router.push({ pathname: '/edit-plant', params: { id: plant.id } }),
-    });
-
-    if (plant.tipo === 'bouquet') {
-      const currentIdx = BOUQUET_STAGES.findIndex((s) => s.key === plant.statoBouquet);
-      const next = BOUQUET_STAGES[currentIdx + 1];
-      if (next) {
-        options.push({
-          text: `Stato: passa a "${next.label}"`,
-          onPress: async () => {
-            await updatePlant(plant.id, { statoBouquet: next.key });
-            await load();
-          },
-        });
-      }
-    }
-
-    options.push({
-      text: plant.stato === 'attivo' ? 'Archivia' : 'Ripristina',
-      onPress: async () => {
-        await updatePlant(plant.id, { stato: plant.stato === 'attivo' ? 'archiviato' : 'attivo' });
-        await load();
-      },
-    });
-
-    options.push({
-      text: 'Elimina',
-      style: 'destructive' as const,
-      onPress: () => {
-        Alert.alert('Elimina', `Eliminare "${plant.nome}"? I task in sospeso verranno annullati.`, [
-          { text: 'Annulla', style: 'cancel' },
-          {
-            text: 'Elimina',
-            style: 'destructive',
-            onPress: async () => {
-              await deletePlant(plant.id);
-              router.back();
-            },
-          },
-        ]);
-      },
-    });
-
-    options.push({ text: 'Annulla', style: 'cancel' as const });
-    Alert.alert(plant.nome, undefined, options);
+    router.push({ pathname: '/edit-plant', params: { id: plant.id } });
   }
 
   if (!plant) {

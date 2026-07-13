@@ -38,6 +38,16 @@ describe('user.service updateProfile', () => {
     expect(ricalcolaScadenzeClima).not.toHaveBeenCalled();
   });
 
+  it('aggiorna onboardingDone', async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+    (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', onboardingDone: true });
+
+    await userService.updateProfile('user-1', { onboardingDone: true });
+
+    const args = (prisma.user.update as jest.Mock).mock.calls[0][0];
+    expect(args.data.onboardingDone).toBe(true);
+  });
+
   it('rifiuta se utente non trovato', async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 

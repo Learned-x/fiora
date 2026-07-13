@@ -27,6 +27,7 @@ export default function AddPlantScreen() {
   const [nome, setNome] = useState('');
   const [posizione, setPosizione] = useState('');
   const [species, setSpecies] = useState<Species | null>(null);
+  const [giaInAcqua, setGiaInAcqua] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
 
@@ -42,7 +43,7 @@ export default function AddPlantScreen() {
         tipo: addType!,
         ...(addType === 'pianta' && species ? { speciesId: species.id } : {}),
         ...(posizione.trim() ? { posizione: posizione.trim() } : {}),
-        ...(addType === 'bouquet' ? { dataRicezione: new Date().toISOString() } : {}),
+        ...(addType === 'bouquet' ? { dataRicezione: new Date().toISOString(), giaInAcqua } : {}),
       });
       router.back();
     } catch {
@@ -145,9 +146,33 @@ export default function AddPlantScreen() {
             />
 
             {addType === 'bouquet' && (
-              <Text style={[styles.hint, { color: theme.t2 }]}>
-                Data di ricezione: oggi. Ti ricorderemo di cambiare l'acqua e tagliare gli steli.
-              </Text>
+              <>
+                <Pressable
+                  onPress={() => setGiaInAcqua((v) => !v)}
+                  style={[styles.checkboxRow, { backgroundColor: theme.card, borderColor: theme.bord }]}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: giaInAcqua ? theme.acc : theme.bord,
+                        backgroundColor: giaInAcqua ? theme.acc : 'transparent',
+                      },
+                    ]}
+                  >
+                    {giaInAcqua && (
+                      <Svg width={11} height={8} viewBox="0 0 11 8" fill="none">
+                        <Path d="M1 4L4 7L10 1" stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 15, color: theme.t1, flex: 1 }}>Il bouquet è già in acqua</Text>
+                </Pressable>
+                <Text style={[styles.hint, { color: theme.t2 }]}>
+                  Data di ricezione: oggi. Ti ricorderemo di cambiare l'acqua e tagliare gli steli.
+                  {!giaInAcqua ? ' Ti chiederemo subito di metterlo in acqua.' : ''}
+                </Text>
+              </>
             )}
 
             <View style={{ marginTop: 8 }}>
@@ -205,4 +230,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   hint: { fontSize: 13, lineHeight: 19, marginBottom: 8, paddingHorizontal: 4 },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

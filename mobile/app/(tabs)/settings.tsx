@@ -3,10 +3,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
+import { updateMe } from '../../src/services/user.api';
+import type { Clima } from '../../src/types/models';
+
+const CLIMA_LABELS: Record<Clima, string> = {
+  freddo: 'Freddo',
+  temperato: 'Temperato',
+  appartamento: 'Appartamento riscaldato',
+  mediterraneo: 'Mediterraneo',
+  tropicale: 'Tropicale',
+};
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { user, logout } = useAuthStore();
+  const { user, profile, logout, refreshProfile } = useAuthStore();
 
   function handleLogout() {
     Alert.alert('Esci', 'Vuoi uscire dal tuo account?', [
@@ -22,6 +32,25 @@ export default function SettingsScreen() {
     ]);
   }
 
+  function handleChangeClima() {
+    const options = (Object.keys(CLIMA_LABELS) as Clima[]).map((clima) => ({
+      text: CLIMA_LABELS[clima] + (profile?.clima === clima ? ' ✓' : ''),
+      onPress: async () => {
+        if (profile?.clima === clima) return;
+        try {
+          await updateMe({ clima });
+          await refreshProfile();
+        } catch {
+          Alert.alert('Errore', 'Aggiornamento non riuscito, riprova.');
+        }
+      },
+    }));
+    Alert.alert('Clima', 'Le scadenze di annaffiatura si adattano al tuo clima.', [
+      ...options,
+      { text: 'Annulla', style: 'cancel' },
+    ]);
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -33,14 +62,27 @@ export default function SettingsScreen() {
             <Text style={{ fontSize: 22 }}>🌿</Text>
           </View>
           <View>
-            <Text style={[styles.profileName, { color: theme.t1 }]}>{user?.name ?? 'Utente Fiora'}</Text>
-            <Text style={[styles.profileEmail, { color: theme.t2 }]}>{user?.email ?? '—'}</Text>
+            <Text style={[styles.profileName, { color: theme.t1 }]}>
+              {profile?.name ?? user?.name ?? 'Utente Fiora'}
+            </Text>
+            <Text style={[styles.profileEmail, { color: theme.t2 }]}>
+              {profile?.email ?? user?.email ?? '—'}
+            </Text>
           </View>
         </View>
 
-        {/* Aspetto */}
-        <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Aspetto</Text>
+        {/* Preferenze */}
+        <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Preferenze</Text>
         <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <Pressable onPress={handleChangeClima} style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}>
+            <View>
+              <Text style={[styles.rowTitle, { color: theme.t1 }]}>Clima</Text>
+              <Text style={[styles.rowSub, { color: theme.t2 }]}>Adatta le scadenze di annaffiatura</Text>
+            </View>
+            <Text style={[styles.rowValue, { color: theme.t2 }]}>
+              {profile ? CLIMA_LABELS[profile.clima] : '—'}
+            </Text>
+          </Pressable>
           <View style={styles.row}>
             <View>
               <Text style={[styles.rowTitle, { color: theme.t1 }]}>Modalità scura</Text>
@@ -66,6 +108,12 @@ export default function SettingsScreen() {
         {/* Account */}
         <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Account</Text>
         <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <Pressable
+            onPress={() => router.push('/change-password')}
+            style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
+          >
+            <Text style={[styles.rowTitle, { color: theme.t1 }]}>Cambia password</Text>
+          </Pressable>
           <Pressable onPress={handleLogout} style={styles.row}>
             <Text style={[styles.rowTitle, { color: theme.red }]}>Esci dall'account</Text>
           </Pressable>

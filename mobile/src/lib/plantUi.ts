@@ -20,6 +20,11 @@ export const TASK_LABELS: Record<TaskTipo, string> = {
   potatura: 'Pota',
   rinvaso: 'Rinvasa',
   controllo: 'Controlla',
+  cambio_acqua: 'Cambia acqua',
+  taglio_steli: 'Taglia steli',
+  controllo_stato: 'Controlla',
+  rotazione: 'Ruota',
+  pulizia_foglie: 'Pulisci foglie',
 };
 
 const LUCE_LABELS: Record<string, string> = {

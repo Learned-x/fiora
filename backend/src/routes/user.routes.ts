@@ -36,6 +36,7 @@ function handleValidation(req: Request, res: Response): boolean {
  *               clima: { type: string, enum: [freddo, temperato, appartamento, mediterraneo, tropicale] }
  *               mostraNomiScientifici: { type: boolean }
  *               orarioReminder: { type: string, maxLength: 50 }
+ *               onboardingDone: { type: boolean }
  *     responses:
  *       200: { description: Profilo aggiornato }
  *       400: { description: Errore di validazione }
@@ -49,6 +50,7 @@ router.patch(
     body('clima').optional().isIn(CLIMA_VALORI).withMessage('Clima non valido'),
     body('mostraNomiScientifici').optional().isBoolean().withMessage('mostraNomiScientifici non valido'),
     body('orarioReminder').optional().isString().isLength({ max: 50 }).withMessage('orarioReminder non valido'),
+    body('onboardingDone').optional().isBoolean().withMessage('onboardingDone non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
@@ -59,6 +61,7 @@ router.patch(
         clima: req.body.clima,
         mostraNomiScientifici: req.body.mostraNomiScientifici,
         orarioReminder: req.body.orarioReminder,
+        onboardingDone: req.body.onboardingDone,
       });
       res.json({ success: true, data: profile });
     } catch (err: any) {

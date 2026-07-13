@@ -4,8 +4,10 @@ import { router } from 'expo-router';
 import { Pressable } from 'react-native';
 import { useTheme } from '../../src/theme/useTheme';
 import { Button } from '../../src/components/Button';
+import { useAuthStore } from '../../src/store/auth.store';
+import type { Clima } from '../../src/types/models';
 
-const CLIMATES = [
+const CLIMATES: { id: Clima; label: string; desc: string }[] = [
   { id: 'temperato', label: 'Temperato', desc: 'Nord Italia, Europa centrale' },
   { id: 'mediterraneo', label: 'Mediterraneo', desc: 'Centro-Sud Italia, Spagna' },
   { id: 'tropicale', label: 'Tropicale', desc: 'Caldo e umido tutto l’anno' },
@@ -15,7 +17,8 @@ const CLIMATES = [
 
 export default function ClimateScreen() {
   const theme = useTheme();
-  const [selected, setSelected] = useState<string | null>(null);
+  const setPendingClima = useAuthStore((s) => s.setPendingClima);
+  const [selected, setSelected] = useState<Clima | null>(null);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -56,7 +59,10 @@ export default function ClimateScreen() {
         <Button
           label="Continua"
           disabled={!selected}
-          onPress={() => router.push('/(auth)/auth')}
+          onPress={() => {
+            if (selected) setPendingClima(selected);
+            router.push('/(auth)/auth');
+          }}
         />
       </View>
     </SafeAreaView>

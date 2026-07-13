@@ -3,8 +3,10 @@ import { AxiosError } from 'axios';
 import { api, setOnSessionExpired } from '../services/api';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../services/storage';
 import { GoogleSignInCancelledError, signInWithGoogle } from '../services/oauth';
+import { getMe, updateMe } from '../services/user.api';
+import type { Clima, GracePeriod, UserProfile } from '../types/models';
 
-interface User {
+interface AuthUser {
   id: string;
   email: string | null;
   name: string | null;
@@ -13,7 +15,8 @@ interface User {
 interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: User;
+  user: AuthUser;
+  graceperiod?: GracePeriod;
 }
 
 interface ApiErrorBody {
@@ -21,7 +24,10 @@ interface ApiErrorBody {
 }
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
+  profile: UserProfile | null;
+  graceperiod: GracePeriod | null;
+  pendingClima: Clima | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isRestoring: boolean;
@@ -31,6 +37,9 @@ interface AuthState {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
+  setPendingClima: (clima: Clima) => void;
+  refreshProfile: () => Promise<void>;
+  clearGracePeriod: () => void;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -38,8 +47,30 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return axiosErr.response?.data?.error?.message ?? fallback;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+// Dopo un'autenticazione riuscita: invia il clima scelto nell'onboarding (se presente)
+// e carica il profilo completo da /auth/me. Best-effort: un errore qui non blocca il login.
+async function syncProfileAfterAuth(
+  set: (partial: Partial<AuthState>) => void,
+  pendingClima: Clima | null
+) {
+  try {
+    if (pendingClima) {
+      const profile = await updateMe({ clima: pendingClima, onboardingDone: true });
+      set({ profile, pendingClima: null });
+    } else {
+      const profile = await getMe();
+      set({ profile });
+    }
+  } catch {
+    // Il profilo verrà ricaricato alla prossima occasione (restoreSession / refreshProfile)
+  }
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  profile: null,
+  graceperiod: null,
+  pendingClima: null,
   isAuthenticated: false,
   isLoading: false,
   isRestoring: true,
@@ -52,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { accessToken, refreshToken, user } = response.data.data;
       await saveTokens(accessToken, refreshToken);
       set({ user, isAuthenticated: true, isLoading: false });
+      await syncProfileAfterAuth(set, get().pendingClima);
     } catch (err) {
       set({ isLoading: false, error: extractErrorMessage(err, 'Registrazione fallita') });
       throw err;
@@ -62,9 +94,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post<{ data: AuthResponse }>('/auth/login', { email, password });
-      const { accessToken, refreshToken, user } = response.data.data;
+      const { accessToken, refreshToken, user, graceperiod } = response.data.data;
       await saveTokens(accessToken, refreshToken);
-      set({ user, isAuthenticated: true, isLoading: false });
+      set({ user, graceperiod: graceperiod ?? null, isAuthenticated: true, isLoading: false });
+      await syncProfileAfterAuth(set, get().pendingClima);
     } catch (err) {
       set({ isLoading: false, error: extractErrorMessage(err, 'Credenziali non valide') });
       throw err;
@@ -76,9 +109,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const idToken = await signInWithGoogle();
       const response = await api.post<{ data: AuthResponse }>('/auth/oauth/google', { idToken });
-      const { accessToken, refreshToken, user } = response.data.data;
+      const { accessToken, refreshToken, user, graceperiod } = response.data.data;
       await saveTokens(accessToken, refreshToken);
-      set({ user, isAuthenticated: true, isLoading: false });
+      set({ user, graceperiod: graceperiod ?? null, isAuthenticated: true, isLoading: false });
+      await syncProfileAfterAuth(set, get().pendingClima);
     } catch (err) {
       if (err instanceof GoogleSignInCancelledError) {
         set({ isLoading: false });
@@ -99,18 +133,46 @@ export const useAuthStore = create<AuthState>((set) => ({
       // logout lato server best-effort: procediamo comunque a pulire lo stato locale
     }
     await clearTokens();
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, profile: null, graceperiod: null, isAuthenticated: false });
   },
 
   restoreSession: async () => {
     set({ isRestoring: true });
     const accessToken = await getAccessToken();
-    // Non esiste un endpoint "me": consideriamo valida la sessione se un token è presente;
-    // l'interceptor di refresh gestirà comunque la scadenza alla prima chiamata reale.
-    set({ isAuthenticated: !!accessToken, isRestoring: false });
+    if (!accessToken) {
+      set({ isAuthenticated: false, isRestoring: false });
+      return;
+    }
+    set({ isAuthenticated: true });
+    try {
+      const profile = await getMe();
+      set({
+        profile,
+        user: { id: profile.id, email: profile.email, name: profile.name },
+        graceperiod: profile.graceperiod ?? null,
+        isRestoring: false,
+      });
+    } catch {
+      // Token presente ma /auth/me fallito (es. offline): la sessione resta valida,
+      // l'interceptor di refresh gestirà l'eventuale scadenza alla prima chiamata reale.
+      set({ isRestoring: false });
+    }
   },
+
+  setPendingClima: (clima) => set({ pendingClima: clima }),
+
+  refreshProfile: async () => {
+    const profile = await getMe();
+    set({
+      profile,
+      user: { id: profile.id, email: profile.email, name: profile.name },
+      graceperiod: profile.graceperiod ?? null,
+    });
+  },
+
+  clearGracePeriod: () => set({ graceperiod: null }),
 }));
 
 setOnSessionExpired(() => {
-  useAuthStore.setState({ user: null, isAuthenticated: false });
+  useAuthStore.setState({ user: null, profile: null, graceperiod: null, isAuthenticated: false });
 });

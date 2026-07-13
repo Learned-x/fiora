@@ -6,6 +6,7 @@ export interface UpdateProfileInput {
   clima?: string;
   mostraNomiScientifici?: boolean;
   orarioReminder?: string;
+  onboardingDone?: boolean;
 }
 
 const profileSelect = {
@@ -31,6 +32,7 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
       ...(input.clima !== undefined && { clima: input.clima }),
       ...(input.mostraNomiScientifici !== undefined && { mostraNomiScientifici: input.mostraNomiScientifici }),
       ...(input.orarioReminder !== undefined && { orarioReminder: input.orarioReminder }),
+      ...(input.onboardingDone !== undefined && { onboardingDone: input.onboardingDone }),
     },
     select: profileSelect,
   });

@@ -42,7 +42,12 @@ export type TaskTipo =
   | 'nebulizzazione'
   | 'potatura'
   | 'rinvaso'
-  | 'controllo';
+  | 'controllo'
+  | 'cambio_acqua'
+  | 'taglio_steli'
+  | 'controllo_stato'
+  | 'rotazione'
+  | 'pulizia_foglie';
 
 export type TaskStato = 'pending' | 'completato' | 'saltato';
 export type TaskSorgente = 'calendario' | 'sensore' | 'manuale';
@@ -56,5 +61,42 @@ export interface Task {
   scadenza: string;
   completatoA: string | null;
   nota: string | null;
+  inRitardo?: boolean;
   plant: { id: string; nome: string; fotoUrl: string | null };
+}
+
+export type Clima = 'freddo' | 'temperato' | 'appartamento' | 'mediterraneo' | 'tropicale';
+
+export interface GracePeriod {
+  active: boolean;
+  deletedAt: string;
+  giorniRimanenti: number;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string | null;
+  name: string | null;
+  clima: Clima;
+  onboardingDone: boolean;
+  mostraNomiScientifici: boolean;
+  orarioReminder: string;
+  graceperiod?: GracePeriod;
+}
+
+export interface AppOption {
+  id: string;
+  categoria: string;
+  chiave: string;
+  etichetta: string;
+  ordine: number;
+  attivo: boolean;
+}
+
+export interface ActionLogEntry {
+  id: string;
+  plantId: string;
+  tipo: string;
+  nota: string | null;
+  createdAt: string;
 }

@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Plant, PlantStato, Species, StatoBouquet, Task, TaskTipo } from '../types/models';
+import type { ActionLogEntry, Plant, PlantStato, Species, StatoBouquet, Task, TaskTipo } from '../types/models';
 
 // ── Piante ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ export interface CreatePlantInput {
   note?: string;
   statoBouquet?: StatoBouquet;
   dataRicezione?: string;
+  giaInAcqua?: boolean;
 }
 
 export async function createPlant(input: CreatePlantInput): Promise<Plant> {
@@ -76,6 +77,23 @@ export async function postponeTask(taskId: string, scadenza: string): Promise<Ta
 
 export async function skipTask(taskId: string): Promise<Task> {
   const res = await api.patch<{ data: Task }>(`/tasks/${taskId}`, { azione: 'salta' });
+  return res.data.data;
+}
+
+// ── Storico cure ──────────────────────────────────────────────────────────────
+
+export interface ListPlantActionsResult {
+  items: ActionLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export async function listPlantActions(
+  plantId: string,
+  params: { tipo?: string; from?: string; to?: string; limit?: number; offset?: number } = {}
+): Promise<ListPlantActionsResult> {
+  const res = await api.get<{ data: ListPlantActionsResult }>(`/plants/${plantId}/actions`, { params });
   return res.data.data;
 }
 
