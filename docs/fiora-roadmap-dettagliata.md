@@ -501,17 +501,18 @@ Import completo del catalogo botanico Trefle in locale e contributi utenti con m
 ### Task Principali
  
 1. **Import iniziale catalogo Trefle**
-   - Creare tabella `trefle_species_raw` (schema definito nelle specifiche tecniche, sezione 4)
-   - Implementare `trefle.service.ts`: job batch paginato che importa **l'intero catalogo Trefle** (non solo le specie cercate), salvando il payload completo in JSONB
+   - La tabella `species_import_raw` esiste già (rinominata da `trefle_species_raw` il 2026-07-13, vedi integrazioni §2.5; colonna `fonte` distingue `'csv'` da `'trefle'`)
+   - In dev/test il catalogo esteso viene popolato via **import CSV manuale** (`fonte='csv'`, set ridotto di specie); l'import Trefle è il meccanismo di produzione
+   - Implementare `trefle.service.ts`: job batch paginato che importa **l'intero catalogo Trefle** (non solo le specie cercate) con `fonte='trefle'`, salvando il payload completo in JSONB
    - Rendere il job **resumable**: salvare il progresso (es. ultima pagina) in Redis, per poter ripartire dopo crash/riavvio senza ripartire da zero
    - Rispettare il rate limit Trefle (120 req/min) — stimare e comunicare al team il tempo totale previsto prima di lanciare l'import in produzione (potenzialmente giorni, non minuti)
 2. **Sync verso il catalogo applicativo**
    - Job BullMQ giornaliero `trefle-sync.job.ts`: aggiorna i record raw già importati e propaga le modifiche a `species`
    - Rispettare il flag `fonte`: non sovrascrivere mai le specie modificate manualmente (`fonte='curato'`)
-   - Aggiornare `species.trefle_id` e `species.immagine_principale_url` durante il sync
+   - Aggiornare `species.external_id` e `species.immagine_principale_url` durante il sync
 3. **Contributi Utenti**
    - `POST /species/propose`: proposta nuova specie
-   - Verifica automatica contro `trefle_species_raw` (non più chiamata live a Trefle, dato che il catalogo è già importato)
+   - Verifica automatica contro `species_import_raw` (non più chiamata live a Trefle, dato che il catalogo è già importato)
    - Stato: in_revisione / approvato / rifiutato
 4. **Area Admin**
    - Screen web (React SPA semplice)
@@ -520,7 +521,7 @@ Import completo del catalogo botanico Trefle in locale e contributi utenti con m
    - Notifica utente su esito
    - (Opzionale) Vista stato/avanzamento dell'import Trefle, utile in fase di lancio
 ### Deliverables
-- ✅ Catalogo Trefle importato integralmente in `trefle_species_raw`
+- ✅ Catalogo Trefle importato integralmente in `species_import_raw` (`fonte='trefle'`)
 - ✅ Job di sync giornaliero operativo, con rispetto delle specie curate manualmente
 - ✅ Catalogo a tre livelli operativo, ricerca interamente su DB locale
 - ✅ Contributi utenti abilitati
@@ -533,7 +534,7 @@ Import completo del catalogo botanico Trefle in locale e contributi utenti con m
 | Rischio | Probabilità | Impatto | Mitigazione |
 |---------|-------------|---------|--------------|
 | Import Trefle interrotto a metà (crash, rate limit, manutenzione Trefle) | Media | Basso | Job resumable con checkpoint in Redis; nessun impatto sugli utenti, il catalogo curato resta sempre disponibile |
-| Volume dati Trefle superiore alle stime (storage) | Bassa | Medio | Monitorare crescita tabella `trefle_species_raw`; valutare se servono solo le famiglie di piante rilevanti per Fiora invece del catalogo completo |
+| Volume dati Trefle superiore alle stime (storage) | Bassa | Medio | Monitorare crescita tabella `species_import_raw`; valutare se servono solo le famiglie di piante rilevanti per Fiora invece del catalogo completo |
  
 ---
  

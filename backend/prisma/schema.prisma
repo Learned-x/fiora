@@ -41,10 +41,13 @@ model User {
   @@map("users")
 }
 
-// ─── Trefle Raw (va definita prima di Species per la FK) ─────────────────────
+// ─── Species Import Raw (va definita prima di Species per la FK) ─────────────
+// Catalogo grezzo importato da fonti esterne: CSV manuale in dev/test,
+// Trefle in produzione (Fase 9). Il campo `fonte` distingue l'origine.
 
-model TrefleSpeciesRaw {
-  trefleId         Int       @id @map("trefle_id")
+model SpeciesImportRaw {
+  externalId       Int       @id @map("external_id")
+  fonte            String    @default("csv") @db.VarChar(50) // 'csv' | 'trefle'
   slug             String    @db.Text
   scientificName   String    @map("scientific_name") @db.Text
   commonName       String?   @map("common_name") @db.Text
@@ -53,16 +56,16 @@ model TrefleSpeciesRaw {
   genus            String?   @db.Text
   rank             String?   @db.Text    // species, ssp, var, etc.
   status           String?   @db.Text    // accepted, unknown...
-  data             Json                  // payload completo Trefle (JSONB)
-  updatedAtTrefle  DateTime? @map("updated_at_trefle") @db.Timestamptz()
+  data             Json                  // payload completo della fonte (JSONB)
+  updatedAtSource  DateTime? @map("updated_at_source") @db.Timestamptz()
   syncedAt         DateTime  @default(now()) @map("synced_at") @db.Timestamptz()
 
   species Species[]
 
-  @@index([scientificName], name: "idx_trefle_raw_scientific_name")
-  @@index([commonName], name: "idx_trefle_raw_common_name")
-  @@index([family], name: "idx_trefle_raw_family")
-  @@map("trefle_species_raw")
+  @@index([scientificName], name: "idx_species_import_raw_scientific_name")
+  @@index([commonName], name: "idx_species_import_raw_common_name")
+  @@index([family], name: "idx_species_import_raw_family")
+  @@map("species_import_raw")
 }
 
 // ─── Species ─────────────────────────────────────────────────────────────────
@@ -83,8 +86,8 @@ model Species {
   fonte                String   @db.VarChar(50)   // 'curato' | 'trefle' | 'utente'
   stato                String   @default("attivo") @db.VarChar(50) // 'attivo' | 'in_revisione'
 
-  // Collegamento a Trefle (solo se fonte='trefle')
-  trefleId             Int?     @unique @map("trefle_id")
+  // Collegamento al catalogo grezzo importato (CSV in dev, Trefle in prod)
+  externalId           Int?     @unique @map("external_id")
   immaginePrincipaleUrl String? @map("immagine_principale_url") @db.VarChar(500)
 
   // Moderazione (solo se fonte='utente')
@@ -94,7 +97,7 @@ model Species {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  trefleRaw    TrefleSpeciesRaw? @relation(fields: [trefleId], references: [trefleId])
+  importRaw    SpeciesImportRaw? @relation(fields: [externalId], references: [externalId])
   proposedBy   User?             @relation("ProposedBy", fields: [propostoDao], references: [id])
   approvedBy   User?             @relation("ApprovedBy", fields: [approvatoDa], references: [id])
   plants       Plant[]

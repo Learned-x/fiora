@@ -145,6 +145,25 @@ Cambio di strategia rispetto alla spec 12.1 (ricerca live con fallback):
 **import massivo nel DB locale + sincronizzazione periodica**. Dettagli e fattibilità in §4.
 La Fase 9 della roadmap viene ridefinita di conseguenza.
 
+### 2.5 Catalogo grezzo generico — `species_import_raw` (2026-07-13)
+
+La tabella `trefle_species_raw` è stata rinominata in **`species_import_raw`**
+(model Prisma `SpeciesImportRaw`, migration `rinomina_catalogo_import_generico`),
+con campi generici: `external_id` (era `trefle_id`), `updated_at_source` (era
+`updated_at_trefle`) e nuova colonna **`fonte`** (`'csv' | 'trefle'`, default `'csv'`).
+Anche `species.trefle_id` è stato rinominato in `species.external_id`.
+
+Motivazione: in **dev e test** le specie del catalogo esteso verranno importate
+manualmente **via CSV** con un set ridotto di piante, senza dipendere da Trefle.
+L'import massivo Trefle resta il meccanismo previsto per la produzione (Fase 9);
+la colonna `fonte` distingue l'origine dei record e permette ai due meccanismi
+di convivere sulla stessa tabella.
+
+Conseguenze:
+- lo script/job di import Trefle (§4.3) scriverà su `species_import_raw` con `fonte='trefle'`;
+- serve uno script di import CSV (`fonte='csv'`) per il seed del catalogo esteso in dev — da definire;
+- i riferimenti a `trefle_species_raw` nelle specifiche tecniche v1 e nelle roadmap si intendono aggiornati al nuovo nome.
+
 ---
 
 ## 3. Decisioni di specifica da prendere
@@ -216,7 +235,7 @@ cambio email rinviato insieme a 3.1.
 ### 4.3 Architettura proposta (ridefinizione Fase 9)
 
 1. **Import iniziale** — script/job BullMQ `trefle-import`:
-   pagina per pagina (`/plants?page=N`), upsert su `species` per `trefleId`
+   pagina per pagina (`/plants?page=N`), upsert su `species_import_raw` per `externalId` con `fonte='trefle'` (vedi 2.5)
    (`fonte='trefle'`, `stato='attivo'`, campi cura null), checkpoint pagina in tabella
    `sync_state` per ripresa dopo interruzione. Throttle 100 req/min (margine sul limite).
 2. **Arricchimento on-demand** — alla prima selezione di una specie `fonte='trefle'`

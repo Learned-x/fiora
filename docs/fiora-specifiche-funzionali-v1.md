@@ -747,7 +747,7 @@ Quando il bouquet viene marcato come Concluso (manualmente o automaticamente), l
 3. L'utente compila i campi obbligatori: nome comune (in italiano), categoria (lista dinamica dal DB), luce (lista dinamica dal DB), frequenza annaffiatura (lista dinamica dal DB).
 4. Opzionalmente compila: nome scientifico, umidità, temperatura, tossicità, note, foto.
 5. Tocca "Invia proposta".
-6. Il backend verifica se la specie è già presente in `trefle_species_raw` (il catalogo Trefle importato):
+6. Il backend verifica se la specie è già presente in `species_import_raw` (il catalogo importato: CSV in dev, Trefle in prod):
    - **Se trovata:** viene aggiunta direttamente al catalogo condiviso con i dati Trefle integrati a quelli dell'utente.
    - **Se non trovata:** va in stato `in_revisione`, visibile solo al proponente fino all'approvazione admin.
 7. L'utente può usare subito la specie proposta nella propria collezione.

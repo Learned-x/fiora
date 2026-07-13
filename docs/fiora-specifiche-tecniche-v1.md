@@ -348,11 +348,13 @@ CREATE TABLE plants (
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
  
--- Dati raw da Trefle (catalogo botanico completo, importato integralmente)
--- Creata PRIMA di species, perché species.trefle_id referenzia questa tabella
-CREATE TABLE trefle_species_raw (
-  trefle_id          INTEGER PRIMARY KEY,        -- ID numerico Trefle
-  slug               TEXT NOT NULL,              -- slug Trefle (es. monstera-deliciosa)
+-- Catalogo botanico grezzo importato da fonti esterne (rinominata da trefle_species_raw il 2026-07-13,
+-- vedi fiora-specifiche-integrazioni-v1.md §2.5): CSV manuale in dev/test, Trefle in produzione.
+-- Creata PRIMA di species, perché species.external_id referenzia questa tabella
+CREATE TABLE species_import_raw (
+  external_id        INTEGER PRIMARY KEY,        -- ID numerico della fonte (ID Trefle o ID assegnato nel CSV)
+  fonte              VARCHAR(50) NOT NULL DEFAULT 'csv',  -- 'csv' | 'trefle'
+  slug               TEXT NOT NULL,              -- slug (es. monstera-deliciosa)
   scientific_name    TEXT NOT NULL,              -- nome scientifico ufficiale
   common_name        TEXT,                       -- nome comune principale (se presente)
   family             TEXT,
@@ -360,15 +362,15 @@ CREATE TABLE trefle_species_raw (
   genus              TEXT,
   rank               TEXT,                       -- species, ssp, var, etc.
   status             TEXT,                       -- accepted, unknown...
-  data               JSONB NOT NULL,             -- payload completo Trefle (growth, specifications, images, distributions, ecc.)
-  updated_at_trefle  TIMESTAMPTZ,                -- ultima data di update vista su Trefle (se disponibile)
+  data               JSONB NOT NULL,             -- payload completo della fonte (growth, specifications, images, distributions, ecc.)
+  updated_at_source  TIMESTAMPTZ,                -- ultima data di update vista sulla fonte (se disponibile)
   synced_at          TIMESTAMPTZ DEFAULT NOW()   -- ultima sincronizzazione riuscita
 );
  
 -- Indici di ricerca sui dati raw (usati dal job di import/sync, non dalla ricerca utente)
-CREATE INDEX idx_trefle_raw_scientific_name ON trefle_species_raw (scientific_name);
-CREATE INDEX idx_trefle_raw_common_name     ON trefle_species_raw (common_name);
-CREATE INDEX idx_trefle_raw_family          ON trefle_species_raw (family);
+CREATE INDEX idx_species_import_raw_scientific_name ON species_import_raw (scientific_name);
+CREATE INDEX idx_species_import_raw_common_name     ON species_import_raw (common_name);
+CREATE INDEX idx_species_import_raw_family          ON species_import_raw (family);
  
 -- Specie botaniche (catalogo a tre livelli)
 CREATE TABLE species (
@@ -386,8 +388,8 @@ CREATE TABLE species (
   soglia_umidita   INTEGER,               -- % sotto cui il vaso smart attiva alert
   fonte            VARCHAR(50) NOT NULL,  -- 'curato' | 'trefle' | 'utente'
   stato            VARCHAR(50) NOT NULL DEFAULT 'attivo',  -- 'attivo' | 'in_revisione'
-  trefle_id            INTEGER REFERENCES trefle_species_raw(trefle_id),  -- collegamento al payload raw, se fonte='trefle'
-  immagine_principale_url VARCHAR(500),   -- shortcut all'immagine principale Trefle, evita di rileggere il JSONB per le liste
+  external_id          INTEGER REFERENCES species_import_raw(external_id),  -- collegamento al payload raw importato (CSV o Trefle)
+  immagine_principale_url VARCHAR(500),   -- shortcut all'immagine principale, evita di rileggere il JSONB per le liste
   proposto_da      UUID REFERENCES users(id),  -- solo per fonte='utente'
   approvato_da     UUID REFERENCES users(id),
   created_at       TIMESTAMPTZ DEFAULT NOW(),
@@ -482,20 +484,20 @@ CREATE INDEX idx_tasks_user_scadenza ON tasks(user_id, scadenza) WHERE stato = '
 CREATE INDEX idx_action_logs_plant ON action_logs(plant_id, created_at DESC);
 CREATE INDEX idx_species_nome ON species USING gin(to_tsvector('simple', nome_comune));
 -- Sostituisce il precedente idx_species_trefle su nome_scientifico: ora il collegamento
--- a Trefle passa per trefle_id (chiave numerica stabile), non più per il nome scientifico.
-CREATE UNIQUE INDEX idx_species_trefle_id ON species(trefle_id) WHERE trefle_id IS NOT NULL;
+-- al catalogo raw passa per external_id (chiave numerica stabile), non più per il nome scientifico.
+CREATE UNIQUE INDEX idx_species_external_id ON species(external_id) WHERE external_id IS NOT NULL;
 ```
  
 > **species**
-> Rappresenta il **catalogo specie usato da Fiora** (dati già normalizzati per il dominio: luce, annaffiatura, soglie, note). Il campo `trefle_id` collega, quando presente, la specie al record raw in `trefle_species_raw`. `fonte` indica da dove nasce la specie:
+> Rappresenta il **catalogo specie usato da Fiora** (dati già normalizzati per il dominio: luce, annaffiatura, soglie, note). Il campo `external_id` collega, quando presente, la specie al record raw in `species_import_raw`. `fonte` indica da dove nasce la specie:
 > - `trefle`: derivata automaticamente dal catalogo Trefle (ma comunque salvata e modificabile localmente)
 > - `curato`: modificata o creata a mano dallo staff Fiora
 > - `utente`: proposta dagli utenti tramite flusso "proponi nuova specie"
 >
 > Quando una specie viene modificata manualmente da un admin, la sua `fonte` passa da `trefle` a `curato` e non viene più sovrascritta automaticamente dal job di sync (vedi sezione 8).
  
-> **trefle_species_raw**
-> Contiene **tutti i dati restituiti da Trefle** per ogni specie, in formato JSONB nel campo `data`. È la sorgente dati "grezza" da cui deriva il catalogo interno `species`. In questo modo, se in futuro servono nuovi campi (es. `growth.*`, `specifications.*`, immagini, distribuzioni) sono già disponibili senza dover richiamare di nuovo l'API Trefle o cambiare schema. Il catalogo viene importato **integralmente** da un job batch (sezione 8), non popolato in modo incrementale durante la ricerca utente.
+> **species_import_raw** (rinominata da `trefle_species_raw` il 2026-07-13, vedi integrazioni §2.5)
+> Contiene **i dati grezzi importati da fonti esterne** per ogni specie, in formato JSONB nel campo `data`, con la colonna `fonte` a distinguere l'origine (`csv` per l'import manuale in dev/test, `trefle` per l'import massivo in produzione). È la sorgente dati "grezza" da cui deriva il catalogo interno `species`. In questo modo, se in futuro servono nuovi campi (es. `growth.*`, `specifications.*`, immagini, distribuzioni) sono già disponibili senza dover richiamare di nuovo l'API o cambiare schema. In produzione il catalogo Trefle viene importato **integralmente** da un job batch (sezione 8), non popolato in modo incrementale durante la ricerca utente.
  
 ---
  
@@ -1009,9 +1011,11 @@ const REMINDER_INTERVALS = {
  
 ## 8. Catalogo specie
  
-### Sorgente dati botanici — Trefle
+### Sorgente dati botanici — Trefle (prod) / CSV (dev-test)
  
-Fiora utilizza **Trefle** come sorgente principale per i dati botanici (tassonomia, crescita, distribuzione, immagini). A differenza di un fallback "live" al momento della ricerca, l'intero catalogo Trefle accessibile dalla chiave API viene **importato una volta in `trefle_species_raw`** tramite un job batch, e da lì sincronizzato verso `species`. La ricerca utente (sezione "Flusso ricerca specie" sotto) lavora quindi sempre su dati già presenti in PostgreSQL, mai su chiamate dirette a Trefle in tempo reale.
+Fiora utilizza **Trefle** come sorgente principale per i dati botanici in produzione (tassonomia, crescita, distribuzione, immagini). A differenza di un fallback "live" al momento della ricerca, l'intero catalogo Trefle accessibile dalla chiave API viene **importato una volta in `species_import_raw`** (con `fonte='trefle'`) tramite un job batch, e da lì sincronizzato verso `species`. La ricerca utente (sezione "Flusso ricerca specie" sotto) lavora quindi sempre su dati già presenti in PostgreSQL, mai su chiamate dirette a Trefle in tempo reale.
+ 
+In **dev e test** la stessa tabella viene popolata manualmente **via import CSV** (`fonte='csv'`) con un set ridotto di specie, senza dipendere da Trefle (vedi integrazioni §2.5).
  
 > ⚠️ **Nota sui tempi e i volumi**: Trefle espone centinaia di migliaia di specie, con un rate limit di **120 richieste/minuto**. L'import completo richiede quindi ore o giorni, non minuti. Il job di import va progettato come **resumable**: deve salvare il progresso (es. ultima pagina importata) e poter ripartire da dove si era interrotto in caso di crash, riavvio del backend o superamento di una sessione di rate limit, senza ripartire da zero.
  
@@ -1022,8 +1026,8 @@ Fiora utilizza **Trefle** come sorgente principale per i dati botanici (tassonom
 //
 // Job batch (eseguito una tantum al primo deploy, poi solo per nuove pagine
 // se Trefle aggiunge specie) che importa l'intero catalogo Trefle in
-// trefle_species_raw. Paginato e resumable: salva l'ultima pagina completata
-// in Redis per poter ripartire in caso di interruzione.
+// species_import_raw (fonte='trefle'). Paginato e resumable: salva l'ultima
+// pagina completata in Redis per poter ripartire in caso di interruzione.
  
 const TREFLE_PAGE_SIZE = 200;
 const RATE_LIMIT_DELAY_MS = 60_000 / 120; // rispetta i 120 req/min
@@ -1037,8 +1041,8 @@ async function importFullTrefleCatalog() {
  
     await prisma.$transaction(
       response.data.map((item) =>
-        prisma.trefle_species_raw.upsert({
-          where: { trefle_id: item.id },
+        prisma.species_import_raw.upsert({
+          where: { external_id: item.id },
           create: mapTrefleRawRecord(item),
           update: mapTrefleRawRecord(item),
         })
@@ -1056,7 +1060,8 @@ async function importFullTrefleCatalog() {
  
 function mapTrefleRawRecord(item: TrefleApiSpecies) {
   return {
-    trefle_id: item.id,
+    external_id: item.id,
+    fonte: 'trefle',
     slug: item.slug,
     scientific_name: item.scientific_name,
     common_name: item.common_name,
@@ -1066,7 +1071,7 @@ function mapTrefleRawRecord(item: TrefleApiSpecies) {
     rank: item.rank,
     status: item.status,
     data: item, // payload completo, salvato così com'è
-    updated_at_trefle: item.updated_at ? new Date(item.updated_at) : null,
+    updated_at_source: item.updated_at ? new Date(item.updated_at) : null,
   };
 }
 ```
@@ -1082,11 +1087,11 @@ function mapTrefleRawRecord(item: TrefleApiSpecies) {
 // (mai sovrascritte automaticamente).
  
 const trefleSyncWorker = new Worker('trefle-sync', async () => {
-  const rawRecords = await prisma.trefle_species_raw.findMany();
+  const rawRecords = await prisma.species_import_raw.findMany({ where: { fonte: 'trefle' } });
  
   for (const raw of rawRecords) {
     await prisma.species.upsert({
-      where: { trefle_id: raw.trefle_id },
+      where: { external_id: raw.external_id },
       create: mapTrefleRawToSpecies(raw),
       update: {
         // Aggiorna solo le specie ancora marcate fonte='trefle':
@@ -1129,10 +1134,10 @@ async function searchSpecies(query: string) {
 ### Mappatura dati Trefle → schema interno
  
 ```typescript
-function mapTrefleRawToSpecies(raw: TrefleSpeciesRaw): Partial<Species> {
+function mapTrefleRawToSpecies(raw: SpeciesImportRaw): Partial<Species> {
   const trefleSpecies = raw.data as TrefleApiSpecies;
   return {
-    trefle_id:        raw.trefle_id,
+    external_id:      raw.external_id,
     nome_comune:      trefleSpecies.common_name ?? trefleSpecies.scientific_name,
     nome_scientifico: trefleSpecies.scientific_name,
     categoria:        mapCategoria(trefleSpecies.family),

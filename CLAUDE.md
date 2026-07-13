@@ -50,6 +50,7 @@ Prossimo: **Fase 4.5 lato mobile** (consumare i nuovi endpoint), poi Fase 5.
 - **Guard auth nelle tabs**: `app/(tabs)/_layout.tsx` fa `Redirect` a `/(auth)/climate` se non autenticato; NON esiste `app/index.tsx` (creava conflitto di route con `(tabs)/index.tsx`, entrambi risolvono `/`)
 - **SpeciesPickerModal condiviso** tra add-plant ed edit-plant, ricerca con debounce 250ms su `/species`
 - **Trefle** (deciso dopo verifica live API): import completo indice in DB locale (437k specie, ~3-4h, rate limit 120 req/min), sync SETTIMANALE (non giornaliero: dataset stabile, scan costoso), ricerca pg_trgm. Trefle NON ha dati di cura → i reminder restano basati sulle nostre specie curate
+- **Catalogo grezzo generico** (2026-07-13): tabella `trefle_species_raw` rinominata in **`species_import_raw`** (model `SpeciesImportRaw`) con campi generici `externalId` (era trefleId), `updatedAtSource` e nuova colonna `fonte` (`'csv'|'trefle'`, default csv); anche `Species.trefleId` → `Species.externalId`. Motivo: in dev/test il catalogo esteso si popola via **import CSV manuale** con poche specie, Trefle resta il meccanismo di produzione (Fase 9). Migration `rinomina_catalogo_import_generico`. Script import CSV da scrivere (dentro /backend, vedi lezione ts-node)
 - **docs/ e CLAUDE.md versionati** in git (tolti da .gitignore, repo privato)
 - **Build iOS**: EAS come via principale; build locale accantonata per bug path con spazi (vedi sopra)
 
@@ -158,7 +159,7 @@ docker compose -f docker-compose.dev.yml ps        # stato container
 - **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE)
 - **Fase 7** Alert sensori
 - **Fase 8** Notifiche push (Expo)
-- **Fase 9** Catalogo esteso: import massivo Trefle in DB locale (437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
+- **Fase 9** Catalogo esteso: in dev/test import CSV manuale in `species_import_raw` (`fonte='csv'`, set ridotto — script da scrivere); in prod import massivo Trefle (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
 - **Fase 10** Apple Sign-In + rifinitura UI (inversione onboarding, fiori bouquet, empty state suggerimenti)
 - **Post-MVP** Email transazionali, offline SQLite, cambio email
 

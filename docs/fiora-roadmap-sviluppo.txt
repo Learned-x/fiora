@@ -330,12 +330,12 @@ Analisi basata sulle specifiche tecniche v1.4 e funzionali v1.0
 **Dipendenze:** Fase 5
  
 **Task principali:**
-1. Job batch resumable di import integrale catalogo Trefle in tabella `trefle_species_raw` (JSONB, rate limit 120 req/min)
-2. Job BullMQ giornaliero di sync `trefle_species_raw` → `species` (rispetta specie con fonte='curato')
+1. Job batch resumable di import integrale catalogo Trefle in tabella `species_import_raw` (JSONB, rate limit 120 req/min)
+2. Job BullMQ giornaliero di sync `species_import_raw` → `species` (rispetta specie con fonte='curato')
 3. Mappatura dati Trefle a schema interno
 4. Ricerca specie interamente su DB locale (niente più chiamata live a Trefle)
 5. API proposta nuova specie (POST /species/propose)
-6. Verifica automatica contro `trefle_species_raw` per proposte
+6. Verifica automatica contro `species_import_raw` per proposte
 7. Stato specie: in_revisione/approvato/rifiutato
 8. Area admin: lista specie in revisione
 9. Area admin: approvazione/rifiuto con nota
