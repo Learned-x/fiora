@@ -7,8 +7,26 @@ export const TASK_TYPES = [
   'nebulizzazione',
   'potatura',
   'rinvaso',
-  'controllo',
+  'controllo', // deprecato, mantenuto come alias — usare 'controllo_stato'
+  'cambio_acqua',
+  'taglio_steli',
+  'controllo_stato',
+  'rotazione',
+  'pulizia_foglie',
 ] as const;
+
+const GIORNI_IN_RITARDO = 3;
+
+export function isTaskLate(task: { stato: string; scadenza: Date }): boolean {
+  return (
+    task.stato === 'pending' &&
+    task.scadenza.getTime() < Date.now() - GIORNI_IN_RITARDO * 24 * 60 * 60 * 1000
+  );
+}
+
+function serializeTask<T extends { stato: string; scadenza: Date }>(task: T): T & { inRitardo: boolean } {
+  return { ...task, inRitardo: isTaskLate(task) };
+}
 
 export interface CreateTaskInput {
   tipo: string;
@@ -30,7 +48,7 @@ const plantSelect = { id: true, nome: true, fotoUrl: true } as const;
 export async function createTask(userId: string, plantId: string, input: CreateTaskInput) {
   await findOwnedPlant(userId, plantId);
 
-  return prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       plantId,
       userId,
@@ -41,12 +59,13 @@ export async function createTask(userId: string, plantId: string, input: CreateT
     },
     include: { plant: { select: plantSelect } },
   });
+  return serializeTask(task);
 }
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
 export async function listTasks(userId: string, filters: ListTasksFilters = {}) {
-  return prisma.task.findMany({
+  const tasks = await prisma.task.findMany({
     where: {
       userId,
       ...(filters.plantId && { plantId: filters.plantId }),
@@ -61,6 +80,7 @@ export async function listTasks(userId: string, filters: ListTasksFilters = {}) 
     orderBy: { scadenza: 'asc' },
     include: { plant: { select: plantSelect } },
   });
+  return tasks.map(serializeTask);
 }
 
 // ── Ownership helper ──────────────────────────────────────────────────────────
@@ -93,7 +113,7 @@ export async function completeTask(userId: string, taskId: string, nota?: string
     data: { plantId: task.plantId, userId, tipo: task.tipo, nota },
   });
 
-  return updated;
+  return serializeTask(updated);
 }
 
 // ── Postpone ──────────────────────────────────────────────────────────────────
@@ -105,12 +125,18 @@ export async function postponeTask(userId: string, taskId: string, scadenza: str
     throw { code: 'TASK_ALREADY_COMPLETED', status: 409, message: 'Task già completato' };
   }
 
+  const nuovaScadenza = new Date(scadenza);
+  if (nuovaScadenza <= new Date()) {
+    throw { code: 'TASK_SCADENZA_PASSATA', status: 400, message: 'La nuova scadenza deve essere nel futuro' };
+  }
+
   // Rimandare = il task resta pending con nuova scadenza
-  return prisma.task.update({
+  const updated = await prisma.task.update({
     where: { id: taskId },
-    data: { stato: 'pending', scadenza: new Date(scadenza) },
+    data: { stato: 'pending', scadenza: nuovaScadenza },
     include: { plant: { select: plantSelect } },
   });
+  return serializeTask(updated);
 }
 
 // ── Skip ──────────────────────────────────────────────────────────────────────
@@ -122,11 +148,12 @@ export async function skipTask(userId: string, taskId: string) {
     throw { code: 'TASK_ALREADY_COMPLETED', status: 409, message: 'Task già completato' };
   }
 
-  return prisma.task.update({
+  const updated = await prisma.task.update({
     where: { id: taskId },
     data: { stato: 'saltato' },
     include: { plant: { select: plantSelect } },
   });
+  return serializeTask(updated);
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────

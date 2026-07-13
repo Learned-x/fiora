@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.routes';
 import plantRoutes from './routes/plant.routes';
 import taskRoutes from './routes/task.routes';
 import speciesRoutes from './routes/species.routes';
+import userRoutes from './routes/user.routes';
+import optionsRoutes from './routes/options.routes';
 import { requireAuth } from './middleware/auth.middleware';
 import { swaggerSpec } from './lib/swagger';
 
@@ -27,6 +29,8 @@ app.use('/auth', authRoutes);
 app.use('/plants', requireAuth, plantRoutes);
 app.use('/tasks', requireAuth, taskRoutes);
 app.use('/species', requireAuth, speciesRoutes);
+app.use('/users', requireAuth, userRoutes);
+app.use('/options', requireAuth, optionsRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

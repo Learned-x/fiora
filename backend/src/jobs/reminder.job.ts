@@ -1,12 +1,17 @@
 import { Worker } from 'bullmq';
 import { redisConnection, reminderQueue } from '../lib/bullmq';
-import { generateWateringReminders } from '../services/reminder.service';
+import { runReminderEngine } from '../services/reminder.service';
 
 export const reminderWorker = new Worker(
   'reminder-engine',
   async () => {
-    const result = await generateWateringReminders();
-    console.log(`Reminder engine: ${result.created} task creati su ${result.checked} piante controllate`);
+    const result = await runReminderEngine();
+    console.log(
+      `Reminder engine: annaffiatura ${result.watering.created}/${result.watering.checked}, ` +
+        `concimazione ${result.fertilizing.created}/${result.fertilizing.checked}, ` +
+        `bouquet ${result.bouquet.created}/${result.bouquet.checked}, ` +
+        `statoBouquet aggiornati ${result.statoBouquetAggiornati.aggiornati}/${result.statoBouquetAggiornati.checked}`
+    );
     return result;
   },
   { connection: redisConnection }

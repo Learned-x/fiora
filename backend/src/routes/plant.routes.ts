@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import * as plantService from '../services/plant.service';
 import * as taskService from '../services/task.service';
+import * as plantActionService from '../services/plant-action.service';
 
 const router = Router();
 
@@ -66,6 +67,7 @@ router.post(
     body('fotoUrl').optional().trim().isLength({ max: 500 }).withMessage('fotoUrl troppo lungo'),
     body('statoBouquet').optional().isIn(['fresco', 'in_cura', 'appassendo', 'concluso']).withMessage('statoBouquet non valido'),
     body('dataRicezione').optional().isISO8601().withMessage('dataRicezione non valida'),
+    body('giaInAcqua').optional().isBoolean().withMessage('giaInAcqua non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
@@ -314,6 +316,72 @@ router.get(
         stato: req.query.stato as string | undefined,
       });
       res.json({ success: true, data: tasks });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /plants/{id}/actions:
+ *   get:
+ *     summary: Storico cure della pianta (action log paginato)
+ *     tags: [Plants]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: query
+ *         name: tipo
+ *         schema: { type: string }
+ *       - in: query
+ *         name: from
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: to
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20, maximum: 50 }
+ *       - in: query
+ *         name: offset
+ *         schema: { type: integer, default: 0 }
+ *     responses:
+ *       200: { description: "Storico cure: { items, total, limit, offset }" }
+ *       404: { description: Pianta non trovata }
+ */
+// ── GET /plants/:id/actions ────────────────────────────────────────────────────
+
+router.get(
+  '/:id/actions',
+  [
+    param('id').isUUID().withMessage('ID non valido'),
+    query('tipo').optional().isString(),
+    query('from').optional().isISO8601().withMessage('from non valido'),
+    query('to').optional().isISO8601().withMessage('to non valido'),
+    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('limit non valido (1-50)'),
+    query('offset').optional().isInt({ min: 0 }).withMessage('offset non valido'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      const result = await plantActionService.listPlantActions(
+        req.userId!,
+        req.params.id as string,
+        {
+          tipo: req.query.tipo as string | undefined,
+          from: req.query.from as string | undefined,
+          to: req.query.to as string | undefined,
+        },
+        {
+          limit: req.query.limit ? Number(req.query.limit) : undefined,
+          offset: req.query.offset ? Number(req.query.offset) : undefined,
+        }
+      );
+      res.json({ success: true, data: result });
     } catch (err: any) {
       handleError(res, err);
     }

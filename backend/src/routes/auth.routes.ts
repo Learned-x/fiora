@@ -324,4 +324,75 @@ router.post('/account/cancel-deletion', requireAuth, async (req: Request, res: R
   }
 });
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Profilo dell'utente autenticato
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Profilo utente }
+ *       401: { description: Token mancante, scaduto o non valido }
+ */
+// ── GET /auth/me ──────────────────────────────────────────────────────────────
+
+router.get('/me', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const profile = await authService.getProfile(req.userId!);
+    res.json({ success: true, data: profile });
+  } catch (err: any) {
+    res.status(err.status || 500).json({
+      success: false,
+      error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   post:
+ *     summary: Cambia la password dell'utente autenticato
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string, minLength: 8 }
+ *     responses:
+ *       200: { description: Password aggiornata }
+ *       401: { description: Password attuale non corretta }
+ */
+// ── POST /auth/change-password ────────────────────────────────────────────────
+
+router.post(
+  '/change-password',
+  requireAuth,
+  authLimiter,
+  [
+    body('currentPassword').notEmpty().withMessage('Password attuale obbligatoria'),
+    body('newPassword').isLength({ min: 8 }).withMessage('Nuova password minimo 8 caratteri'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      await authService.changePassword(req.userId!, req.body.currentPassword, req.body.newPassword);
+      res.json({ success: true, data: { message: 'Password aggiornata' } });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
+
 export default router;

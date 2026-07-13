@@ -49,6 +49,25 @@ describe('plant.service', () => {
       const args = (prisma.plant.create as jest.Mock).mock.calls[0][0];
       expect(args.data.statoBouquet).toBeNull();
     });
+
+    it('crea task iniziale cambio_acqua per bouquet non già in acqua', async () => {
+      (prisma.plant.create as jest.Mock).mockResolvedValue({ id: 'plant-1' });
+      (prisma.task.create as jest.Mock).mockResolvedValue({});
+
+      await plantService.createPlant('user-1', { nome: 'Rose', tipo: 'bouquet', giaInAcqua: false });
+
+      expect(prisma.task.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ tipo: 'cambio_acqua', plantId: 'plant-1' }) })
+      );
+    });
+
+    it('non crea task iniziale se il bouquet è già in acqua', async () => {
+      (prisma.plant.create as jest.Mock).mockResolvedValue({ id: 'plant-1' });
+
+      await plantService.createPlant('user-1', { nome: 'Rose', tipo: 'bouquet', giaInAcqua: true });
+
+      expect(prisma.task.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('listPlants', () => {
@@ -99,6 +118,29 @@ describe('plant.service', () => {
       await expect(plantService.updatePlant('user-1', 'plant-x', { nome: 'X' })).rejects.toMatchObject({
         code: 'PLANT_NOT_FOUND',
       });
+    });
+
+    it('annulla i task pending quando la pianta viene archiviata', async () => {
+      (prisma.plant.findFirst as jest.Mock).mockResolvedValue(mockPlant);
+      (prisma.plant.update as jest.Mock).mockResolvedValue({ ...mockPlant, stato: 'archiviato' });
+      (prisma.task.updateMany as jest.Mock).mockResolvedValue({});
+
+      await plantService.updatePlant('user-1', 'plant-1', { stato: 'archiviato' });
+
+      expect(prisma.task.updateMany).toHaveBeenCalledWith({
+        where: { plantId: 'plant-1', stato: 'pending' },
+        data: { stato: 'saltato' },
+      });
+    });
+
+    it('imposta statoBouquetManuale quando statoBouquet è impostato esplicitamente', async () => {
+      (prisma.plant.findFirst as jest.Mock).mockResolvedValue(mockPlant);
+      (prisma.plant.update as jest.Mock).mockResolvedValue({});
+
+      await plantService.updatePlant('user-1', 'plant-1', { statoBouquet: 'concluso' });
+
+      const args = (prisma.plant.update as jest.Mock).mock.calls[0][0];
+      expect(args.data.statoBouquetManuale).toBe(true);
     });
   });
 

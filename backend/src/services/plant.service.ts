@@ -22,6 +22,7 @@ export interface CreatePlantInput {
   fotoUrl?: string;
   statoBouquet?: string;
   dataRicezione?: string; // ISO date, solo per bouquet
+  giaInAcqua?: boolean; // solo bouquet: se false, crea task iniziale "metti in acqua"
 }
 
 export interface UpdatePlantInput {
@@ -55,6 +56,15 @@ export async function findOwnedPlant(userId: string, plantId: string) {
   return plant;
 }
 
+// Annulla i task pending di una pianta (usato su eliminazione e archiviazione,
+// per non generare reminder orfani su piante non più attive).
+async function skipPendingTasks(plantId: string): Promise<void> {
+  await prisma.task.updateMany({
+    where: { plantId, stato: 'pending' },
+    data: { stato: 'saltato' },
+  });
+}
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export async function createPlant(userId: string, input: CreatePlantInput) {
@@ -62,7 +72,7 @@ export async function createPlant(userId: string, input: CreatePlantInput) {
     await assertSpeciesExists(input.speciesId);
   }
 
-  return prisma.plant.create({
+  const plant = await prisma.plant.create({
     data: {
       userId,
       nome: input.nome,
@@ -76,6 +86,22 @@ export async function createPlant(userId: string, input: CreatePlantInput) {
     },
     include: { species: { select: speciesSelect } },
   });
+
+  if (input.tipo === 'bouquet' && !input.giaInAcqua) {
+    await prisma.task.create({
+      data: {
+        plantId: plant.id,
+        userId,
+        tipo: 'cambio_acqua',
+        sorgente: 'manuale',
+        stato: 'pending',
+        scadenza: new Date(),
+        nota: 'Metti il bouquet in acqua',
+      },
+    });
+  }
+
+  return plant;
 }
 
 // ── List ──────────────────────────────────────────────────────────────────────
@@ -119,7 +145,7 @@ export async function updatePlant(userId: string, plantId: string, input: Update
     await assertSpeciesExists(input.speciesId);
   }
 
-  return prisma.plant.update({
+  const updated = await prisma.plant.update({
     where: { id: plantId },
     data: {
       ...(input.nome !== undefined && { nome: input.nome }),
@@ -128,13 +154,19 @@ export async function updatePlant(userId: string, plantId: string, input: Update
       ...(input.note !== undefined && { note: input.note }),
       ...(input.fotoUrl !== undefined && { fotoUrl: input.fotoUrl }),
       ...(input.stato !== undefined && { stato: input.stato }),
-      ...(input.statoBouquet !== undefined && { statoBouquet: input.statoBouquet }),
+      ...(input.statoBouquet !== undefined && { statoBouquet: input.statoBouquet, statoBouquetManuale: true }),
       ...(input.dataRicezione !== undefined && {
         dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
       }),
     },
     include: { species: { select: speciesSelect } },
   });
+
+  if (input.stato === 'archiviato') {
+    await skipPendingTasks(plantId);
+  }
+
+  return updated;
 }
 
 // ── Delete (soft) ─────────────────────────────────────────────────────────────
@@ -145,8 +177,5 @@ export async function deletePlant(userId: string, plantId: string) {
   // Soft delete: la pianta resta in DB per storico/foto, sparisce dalle liste.
   // I task pending vengono annullati per non generare reminder orfani.
   await prisma.plant.update({ where: { id: plantId }, data: { stato: 'eliminato' } });
-  await prisma.task.updateMany({
-    where: { plantId, stato: 'pending' },
-    data: { stato: 'saltato' },
-  });
+  await skipPendingTasks(plantId);
 }

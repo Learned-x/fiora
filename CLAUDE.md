@@ -5,7 +5,8 @@ App mobile per la cura delle piante con integrazione IoT (vaso smart con sensori
 Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobile`).
 
 ## Stato attuale sviluppo
-**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅** (UI mobile completata e testata il 2026-07-08)
+**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 backend ✅** (backend consolidamento completato il 2026-07-13, non ancora committato)
+Prossimo: **Fase 4.5 lato mobile** (consumare i nuovi endpoint), poi Fase 5.
 
 ### Completato
 - Infrastruttura Docker locale: PostgreSQL (TimescaleDB), Redis, MinIO
@@ -17,13 +18,15 @@ Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobi
 - **Fase 2**: CRUD `/plants` (soft delete), task `/plants/:id/tasks` + `/tasks` (completa/rimanda/salta con action log), catalogo `/species` in sola lettura, seed 6 specie curate (`npm run seed`)
 - **Fase 3**: reminder engine BullMQ (`src/services/reminder.service.ts`, `src/jobs/reminder.job.ts`) — job ricorrente (repeatable, cron `0 6 * * *` via `upsertJobScheduler`) genera task `annaffiatura` sorgente `calendario` per piante attive con specie collegata, intervallo giorni mappato da `Species.annaffiatura` (poca=10gg/media=5gg/frequente=2gg, hardcoded in `INTERVALLO_ANNAFFIATURA_GIORNI`); piante senza specie o bouquet escluse
 - Swagger su `/docs`, export OpenAPI JSON su `/docs.json` (import Postman)
-- Test jest: 75 passati (route + service, prisma mockato)
+- Test jest: 133 passati (route + service, prisma mockato)
 - Mobile: Expo Router, onboarding clima → auth, login/registrazione email, Google Sign-In nativo funzionante (dev build EAS simulatore iOS), token in SecureStore, refresh interceptor
 - **Fase 4**: UI mobile — tab bar custom (Oggi/Piante/Aggiungi/Vasi/Impostazioni), schermata Oggi (task con Completa/Rimanda/Salta), collezione grid con filtri, dettaglio pianta/bouquet (guida cura, ciclo vita, azioni rapide), form aggiungi/modifica con picker specie, impostazioni con logout; Vasi placeholder (Fase 6)
+- **Fase 4.5 backend** (2026-07-13): migration `fase_4_5_consolidamento` — User (+`onboardingDone`, `mostraNomiScientifici`, `orarioReminder`, `role`, `pushToken`), Plant (+`statoBouquetManuale`), tabella `app_options` (unique `categoria+chiave`); reminder engine esteso (`runReminderEngine`): fattore clima su annaffiatura (`FATTORE_CLIMA`: freddo 1.3/temperato 1.0/appartamento 1.0/mediterraneo 0.8/tropicale 0.7, min 1gg), concimazione 30gg solo mar-ott, bouquet `cambio_acqua` 2gg + `controllo_stato` 1gg + stato automatico da `dataRicezione` (0-2 fresco/3-6 in_cura/7-10 appassendo/>10 concluso, skip se `statoBouquetManuale`); `ricalcolaScadenzeClima` su cambio clima (solo piante `vasoId:null`); TASK_TYPES +5 tipi (`cambio_acqua`, `taglio_steli`, `controllo_stato`, `rotazione`, `pulizia_foglie`; `controllo` deprecato); rimanda rifiuta scadenza passata (`TASK_SCADENZA_PASSATA`); flag derivato `inRitardo` (pending + scadenza >3gg fa) in ogni response task; archiviazione pianta ora salta i task pending (come delete); `giaInAcqua` su create bouquet → task iniziale `cambio_acqua`; nuovi endpoint `GET /auth/me`, `POST /auth/change-password`, `PATCH /users/me` (name/clima/mostraNomiScientifici/orarioReminder), `GET /options[/:categoria]`, `GET /plants/:id/actions` (storico paginato, filtri tipo/periodo); login con grace period non blocca più: restituisce `graceperiod {active, deletedAt, giorniRimanenti}`; seed: 12 specie + 39 `app_options`; test 133 passati
 - Repository GitHub privato
 
 ### Prossimi passi
-- **Fase 4.5 (consolidamento)** — vedi `docs/fiora-specifiche-integrazioni-v1.md` §1: /auth/me + PATCH /users/me, clima onboarding salvato, fix task su archiviazione, reminder concimazione+bouquet+stato automatico, tipi task allineati, modulazione clima, storico cure, app_options, migration campi User, seed 10 specie
+- **Fase 4.5 mobile** — consumare i nuovi endpoint: onboarding invia clima via `PATCH /users/me` post-auth + legge `onboardingDone` da `GET /auth/me`; banner grace period da `graceperiod` in risposta login (CTA → `POST /auth/account/cancel-deletion`); preset Rimanda 2h/domani/2gg client-side; conferma digitazione "ELIMINA" su delete pianta; schermata Storico cure (`GET /plants/:id/actions`); opzioni dinamiche da `GET /options/:categoria` (clima onboarding, posizione pianta); indicatore `inRitardo` sui task; cambio password in Impostazioni
+- Committare Fase 4.5 backend (non ancora committato)
 - Poi Fase 5 (foto diario MinIO)
 - Apple Sign-In mobile: in attesa credenziali Apple Developer personali
 - Valutare inversione onboarding: prima login, poi selezione clima (idea utente 2026-07-08, da decidere in fase successiva)
@@ -33,6 +36,31 @@ Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobi
   - `mobile/patches/expo-constants+18.0.13.patch` (via patch-package, postinstall) — quoting in EXConstants podspec e get-app-config-ios.sh
   - Fase "Bundle React Native code and images" in `ios/mobile.xcodeproj` ha lo stesso bug (backtick non quotato) — NON ancora patchata, build locale fallisce lì; per ora si usa EAS
 - Xcode 26 richiede runtime simulatore iOS 26 (scaricato)
+
+## Scelte progettuali fatte (con motivazione)
+- **Reminder engine su BullMQ repeatable job** (`upsertJobScheduler`, cron `0 6 * * *`) invece di cron di sistema: già usiamo BullMQ per account deletion, un solo meccanismo di scheduling
+- **Intervalli annaffiatura e fattori clima come costanti backend** (`INTERVALLO_ANNAFFIATURA_GIORNI`, `FATTORE_CLIMA` in reminder.service.ts) — `app_options` esiste (Fase 4.5) ma serve solo per le dropdown UI, non per la logica reminder; spostamento eventuale post-MVP
+- **statoBouquetManuale** (Fase 4.5): PATCH esplicito di `statoBouquet` imposta il flag e il cron non ricalcola più lo stato; nessun modo di riattivare l'automatismo (fuori scope)
+- **Grace period non blocca il login** (Fase 4.5): `AUTH_ACCOUNT_DELETED` rimosso, la risposta login include `graceperiod` — il mobile mostra banner con annulla eliminazione
+- **Compound unique Prisma 7**: il nome nel client è quello dell'attributo `@@unique(name:...)` (es. `uq_app_options_categoria_chiave`), NON `campo1_campo2`
+- **Riferimento scadenza task**: `completatoA ?? createdAt` dell'ultimo task annaffiatura, altrimenti `plant.createdAt`; skip se esiste già task pending (no duplicati)
+- **Google Sign-In**: client OAuth Web (ID token verificato dal backend), flusso nativo via dev build EAS — Expo Go non supporta il modulo nativo
+- **Apple Sign-In**: backend pronto, bottone mobile placeholder — mancano credenziali Apple Developer
+- **Dark mode**: `userInterfaceStyle: "automatic"` in app.json (era "light", bloccava il tema scuro; richiede rebuild nativa perché finisce in Info.plist)
+- **Guard auth nelle tabs**: `app/(tabs)/_layout.tsx` fa `Redirect` a `/(auth)/climate` se non autenticato; NON esiste `app/index.tsx` (creava conflitto di route con `(tabs)/index.tsx`, entrambi risolvono `/`)
+- **SpeciesPickerModal condiviso** tra add-plant ed edit-plant, ricerca con debounce 250ms su `/species`
+- **Trefle** (deciso dopo verifica live API): import completo indice in DB locale (437k specie, ~3-4h, rate limit 120 req/min), sync SETTIMANALE (non giornaliero: dataset stabile, scan costoso), ricerca pg_trgm. Trefle NON ha dati di cura → i reminder restano basati sulle nostre specie curate
+- **docs/ e CLAUDE.md versionati** in git (tolti da .gitignore, repo privato)
+- **Build iOS**: EAS come via principale; build locale accantonata per bug path con spazi (vedi sopra)
+
+## Errori corretti / lezioni apprese
+- **`docker exec` senza `-i`**: heredoc psql ignora stdin silenziosamente (exit 0, insert non eseguiti) — usare sempre `docker exec -i` e verificare con SELECT
+- **Conflitto route Expo Router**: `app/index.tsx` + `app/(tabs)/index.tsx` insieme rompono la risoluzione di `/` — tenere solo quello nel gruppo tabs
+- **Path con spazi rompe build iOS**: `bash -c "$VAR"` word-splitta il path espanso; fix con quoting interno, persistito via patch-package (vedi Note build)
+- **Prisma mock nei test**: nuove code BullMQ vanno aggiunte anche in `src/lib/__mocks__/bullmq.ts` o i test route falliscono
+- **ts-node fuori dal progetto**: script in /tmp non compilano (moduleResolution node16) — script one-off vanno dentro /backend, lanciati con `ts-node-dev --transpile-only`
+- **Trefle base URL**: l'env contiene già `/api/v1` — non riaggiungerlo nel client (404 su `/api/v1/api/v1`)
+- **Trefle campo `growth`**: quasi sempre null anche su specie comuni (verificato su Monstera deliciosa) — mai contarci per dati di cura
 
 ## Stack tecnico
 
@@ -46,8 +74,10 @@ Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobi
 ### Mobile (`/mobile`)
 - Expo SDK 54 + React Native + TypeScript
 - mqtt.js (connessione via WebSocket wss://)
-- Zustand (state management, da implementare)
-- Expo Router (navigazione, da implementare)
+- Zustand (state management — store auth in `src/store/auth.store.ts`)
+- Expo Router (navigazione file-based: gruppo `(auth)` onboarding, gruppo `(tabs)` app principale)
+- Axios (`src/services/api.ts`) con interceptor refresh token; token in expo-secure-store
+- react-native-svg per le icone; tema light/dark in `src/theme/` agganciato a `useColorScheme()`
 
 ### Database
 - PostgreSQL 16 + TimescaleDB (container: `fiora-postgres-dev`)
@@ -77,10 +107,9 @@ backend/
 │   │   └── mqtt.ts           ← MQTT subscriber HiveMQ Cloud
 │   ├── middleware/
 │   │   └── auth.middleware.ts ← JWT requireAuth middleware
-│   ├── services/
-│   │   └── auth.service.ts   ← logica autenticazione
-│   └── routes/
-│       └── auth.routes.ts    ← endpoints /auth/*
+│   ├── services/             ← auth, plants, tasks, species, reminder
+│   ├── jobs/                 ← worker BullMQ (reminder.job.ts, account deletion)
+│   └── routes/               ← /auth, /plants, /tasks, /species
 ├── prisma/
 │   └── schema.prisma         ← schema completo (users, plants, species, tasks, ecc.)
 └── generated/
@@ -124,7 +153,7 @@ docker compose -f docker-compose.dev.yml ps        # stato container
 - **Fase 2** ✅ CRUD piante + task (+ catalogo specie read-only)
 - **Fase 3** ✅ Reminder engine (BullMQ)
 - **Fase 4** ✅ App mobile UI (schermate principali)
-- **Fase 4.5** Consolidamento: profilo (/auth/me, PATCH /users/me), clima onboarding, fix archiviazione, reminder bouquet+concimazione, app_options, storico cure, migration campi User
+- **Fase 4.5** ✅ backend (2026-07-13) / mobile da fare: profilo (/auth/me, PATCH /users/me), clima onboarding, fix archiviazione, reminder bouquet+concimazione, app_options, storico cure, migration campi User
 - **Fase 5** Foto diario (MinIO)
 - **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE)
 - **Fase 7** Alert sensori

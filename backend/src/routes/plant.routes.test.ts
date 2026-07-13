@@ -1,4 +1,5 @@
 jest.mock('../services/plant.service');
+jest.mock('../services/plant-action.service');
 jest.mock('../services/task.service', () => ({
   ...jest.requireActual('../services/task.service'),
   createTask: jest.fn(),
@@ -22,6 +23,7 @@ import jwt from 'jsonwebtoken';
 import app from '../app';
 import * as plantService from '../services/plant.service';
 import * as taskService from '../services/task.service';
+import * as plantActionService from '../services/plant-action.service';
 
 const token = jwt.sign({ sub: 'user-1' }, process.env.JWT_SECRET!);
 const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
@@ -75,6 +77,22 @@ describe('Routes /plants', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.error.code).toBe('SPECIES_NOT_FOUND');
+    });
+
+    it('accetta giaInAcqua nel body', async () => {
+      (plantService.createPlant as jest.Mock).mockResolvedValue({ id: PLANT_ID, nome: 'Rose' });
+
+      const res = await auth(request(app).post('/plants')).send({
+        nome: 'Rose',
+        tipo: 'bouquet',
+        giaInAcqua: true,
+      });
+
+      expect(res.status).toBe(201);
+      expect(plantService.createPlant).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ giaInAcqua: true })
+      );
     });
   });
 
@@ -188,6 +206,40 @@ describe('Routes /plants', () => {
 
       expect(res.status).toBe(200);
       expect(taskService.listTasks).toHaveBeenCalledWith('user-1', { plantId: PLANT_ID, stato: 'pending' });
+    });
+  });
+
+  describe('GET /plants/:id/actions', () => {
+    it('restituisce lo storico cure paginato', async () => {
+      (plantActionService.listPlantActions as jest.Mock).mockResolvedValue({
+        items: [{ id: 'action-1' }],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      });
+
+      const res = await auth(request(app).get(`/plants/${PLANT_ID}/actions?tipo=annaffiatura`));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.items).toHaveLength(1);
+      expect(plantActionService.listPlantActions).toHaveBeenCalledWith(
+        'user-1',
+        PLANT_ID,
+        expect.objectContaining({ tipo: 'annaffiatura' }),
+        expect.any(Object)
+      );
+    });
+
+    it('propaga PLANT_NOT_FOUND se la pianta non è dell\'utente', async () => {
+      (plantActionService.listPlantActions as jest.Mock).mockRejectedValue({
+        code: 'PLANT_NOT_FOUND',
+        status: 404,
+        message: 'Pianta non trovata',
+      });
+
+      const res = await auth(request(app).get(`/plants/${PLANT_ID}/actions`));
+
+      expect(res.status).toBe(404);
     });
   });
 });

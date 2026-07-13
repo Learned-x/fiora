@@ -68,17 +68,81 @@ describe('auth.service', () => {
       });
     });
 
-    it('rifiuta se account in eliminazione', async () => {
+    it('riesce e restituisce graceperiod se account in eliminazione', async () => {
       const passwordHash = await bcrypt.hash('password123', 4);
+      const deletedAt = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUser,
         passwordHash,
-        deletedAt: new Date(),
+        deletedAt,
+      });
+      (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
+
+      const result = await authService.login('test@fiora.app', 'password123');
+
+      expect(result.accessToken).toBeDefined();
+      expect(result.graceperiod).toMatchObject({ active: true, deletedAt });
+      expect(result.graceperiod!.giorniRimanenti).toBeGreaterThan(0);
+    });
+
+    it('non include graceperiod se account non in eliminazione', async () => {
+      const passwordHash = await bcrypt.hash('password123', 4);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser, passwordHash });
+      (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
+
+      const result = await authService.login('test@fiora.app', 'password123');
+
+      expect(result.graceperiod).toBeUndefined();
+    });
+  });
+
+  describe('getProfile', () => {
+    it('restituisce il profilo utente', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@fiora.app',
+        name: 'Test',
+        clima: 'temperato',
+        onboardingDone: true,
+        mostraNomiScientifici: true,
+        orarioReminder: 'mattina_9',
+        deletedAt: null,
       });
 
-      await expect(authService.login('test@fiora.app', 'password123')).rejects.toMatchObject({
-        code: 'AUTH_ACCOUNT_DELETED',
-      });
+      const profile = await authService.getProfile('user-1');
+
+      expect(profile.email).toBe('test@fiora.app');
+      expect(profile.graceperiod).toBeUndefined();
+    });
+
+    it('rifiuta se utente non trovato', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(authService.getProfile('ghost')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('aggiorna la password se quella attuale è corretta', async () => {
+      const passwordHash = await bcrypt.hash('vecchia123', 4);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser, passwordHash });
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+      await authService.changePassword('user-1', 'vecchia123', 'nuovaPassword123');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'user-1' } })
+      );
+    });
+
+    it('rifiuta se la password attuale è errata', async () => {
+      const passwordHash = await bcrypt.hash('vecchia123', 4);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser, passwordHash });
+
+      await expect(
+        authService.changePassword('user-1', 'sbagliata', 'nuovaPassword123')
+      ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 

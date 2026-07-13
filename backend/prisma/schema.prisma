@@ -23,6 +23,11 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()  // soft delete
+  onboardingDone        Boolean  @default(false) @map("onboarding_done")
+  mostraNomiScientifici Boolean  @default(true)  @map("mostra_nomi_scientifici")
+  orarioReminder        String   @default("mattina_9") @map("orario_reminder") @db.VarChar(50)
+  role                  String   @default("user") @db.VarChar(50)
+  pushToken             String?  @map("push_token") @db.VarChar(255)
 
   plants              Plant[]
   tasks               Task[]
@@ -110,6 +115,7 @@ model Plant {
   fotoUrl        String?   @map("foto_url") @db.VarChar(500)
   stato          String    @default("attivo") @db.VarChar(50) // 'attivo' | 'archiviato' | 'eliminato'
   statoBouquet   String?   @map("stato_bouquet") @db.VarChar(50) // 'fresco' | 'in_cura' | 'appassendo' | 'concluso'
+  statoBouquetManuale Boolean @default(false) @map("stato_bouquet_manuale")
   dataRicezione  DateTime? @map("data_ricezione") @db.Date  // per i bouquet
   vasoId         String?   @map("vaso_id") @db.Uuid
   note           String?   @db.Text
@@ -213,6 +219,21 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+// ─── AppOptions ───────────────────────────────────────────────────────────────
+
+model AppOption {
+  id        String  @id @default(uuid()) @db.Uuid
+  categoria String  @db.VarChar(100)
+  chiave    String  @db.VarChar(100)
+  etichetta String  @db.VarChar(255)
+  ordine    Int     @default(0)
+  attivo    Boolean @default(true)
+
+  @@unique([categoria, chiave], name: "uq_app_options_categoria_chiave")
+  @@index([categoria, ordine], name: "idx_app_options_categoria_ordine")
+  @@map("app_options")
 }
 
 // ─── SensorReadings (TimescaleDB hypertable) ─────────────────────────────────

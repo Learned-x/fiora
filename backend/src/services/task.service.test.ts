@@ -4,12 +4,14 @@ import * as taskService from './task.service';
 import { prisma } from '../lib/prisma';
 
 const mockPlant = { id: 'plant-1', userId: 'user-1', stato: 'attivo' };
+const FUTURA = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 const mockTask = {
   id: 'task-1',
   plantId: 'plant-1',
   userId: 'user-1',
   tipo: 'annaffiatura',
   stato: 'pending',
+  scadenza: FUTURA,
 };
 
 beforeEach(() => jest.clearAllMocks());
@@ -55,6 +57,23 @@ describe('task.service', () => {
       expect(args.where.scadenza.gte).toEqual(new Date('2026-07-01T00:00:00Z'));
       expect(args.where.scadenza.lte).toEqual(new Date('2026-07-31T23:59:59Z'));
     });
+
+    it('segna inRitardo:true per task pending con scadenza oltre 3 giorni fa', async () => {
+      const scaduto = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
+      (prisma.task.findMany as jest.Mock).mockResolvedValue([{ ...mockTask, scadenza: scaduto }]);
+
+      const result = await taskService.listTasks('user-1');
+
+      expect(result[0].inRitardo).toBe(true);
+    });
+
+    it('segna inRitardo:false per task pending recenti', async () => {
+      (prisma.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
+
+      const result = await taskService.listTasks('user-1');
+
+      expect(result[0].inRitardo).toBe(false);
+    });
   });
 
   describe('completeTask', () => {
@@ -90,14 +109,24 @@ describe('task.service', () => {
 
   describe('postponeTask', () => {
     it('rimanda il task mantenendolo pending con nuova scadenza', async () => {
+      const scadenzaFutura = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
       (prisma.task.findFirst as jest.Mock).mockResolvedValue(mockTask);
-      (prisma.task.update as jest.Mock).mockResolvedValue(mockTask);
+      (prisma.task.update as jest.Mock).mockResolvedValue({ ...mockTask, scadenza: new Date(scadenzaFutura) });
 
-      await taskService.postponeTask('user-1', 'task-1', '2026-07-15T09:00:00Z');
+      await taskService.postponeTask('user-1', 'task-1', scadenzaFutura);
 
       const args = (prisma.task.update as jest.Mock).mock.calls[0][0];
       expect(args.data.stato).toBe('pending');
-      expect(args.data.scadenza).toEqual(new Date('2026-07-15T09:00:00Z'));
+      expect(args.data.scadenza).toEqual(new Date(scadenzaFutura));
+    });
+
+    it('rifiuta una scadenza nel passato', async () => {
+      (prisma.task.findFirst as jest.Mock).mockResolvedValue(mockTask);
+
+      await expect(
+        taskService.postponeTask('user-1', 'task-1', '2020-01-01T00:00:00Z')
+      ).rejects.toMatchObject({ code: 'TASK_SCADENZA_PASSATA' });
+      expect(prisma.task.update).not.toHaveBeenCalled();
     });
   });
 

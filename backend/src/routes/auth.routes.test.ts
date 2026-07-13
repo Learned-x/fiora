@@ -8,8 +8,12 @@ jest.mock('../lib/bullmq');
 jest.mock('../lib/redis');
 
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import app from '../app';
 import * as authService from '../services/auth.service';
+
+const token = jwt.sign({ sub: 'user-1' }, process.env.JWT_SECRET!);
+const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
 
 describe('POST /auth/register', () => {
   it('restituisce 201 con dati validi', async () => {
@@ -126,5 +130,70 @@ describe('DELETE /auth/account', () => {
     const res = await request(app).delete('/auth/account');
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('AUTH_TOKEN_MISSING');
+  });
+});
+
+describe('GET /auth/me', () => {
+  it('restituisce 401 senza token', async () => {
+    const res = await request(app).get('/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('restituisce il profilo con token valido', async () => {
+    (authService.getProfile as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      email: 'test@fiora.app',
+      clima: 'temperato',
+    });
+
+    const res = await auth(request(app).get('/auth/me'));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.email).toBe('test@fiora.app');
+  });
+});
+
+describe('POST /auth/change-password', () => {
+  it('restituisce 401 senza token', async () => {
+    const res = await request(app)
+      .post('/auth/change-password')
+      .send({ currentPassword: 'a', newPassword: 'nuovaPassword123' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('restituisce 400 con newPassword troppo corta', async () => {
+    const res = await auth(request(app).post('/auth/change-password')).send({
+      currentPassword: 'vecchia',
+      newPassword: '123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('aggiorna la password con dati validi', async () => {
+    (authService.changePassword as jest.Mock).mockResolvedValue(undefined);
+
+    const res = await auth(request(app).post('/auth/change-password')).send({
+      currentPassword: 'vecchia123',
+      newPassword: 'nuovaPassword123',
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('propaga AUTH_INVALID_CREDENTIALS se la password attuale è errata', async () => {
+    (authService.changePassword as jest.Mock).mockRejectedValue({
+      code: 'AUTH_INVALID_CREDENTIALS',
+      status: 401,
+      message: 'Password attuale non corretta',
+    });
+
+    const res = await auth(request(app).post('/auth/change-password')).send({
+      currentPassword: 'sbagliata',
+      newPassword: 'nuovaPassword123',
+    });
+
+    expect(res.status).toBe(401);
   });
 });

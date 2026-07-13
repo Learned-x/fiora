@@ -33,5 +33,12 @@ export const prisma = {
   },
   actionLog: {
     create: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
+  },
+  appOption: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    createMany: jest.fn(),
   },
 };

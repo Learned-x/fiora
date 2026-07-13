@@ -53,15 +53,20 @@ export async function register(email: string, password: string, name?: string) {
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
+function buildGracePeriod(deletedAt: Date | null) {
+  if (!deletedAt) return undefined;
+  const giorniRimanenti = Math.max(
+    0,
+    Math.ceil((deletedAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+  );
+  return { active: true, deletedAt, giorniRimanenti };
+}
+
 export async function login(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || !user.passwordHash) {
     throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Credenziali non valide' };
-  }
-
-  if (user.deletedAt) {
-    throw { code: 'AUTH_ACCOUNT_DELETED', status: 401, message: 'Account in fase di eliminazione' };
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
@@ -73,7 +78,59 @@ export async function login(email: string, password: string) {
   const refreshToken = generateRefreshToken();
   await saveRefreshToken(user.id, refreshToken);
 
-  return { accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name } };
+  const graceperiod = buildGracePeriod(user.deletedAt);
+
+  return {
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email, name: user.name },
+    ...(graceperiod && { graceperiod }),
+  };
+}
+
+// ── Profilo utente ────────────────────────────────────────────────────────────
+
+export async function getProfile(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      clima: true,
+      onboardingDone: true,
+      mostraNomiScientifici: true,
+      orarioReminder: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw { code: 'USER_NOT_FOUND', status: 404, message: 'Utente non trovato' };
+  }
+
+  const { deletedAt, ...profile } = user;
+  const graceperiod = buildGracePeriod(deletedAt);
+
+  return { ...profile, ...(graceperiod && { graceperiod }) };
+}
+
+// ── Cambio password ───────────────────────────────────────────────────────────
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || !user.passwordHash) {
+    throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Credenziali non valide' };
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Password attuale non corretta' };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────
