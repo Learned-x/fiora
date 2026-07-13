@@ -35,7 +35,9 @@ Da fare in una **Fase 4.5 di consolidamento**, prima della Fase 5. Riferimenti a
 - La selezione clima nell'onboarding mobile deve essere inviata al backend
   (`PATCH /users/me`) dopo l'autenticazione, non tenuta solo in stato locale.
 - Nuovo campo `onboardingDone` su User; l'onboarding non viene riproposto (spec 2.1, nota).
-- Resta aperta (fase successiva) l'inversione dell'ordine: prima login, poi clima.
+- ~~Resta aperta (fase successiva) l'inversione dell'ordine: prima login, poi clima.~~
+  **Fatta il 2026-07-13**: flusso intro → auth → login/register → clima post-auth (`/onboarding/climate`),
+  gated da `onboardingDone`; aggiunta pagina intro pre-auth a 3 slide.
 
 ### 1.3 Archiviazione e ripristino (spec 16.1, 16.2)
 
@@ -266,7 +268,7 @@ una query locale.
 | 5 | Foto diario (MinIO, resize WebP 1200px, timeline) | Invariata |
 | 6 | Vaso smart: MQTT→sensor_readings, schermate Vasi, pairing BLE, associazione pianta, ordinamento collezione "prossima azione" + filtro vaso | Invariata + code spostato da 3.4 |
 | 7 | Alert sensori (soglie → task `sensore`, gruppo rosso in Oggi già predisposto) | Invariata |
-| 8 | Notifiche push Expo (usa `pushToken` e `orarioReminder` da 4.5) | Invariata |
+| 8 | Notifiche push Expo (usa `pushToken` e `orarioReminder` da 4.5) — **fatta il 2026-07-13, solo reminder calendario**: digest o notifica singola, cron 9/15/19 per fascia `orarioReminder`, attive = `pushToken` non null; alert sensori spostati in Fase 7 | ✅ Ridotta |
 | **9 Catalogo esteso** | **Ridefinita**: import massivo Trefle (§4.3), arricchimento on-demand, sync settimanale, ricerca pg_trgm, proposta specie utente (verifica locale, non live), area admin moderazione (`role` da 4.5) | 🔄 Ridefinita |
 | 10 | Apple Sign-In, inversione onboarding login→clima (da decidere), fiori bouquet (3.3), empty state suggerimenti se non fatto in 4.5, rifinitura UI | Ampliata |
 | Post-MVP | Email transazionali (3.1), offline SQLite (3.2), cambio email (3.5) | 🆕 Parcheggio esplicito |

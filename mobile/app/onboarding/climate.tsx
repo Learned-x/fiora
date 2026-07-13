@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Pressable } from 'react-native';
 import { useTheme } from '../../src/theme/useTheme';
 import { Button } from '../../src/components/Button';
 import { useAuthStore } from '../../src/store/auth.store';
+import { updateMe } from '../../src/services/user.api';
+import { registerForPushNotifications } from '../../src/hooks/usePushNotifications';
 import type { Clima } from '../../src/types/models';
 
 const CLIMATES: { id: Clima; label: string; desc: string }[] = [
@@ -15,15 +16,32 @@ const CLIMATES: { id: Clima; label: string; desc: string }[] = [
   { id: 'appartamento', label: 'Appartamento riscaldato', desc: 'Stagionalità ridotta' },
 ];
 
-export default function ClimateScreen() {
+export default function OnboardingClimateScreen() {
   const theme = useTheme();
-  const setPendingClima = useAuthStore((s) => s.setPendingClima);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const [selected, setSelected] = useState<Clima | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleContinue() {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await updateMe({ clima: selected, onboardingDone: true });
+      await refreshProfile();
+      // Prompt permessi push subito dopo l'onboarding, best-effort.
+      registerForPushNotifications().catch(() => {});
+      router.replace('/(tabs)');
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il clima. Riprova.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.progress, { color: theme.t2 }]}>1 di 3</Text>
+        <Text style={[styles.progress, { color: theme.t2 }]}>Ultimo passaggio</Text>
         <Text style={[styles.title, { color: theme.t1 }]}>Dove vivi?</Text>
         <Text style={[styles.subtitle, { color: theme.t2 }]}>Adattiamo la cura al tuo clima.</Text>
 
@@ -56,14 +74,7 @@ export default function ClimateScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button
-          label="Continua"
-          disabled={!selected}
-          onPress={() => {
-            if (selected) setPendingClima(selected);
-            router.push('/(auth)/auth');
-          }}
-        />
+        <Button label="Continua" disabled={!selected} loading={saving} onPress={handleContinue} />
       </View>
     </SafeAreaView>
   );

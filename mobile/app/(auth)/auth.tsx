@@ -27,7 +27,7 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.content}>
-        <Text style={[styles.progress, { color: theme.t2 }]}>2 di 3</Text>
+        <Text style={[styles.progress, { color: theme.t2 }]}>1 di 2</Text>
         <Text style={[styles.title, { color: theme.t1 }]}>Crea account</Text>
         <Text style={[styles.subtitle, { color: theme.t2 }]}>I tuoi dati sincronizzati ovunque.</Text>
 

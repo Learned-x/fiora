@@ -4,9 +4,15 @@ import { TabBar } from '../../src/components/TabBar';
 
 export default function TabsLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const profile = useAuthStore((state) => state.profile);
 
   if (!isAuthenticated) {
-    return <Redirect href="/(auth)/climate" />;
+    return <Redirect href="/(auth)" />;
+  }
+
+  // Gate soft: se il profilo non è ancora caricato (es. restore offline) non blocchiamo.
+  if (profile && !profile.onboardingDone) {
+    return <Redirect href="/onboarding/climate" />;
   }
 
   return (

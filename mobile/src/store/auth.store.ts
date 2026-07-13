@@ -3,8 +3,8 @@ import { AxiosError } from 'axios';
 import { api, setOnSessionExpired } from '../services/api';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../services/storage';
 import { GoogleSignInCancelledError, signInWithGoogle } from '../services/oauth';
-import { getMe, updateMe } from '../services/user.api';
-import type { Clima, GracePeriod, UserProfile } from '../types/models';
+import { getMe } from '../services/user.api';
+import type { GracePeriod, UserProfile } from '../types/models';
 
 interface AuthUser {
   id: string;
@@ -27,7 +27,6 @@ interface AuthState {
   user: AuthUser | null;
   profile: UserProfile | null;
   graceperiod: GracePeriod | null;
-  pendingClima: Clima | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isRestoring: boolean;
@@ -37,7 +36,6 @@ interface AuthState {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
-  setPendingClima: (clima: Clima) => void;
   refreshProfile: () => Promise<void>;
   clearGracePeriod: () => void;
 }
@@ -47,30 +45,21 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return axiosErr.response?.data?.error?.message ?? fallback;
 }
 
-// Dopo un'autenticazione riuscita: invia il clima scelto nell'onboarding (se presente)
-// e carica il profilo completo da /auth/me. Best-effort: un errore qui non blocca il login.
-async function syncProfileAfterAuth(
-  set: (partial: Partial<AuthState>) => void,
-  pendingClima: Clima | null
-) {
+// Dopo un'autenticazione riuscita carica il profilo completo da /auth/me
+// (serve anche al gate onboarding). Best-effort: un errore qui non blocca il login.
+async function syncProfileAfterAuth(set: (partial: Partial<AuthState>) => void) {
   try {
-    if (pendingClima) {
-      const profile = await updateMe({ clima: pendingClima, onboardingDone: true });
-      set({ profile, pendingClima: null });
-    } else {
-      const profile = await getMe();
-      set({ profile });
-    }
+    const profile = await getMe();
+    set({ profile });
   } catch {
     // Il profilo verrà ricaricato alla prossima occasione (restoreSession / refreshProfile)
   }
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   profile: null,
   graceperiod: null,
-  pendingClima: null,
   isAuthenticated: false,
   isLoading: false,
   isRestoring: true,
@@ -83,7 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { accessToken, refreshToken, user } = response.data.data;
       await saveTokens(accessToken, refreshToken);
       set({ user, isAuthenticated: true, isLoading: false });
-      await syncProfileAfterAuth(set, get().pendingClima);
+      await syncProfileAfterAuth(set);
     } catch (err) {
       set({ isLoading: false, error: extractErrorMessage(err, 'Registrazione fallita') });
       throw err;
@@ -97,7 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { accessToken, refreshToken, user, graceperiod } = response.data.data;
       await saveTokens(accessToken, refreshToken);
       set({ user, graceperiod: graceperiod ?? null, isAuthenticated: true, isLoading: false });
-      await syncProfileAfterAuth(set, get().pendingClima);
+      await syncProfileAfterAuth(set);
     } catch (err) {
       set({ isLoading: false, error: extractErrorMessage(err, 'Credenziali non valide') });
       throw err;
@@ -112,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { accessToken, refreshToken, user, graceperiod } = response.data.data;
       await saveTokens(accessToken, refreshToken);
       set({ user, graceperiod: graceperiod ?? null, isAuthenticated: true, isLoading: false });
-      await syncProfileAfterAuth(set, get().pendingClima);
+      await syncProfileAfterAuth(set);
     } catch (err) {
       if (err instanceof GoogleSignInCancelledError) {
         set({ isLoading: false });
@@ -158,8 +147,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isRestoring: false });
     }
   },
-
-  setPendingClima: (clima) => set({ pendingClima: clima }),
 
   refreshProfile: async () => {
     const profile = await getMe();
