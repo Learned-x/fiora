@@ -1,9 +1,14 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { updateMe } from '../../src/services/user.api';
+import {
+  disablePushNotifications,
+  registerForPushNotifications,
+} from '../../src/hooks/usePushNotifications';
 import type { Clima } from '../../src/types/models';
 
 const CLIMA_LABELS: Record<Clima, string> = {
@@ -14,9 +19,59 @@ const CLIMA_LABELS: Record<Clima, string> = {
   tropicale: 'Tropicale',
 };
 
+// Coerente con le opzioni seed 'orario_reminder' del backend.
+const ORARIO_LABELS: Record<string, string> = {
+  mattina_9: 'Mattina (9:00)',
+  pomeriggio_15: 'Pomeriggio (15:00)',
+  sera_19: 'Sera (19:00)',
+};
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const { user, profile, logout, refreshProfile } = useAuthStore();
+  const [togglingPush, setTogglingPush] = useState(false);
+  const pushEnabled = profile?.pushToken != null;
+
+  async function handleTogglePush(value: boolean) {
+    if (togglingPush) return;
+    setTogglingPush(true);
+    try {
+      if (value) {
+        const token = await registerForPushNotifications();
+        if (!token) {
+          Alert.alert(
+            'Notifiche non disponibili',
+            'Consenti le notifiche dalle Impostazioni di sistema, oppure usa un dispositivo reale.'
+          );
+        }
+      } else {
+        await disablePushNotifications();
+      }
+    } catch {
+      Alert.alert('Errore', 'Aggiornamento non riuscito, riprova.');
+    } finally {
+      setTogglingPush(false);
+    }
+  }
+
+  function handleChangeOrario() {
+    const options = Object.keys(ORARIO_LABELS).map((orario) => ({
+      text: ORARIO_LABELS[orario] + (profile?.orarioReminder === orario ? ' ✓' : ''),
+      onPress: async () => {
+        if (profile?.orarioReminder === orario) return;
+        try {
+          await updateMe({ orarioReminder: orario });
+          await refreshProfile();
+        } catch {
+          Alert.alert('Errore', 'Aggiornamento non riuscito, riprova.');
+        }
+      },
+    }));
+    Alert.alert('Orario promemoria', 'Quando vuoi ricevere le notifiche delle cure?', [
+      ...options,
+      { text: 'Annulla', style: 'cancel' },
+    ]);
+  }
 
   function handleLogout() {
     Alert.alert('Esci', 'Vuoi uscire dal tuo account?', [
@@ -26,7 +81,7 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          router.replace('/(auth)/climate');
+          router.replace('/(auth)');
         },
       },
     ]);
@@ -83,6 +138,15 @@ export default function SettingsScreen() {
               {profile ? CLIMA_LABELS[profile.clima] : '—'}
             </Text>
           </Pressable>
+          <Pressable onPress={handleChangeOrario} style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}>
+            <View>
+              <Text style={[styles.rowTitle, { color: theme.t1 }]}>Orario promemoria</Text>
+              <Text style={[styles.rowSub, { color: theme.t2 }]}>Quando ricevere le notifiche</Text>
+            </View>
+            <Text style={[styles.rowValue, { color: theme.t2 }]}>
+              {profile ? ORARIO_LABELS[profile.orarioReminder] ?? '—' : '—'}
+            </Text>
+          </Pressable>
           <View style={styles.row}>
             <View>
               <Text style={[styles.rowTitle, { color: theme.t1 }]}>Modalità scura</Text>
@@ -100,8 +164,16 @@ export default function SettingsScreen() {
             <Text style={[styles.rowValue, { color: theme.t3 }]}>Prossimamente</Text>
           </View>
           <View style={styles.row}>
-            <Text style={[styles.rowTitle, { color: theme.t1 }]}>Notifiche</Text>
-            <Text style={[styles.rowValue, { color: theme.t3 }]}>Prossimamente</Text>
+            <View>
+              <Text style={[styles.rowTitle, { color: theme.t1 }]}>Notifiche</Text>
+              <Text style={[styles.rowSub, { color: theme.t2 }]}>Promemoria delle cure del giorno</Text>
+            </View>
+            <Switch
+              value={pushEnabled}
+              disabled={togglingPush}
+              onValueChange={handleTogglePush}
+              trackColor={{ true: theme.acc }}
+            />
           </View>
         </View>
 

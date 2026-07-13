@@ -3,10 +3,13 @@ import { ActivityIndicator, View } from 'react-native';
 import { Slot } from 'expo-router';
 import { useAuthStore } from '../src/store/auth.store';
 import { useTheme } from '../src/theme/useTheme';
+import { useNotificationObserver } from '../src/hooks/usePushNotifications';
 
 export default function RootLayout() {
   const { isRestoring, restoreSession } = useAuthStore();
   const theme = useTheme();
+
+  useNotificationObserver();
 
   useEffect(() => {
     restoreSession();

@@ -81,6 +81,7 @@ export interface UserProfile {
   onboardingDone: boolean;
   mostraNomiScientifici: boolean;
   orarioReminder: string;
+  pushToken: string | null;
   graceperiod?: GracePeriod;
 }
 

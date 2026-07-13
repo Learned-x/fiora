@@ -14,6 +14,7 @@ export interface UpdateProfileInput {
   mostraNomiScientifici?: boolean;
   orarioReminder?: string;
   onboardingDone?: boolean;
+  pushToken?: string | null;
 }
 
 export async function updateMe(input: UpdateProfileInput): Promise<UserProfile> {
