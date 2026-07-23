@@ -12,7 +12,18 @@
       "Bash(docker compose *)",
       "Bash(grep -rl \"GOOGLE_CLIENT_ID\" --include=\"*.env*\" .)",
       "Bash(find . -maxdepth 3 -iname \"*.env*\" -not -path \"*/node_modules/*\")",
-      "Bash(npx expo *)"
+      "Bash(npx expo *)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -X DELETE http://localhost:3000/plants/70edd57b-46a7-438c-8430-6beeddb0ed5b -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMTMxODE1My00MzQwLTQ5ZGMtYTY2OS05M2Y5ZWM5Nzg2YWEiLCJpYXQiOjE3ODM1MzQyMTEsImV4cCI6MTc4MzUzNTExMX0.9ZunEfDGr7f7RaS6skTOXWf1jgFJL0clIOJ6HTz5Qms')",
+      "Bash(docker exec *)",
+      "Bash(pkill -f \"ts-node-dev.*src/index.ts\")",
+      "Bash(jobs)",
+      "Bash(perl -pi -e \"s|'/home'|'/\\(tabs\\)'|g; s|\\\\\"/home\\\\\"|\\\\\"/\\(tabs\\)\\\\\"|g\" app/index.tsx \"app/\\(auth\\)/auth.tsx\" \"app/\\(auth\\)/register.tsx\" \"app/\\(auth\\)/_layout.tsx\" \"app/\\(auth\\)/login.tsx\")",
+      "Bash(rm app/home.tsx)",
+      "Bash(npx prisma *)",
+      "Bash(npm test *)",
+      "Bash(git add *)"
     ]
   }
 }
