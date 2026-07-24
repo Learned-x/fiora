@@ -220,8 +220,8 @@ export default function VasePairScreen() {
         ssid: ssid.trim(),
         password: wifiPassword,
         device_id: credentials.deviceId,
-        mqtt_username: credentials.mqttUsername,
-        mqtt_password: credentials.mqttPassword,
+        mqtt_user: credentials.mqttUsername,
+        mqtt_pass: credentials.mqttPassword,
       });
       await verifyVaseOnline(credentials.vaseId);
     } catch (err) {
@@ -242,8 +242,8 @@ export default function VasePairScreen() {
       ssid: string;
       password: string;
       device_id: string;
-      mqtt_username: string;
-      mqtt_password: string;
+      mqtt_user: string;
+      mqtt_pass: string;
     }
   ) {
     // MTU alto: il payload JSON supera i 20 byte del default BLE (iOS lo negozia da solo)
