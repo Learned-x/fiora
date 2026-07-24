@@ -156,7 +156,9 @@ volumes:
   minio_dev:
 ```
  
-### 1.4 Configurazione Mosquitto per development
+> **Superato (decisione 2026-07-24):** in development non si usa il container Mosquitto — il backend si connette a **HiveMQ Cloud** (cluster condiviso dev+staging, TLS 8883 backend / WebSocket 8884 mobile, credenziali in `.env.development`). Il servizio `mosquitto` qui sopra e la sezione 1.4 restano solo come riferimento storico. Mosquitto self-hosted è previsto unicamente in produzione.
+
+### 1.4 Configurazione Mosquitto per development (non usata — vedi nota sopra)
  
 In locale si usa MQTT senza TLS sulla porta 1883 e con autenticazione anonima. Questo elimina la necessità di gestire certificati durante lo sviluppo.
  
@@ -460,7 +462,9 @@ sudo chown $USER:$USER /opt/fiora-staging/nginx/ssl/*.pem
 echo "0 3 * * * certbot renew --quiet && cp /etc/letsencrypt/live/api-staging.tangifiori.com/fullchain.pem /opt/fiora-staging/nginx/ssl/ && cp /etc/letsencrypt/live/api-staging.tangifiori.com/privkey.pem /opt/fiora-staging/nginx/ssl/ && docker compose -f /opt/fiora-staging/docker-compose.staging.yml restart nginx" | crontab -
 ```
  
-### 2.6 Certificati TLS per Mosquitto MQTT
+> **Superato per staging (decisione 2026-07-24):** lo staging usa **HiveMQ Cloud** (stesso cluster di development), quindi niente container Mosquitto, certificati CA o file passwd sul server staging — `docker-compose.staging.yml` reale non include Mosquitto e `.env.staging` punta a HiveMQ. Le sezioni 2.6–2.7 valgono solo come procedura per la **produzione** (Mosquitto self-hosted, CA embeddata nel firmware ESP32).
+
+### 2.6 Certificati TLS per Mosquitto MQTT (solo produzione)
  
 Mosquitto richiede una propria CA (Certificate Authority) indipendente da quella di Nginx. Il certificato CA generato qui dovrà essere **embeddato nel firmware ESP32** del vaso smart.
  
@@ -488,11 +492,11 @@ chmod 600 server.key ca.key
 echo "IMPORTANTE: copiare ca.crt e consegnarlo al team hardware per il firmware ESP32"
 ```
  
-### 2.7 Configurazione Mosquitto per staging/production
+### 2.7 Configurazione Mosquitto (solo produzione)
  
 ```conf
 # mosquitto/config/mosquitto.conf
-# Usata sia in staging che in produzione
+# Solo produzione — staging usa HiveMQ Cloud (decisione 2026-07-24)
  
 # Porta MQTT con TLS obbligatorio
 listener 8883

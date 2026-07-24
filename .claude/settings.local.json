@@ -23,7 +23,8 @@
       "Bash(rm app/home.tsx)",
       "Bash(npx prisma *)",
       "Bash(npm test *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(node -e \"console.log\\(require.resolve\\('ts-jest/jest-preset'\\)\\)\")"
     ]
   }
 }

@@ -46,7 +46,7 @@
 | Linguaggio | TypeScript | Strict mode abilitato |
 | ORM | Prisma | Con PostgreSQL adapter |
 | Job queue | BullMQ (gratuito) | Basato su Redis |
-| MQTT broker | Mosquitto 2.x | Self-hosted su Docker |
+| MQTT broker | HiveMQ Cloud (dev+staging) / Mosquitto 2.x (produzione) | Decisione 2026-07-24: dev e staging usano il cluster condiviso HiveMQ Cloud; Mosquitto self-hosted solo in produzione |
 | MQTT client | mqtt.js (Node) | Per comunicazione broker ↔ backend |
 | Reverse proxy | Nginx | SSL termination, static files |
  
@@ -231,7 +231,17 @@ volumes:
   minio_data:
 ```
  
-### Configurazione Mosquitto
+### Broker MQTT per ambiente (decisione 2026-07-24)
+
+| Ambiente | Broker | Note |
+|---|---|---|
+| Development | HiveMQ Cloud (cluster condiviso) | TLS 8883 (backend), WebSocket 8884 (mobile) |
+| Staging | HiveMQ Cloud (stesso cluster) | Nessun container Mosquitto in `docker-compose.staging.yml` |
+| Produzione | Mosquitto 2.x self-hosted | ACL per-vaso, CA propria embeddata nel firmware ESP32 |
+
+La configurazione Mosquitto qui sotto vale **solo per la produzione**. In dev/staging le credenziali device si creano manualmente nella console HiveMQ Cloud (il piano gratuito non espone API di gestione credenziali) — l'automazione del pairing (`mosquitto_passwd`/ACL dinamiche, Fase 6) è implementabile solo contro Mosquitto e in dev/test va simulata con credenziali pre-create.
+
+### Configurazione Mosquitto (solo produzione)
  
 ```conf
 # /mosquitto/config/mosquitto.conf
@@ -774,6 +784,8 @@ PRIMO AVVIO — flusso completo
      smart_vases.stato = 'connesso'
      smart_vases.last_seen = NOW()
 ```
+
+> **Nota broker per ambiente (2026-07-24):** lo step "Aggiunge l'utente Mosquitto con adduser" vale solo in produzione. In dev/staging il broker è HiveMQ Cloud e le credenziali device vanno pre-create manualmente nella console (il piano gratuito non ha API di gestione credenziali): il backend restituisce credenziali già esistenti invece di crearle al volo. Inoltre il firmware ESP32 in dev/test verifica TLS con la CA pubblica di HiveMQ (Let's Encrypt), non con la CA propria di Mosquitto.
  
 ### Riconfigurazione WiFi (rete cambiata)
  

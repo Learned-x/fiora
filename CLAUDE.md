@@ -2,12 +2,12 @@
 
 ## Cos'è questo progetto
 App mobile per la cura delle piante con integrazione IoT (vaso smart con sensori).
-Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobile`).
+Monorepo con backend Node.js (`/backend`), app mobile React Native/Expo (`/mobile`) e firmware ESP32 (`/firmware/vaso`, Arduino).
 
 ## Stato attuale sviluppo
-**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro).
-Decisione utente (2026-07-13): MinIO/Fase 5 e vaso smart (Fasi 6-7) rimandati — prossimo obiettivo: **ambiente di test + TestFlight**.
-Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo su iPhone reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
+**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro) + **Fase 6 in corso** (pairing BLE vaso smart, 2026-07-24).
+Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo (iOS) o `expo run:android --device` (Android) su device reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
+**Da testare stasera/prossima sessione** (vedi dettagli in Fase 6 sotto): pairing BLE completo su device Android reale, firmware con provisioning su hardware fisico.
 
 ## Workflow Git (Git Flow)
 - **`main`**: solo release taggate, sempre deployabile/stabile. Mai commit diretti.
@@ -35,14 +35,19 @@ Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-
 - **Fase 8 backend** (2026-07-13): push Expo solo reminder calendario (niente alert sensori, rimandati a Fase 7) — `notification.service.ts` (`buildPushMessage`: 1 task → "🌱 Annaffia <Nome>" deep link `/plant/<id>`, N task → digest "Hai N cure da fare oggi" deep link `/`), coda BullMQ `push-reminders` + `notification.job.ts` (cron `0 9,15,19 * * *`, worker mappa ora→`orarioReminder` via `orarioFromHour`), utenti con `pushToken` non null e task pending `scadenza <= endOfDay`; ticket `DeviceNotRegistered` → azzera `pushToken`; `pushToken` (string|null) su `PATCH /users/me` e nelle select profilo; `expo-server-sdk@3` (v4 è ESM-only, backend CommonJS); test 153 passati
 - **Fase 8 mobile** (2026-07-13): `expo-notifications`+`expo-device` (plugin in app.json — richiede rebuild dev client EAS), hook `src/hooks/usePushNotifications.ts` (register/disable + `useNotificationObserver` per tap → deep link, cold start incluso), toggle Notifiche + riga Orario promemoria in Impostazioni; token iOS solo su device reale (simulatore: fallisce con grazia)
 - **Onboarding invertito + intro** (2026-07-13, Fase 10 parziale): pagina intro pre-auth 3 slide (`app/(auth)/index.tsx`), flusso intro → auth → login/register → clima post-auth (`app/onboarding/climate.tsx`, gated da `onboardingDone` in `(tabs)/_layout`, gate soft se profilo non caricato); `pendingClima` rimosso dallo store; prompt permessi push a fine onboarding
+- **Fase 6 backend — pairing vaso** (2026-07-24, commit `29176a3`): `src/services/vase.service.ts` + `src/routes/vase.routes.ts` montate su `/vases` (requireAuth) — `POST /vases/pair` (genera `device_id` UUID + restituisce credenziali MQTT), `GET /vases`, `GET/PATCH/DELETE /vases/:id`; `src/lib/mqtt.ts` handler reali: `handleTelemetry` risolve `deviceId→vasoId` e scrive `sensor_readings` + aggiorna `lastSeen`/batteria, `handleStatus` segna vaso connesso/disconnesso da messaggi `{status:"online"|"offline"}`
+- **Fase 6 firmware** (2026-07-24, `firmware/vaso/vaso.ino`, non nel monorepo prima): sketch ESP32 riscritto — WiFi/MQTT/device_id NON più hardcoded, letti da `Preferences` (flash); se assenti all'avvio parte BLE advertising `Fiora-XXXX` (MAC-based) con servizio custom (UUID `6e400001-...`, characteristic WRITE `6e400002-...`), riceve JSON `{ssid,password,device_id,mqtt_username,mqtt_password}` via `ArduinoJson`, salva e riavvia; fix bug preesistente: `publishTelemetry()` non era mai chiamata nel `loop()`, payload aveva luce/temperatura/batteria commentati
+- **Fase 6 mobile — schermata pairing** (2026-07-24, `app/vase/pair.tsx`): flusso **scan-first** (scansiona subito all'apertura → lista device `Fiora-*` trovati → utente seleziona → SOLO ALLORA form WiFi, non il contrario); dopo invio credenziali via BLE fa **verifica reale** (polling `GET /vases/:id` fino 45s finché `stato:'connesso'`, non solo "credenziali inviate"); errori BLE tradotti per codice (`BluetoothPoweredOff`, `DeviceDisconnected`, `OperationTimedOut`, ecc.) invece di messaggi grezzi; retry contestuale (fallimento in fase WiFi torna al form con SSID/password già compilati); cleanup vaso orfano lato backend se il provisioning fallisce dopo la creazione; `react-native-ble-plx` installato (richiede dev client nativo, no Expo Go); encoder base64 custom UTF-8 (no `btoa`, rompe con caratteri accentati in SSID/password)
 - Repository GitHub privato
 
 ### Prossimi passi
+- **Da testare (Fase 6, prossima sessione/stasera)**: pairing BLE end-to-end su device Android reale (non ancora provato, solo iOS-dev-client testato in build); build locale Android (`npx expo run:android --device`, richiede `ANDROID_HOME` in `.zshrc`); flash firmware nuovo su hardware ESP32 reale (finora solo la versione vecchia con credenziali hardcoded ha girato); verificare che l'utente MQTT condiviso (quello del backend, restituito dal pairing) abbia permessi corretti su HiveMQ Cloud per publish/subscribe sui topic `fiora/vaso/+/...`
 - **Ambiente staging** (in corso, 2026-07-24): backend in Docker su server Ubuntu locale (LAN casa), Postgres+Redis dedicati staging, `.env.staging`, `docker-compose.staging.yml`; mobile build EAS profilo `staging` puntata a IP LAN del server, installata su iPhone via Xcode+cavo (no TestFlight, manca account Apple Developer)
 - Script import CSV specie in `species_import_raw` (da scrivere, dentro /backend)
-- Rimandati: Fase 5 (foto MinIO), Fasi 6-7 (vaso smart), fiori bouquet, empty state suggerimenti
+- Rimandati: Fase 5 (foto MinIO), Fase 7 (alert sensori), fiori bouquet, empty state suggerimenti
 - QA push su device reale: token iOS, ricezione notifiche, tap → deep link
 - TestFlight + Apple Sign-In: rimandati, richiedono account Apple Developer
+- **npm test backend rotto** (scoperto 2026-07-24, preesistente non causato da Fase 6): `jest` fallisce con "Preset ts-jest not found relative to rootDir" nonostante `ts-jest` e `jest-preset.js` presenti in `node_modules` e risolvibili da Node — causa non identificata, verificato con `git stash` che il problema esiste anche su codice pristine. Da investigare prima di fidarsi della suite test.
 
 ### Note build iOS locale (npx expo run:ios)
 - Lo spazio nei path ("SSD Lexar", "Fiora TG") rompe script di build RN/Expo. Patch attive:
@@ -69,6 +74,10 @@ Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-
 - **Push notifications (Fase 8, 2026-07-13)**: stile "digest + singola smart" (1 task → notifica specifica con deep link pianta, N → digest); notifiche attive = `pushToken != null` (nessuna colonna `enable_notifications`); orario invio per-utente da `orarioReminder` (cron unico `0 9,15,19 * * *`, worker filtra per fascia); niente polling receipts Expo (solo errori ticket, `DeviceNotRegistered` → token azzerato); alert sensori esclusi (Fase 7)
 - **expo-server-sdk pinnato a v3**: v4+ è ESM-only e il backend è CommonJS (`TS1479` in build) — non aggiornare a v4 senza migrare il modulo system
 - **Onboarding invertito (2026-07-13)**: prima auth, poi clima come step post-login (`/onboarding/climate`) gated da `onboardingDone`; gate soft (profilo null offline → entra nei tabs); `pendingClima` eliminato; utenti esistenti con `onboardingDone:false` vedono il clima una volta al login successivo
+- **Pairing vaso: credenziali MQTT condivise, non per-device** (2026-07-24): tutti i vasi usano le stesse `MQTT_USERNAME`/`MQTT_PASSWORD` del backend (HiveMQ Cloud free non ha API di gestione credenziali) — MA vengono comunque *trasmesse dinamicamente* al vaso via BLE ad ogni pairing invece di essere hardcoded nel firmware, così sono cambiabili in futuro senza reflash. `device_id` generato dal backend (UUID) al momento del pairing, non dal firmware
+- **BLE custom invece di ESP-IDF WiFi Provisioning ufficiale** (2026-07-24): il protocollo Espressif standard (protobuf, handshake sicurezza) era troppo lungo da implementare in una sera — scelto un servizio BLE semplice (libreria Arduino `BLEDevice` nativa, già nel core ESP32, zero dipendenze extra) con una sola characteristic WRITE che riceve JSON via `ArduinoJson`. Meno sicuro (nessuna cifratura sul payload BLE) ma sufficiente per MVP locale; da rivalutare se si va in produzione con utenti reali
+- **Verifica pairing = stato reale, non "invio riuscito"** (2026-07-24): la schermata mobile non dichiara successo appena la scrittura BLE va a buon fine — fa polling `GET /vases/:id` fino a 45s aspettando `stato:'connesso'` (che il backend setta solo alla ricezione del primo messaggio MQTT `status:online` dal vaso). Motivo: BLE riuscito non garantisce che le credenziali WiFi/MQTT fossero corrette — l'utente deve sapere se il vaso è VERAMENTE online, non solo che gli è arrivato un messaggio
+- **Flusso pairing scan-first, non wifi-first** (2026-07-24, richiesta esplicita utente): prima si scansiona e si seleziona il device BLE, SOLO DOPO si chiedono le credenziali WiFi — non il contrario. Motivo: l'utente deve sapere a quale vaso fisico sta collegando prima di inserire dati sensibili
 
 ## Errori corretti / lezioni apprese
 - **`docker exec` senza `-i`**: heredoc psql ignora stdin silenziosamente (exit 0, insert non eseguiti) — usare sempre `docker exec -i` e verificare con SELECT
@@ -78,6 +87,10 @@ Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-
 - **ts-node fuori dal progetto**: script in /tmp non compilano (moduleResolution node16) — script one-off vanno dentro /backend, lanciati con `ts-node-dev --transpile-only`
 - **Trefle base URL**: l'env contiene già `/api/v1` — non riaggiungerlo nel client (404 su `/api/v1/api/v1`)
 - **Trefle campo `growth`**: quasi sempre null anche su specie comuni (verificato su Monstera deliciosa) — mai contarci per dati di cura
+- **react-native-screens deve restare allineato a Expo SDK54 (`~4.16.0`)**: una versione più recente (`^4.26.2`, finita in `package.json` non si sa come/quando) rompe il Codegen in build EAS con New Architecture (`Error: The first argument of method setToolbarMenuElementOptions must be of type React.ElementRef<>`) — fix con `npx expo install --fix`, mai bumpare a mano pacchetti nativi oltre il range SDK
+- **DB dev locale può svuotarsi silenziosamente**: container Postgres ricreato (es. dopo `docker compose down -v` o reset) riparte senza migration applicate — `prisma migrate status` mostra "not yet applied" ma non è un errore visibile finché non arriva una query reale. Dopo ogni riavvio infra dubbio: `npx prisma migrate deploy` + verificare hypertable TimescaleDB (`SELECT create_hypertable(...)`/`add_retention_policy(...)` vanno rifatti a mano, non sono nella migration SQL)
+- **`btoa` non basta per payload BLE con caratteri accentati**: SSID/password WiFi italiani possono contenere UTF-8 fuori range Latin1 — `btoa` tronca/corrompe silenziosamente, serve encoder base64 UTF-8-safe scritto a mano (vedi `utf8ToBase64` in `app/vase/pair.tsx`)
+- **iOS Simulator non ha stack Bluetooth**: `react-native-ble-plx` non funziona su simulatore (nessun hardware BLE) — testare pairing solo su device fisico
 
 ## Stack tecnico
 
@@ -110,7 +123,7 @@ Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-
 - **Topic telemetria vasi:** `fiora/vaso/{device_id}/telemetry`
 - **Topic status vasi:** `fiora/vaso/{device_id}/status`
 - **Topic config vasi:** `fiora/vaso/{device_id}/config`
-- In production si usa Mosquitto self-hosted (non HiveMQ) per compatibilità firmware ESP32
+- **Decisione 2026-07-24**: HiveMQ Cloud è il broker ufficiale di dev **e** staging (stesso cluster); Mosquitto self-hosted solo in produzione (ACL per-vaso, CA propria embeddata nel firmware ESP32). Implicazione Fase 6: il piano gratuito HiveMQ non ha API di gestione credenziali → in dev/test le credenziali device si pre-creano a mano nella console, il pairing automatico (`mosquitto_passwd`) esiste solo in prod. Docs allineati: specifiche-tecniche §3 (tabella broker per ambiente) e §6 (nota pairing), manuale-ambienti §1.4/§2.6-2.7 marcate "solo produzione"
 
 ## Struttura cartelle backend
 ```
@@ -124,9 +137,9 @@ backend/
 │   │   └── mqtt.ts           ← MQTT subscriber HiveMQ Cloud
 │   ├── middleware/
 │   │   └── auth.middleware.ts ← JWT requireAuth middleware
-│   ├── services/             ← auth, plants, tasks, species, reminder
+│   ├── services/             ← auth, plants, tasks, species, reminder, vase
 │   ├── jobs/                 ← worker BullMQ (reminder.job.ts, account deletion)
-│   └── routes/               ← /auth, /plants, /tasks, /species
+│   └── routes/               ← /auth, /plants, /tasks, /species, /vases
 ├── prisma/
 │   └── schema.prisma         ← schema completo (users, plants, species, tasks, ecc.)
 └── generated/
@@ -144,6 +157,8 @@ npx prisma studio                              # GUI database
 # Mobile (da /mobile)
 npx expo start -c                              # avvia con cache pulita
 npx expo install <pacchetto>                   # installa dipendenza compatibile SDK
+npx expo run:android --device                  # build locale Android su device USB (richiede ANDROID_HOME in .zshrc)
+eas build:run -p ios --latest                  # installa ultima build EAS su simulatore iOS
 
 # Docker (dalla root /fiora)
 docker compose -f docker-compose.dev.yml up -d    # avvia infrastruttura
@@ -190,7 +205,7 @@ eas build --profile staging --platform ios
 - **Fase 4** ✅ App mobile UI (schermate principali)
 - **Fase 4.5** ✅ backend + mobile (2026-07-13)
 - **Fase 5** Foto diario (MinIO) — rimandata (decisione 2026-07-13)
-- **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE) — rimandata
+- **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE) — **in corso** (2026-07-24): backend pairing+telemetria ✅, firmware BLE provisioning ✅ (mai testato su hardware), mobile schermata pairing ✅ (mai testata su device reale). Manca: test end-to-end reale, schermata dettaglio vaso/dati sensori in tempo reale (solo pairing fatto finora)
 - **Fase 7** Alert sensori (+ push per alert, esclusi da Fase 8) — rimandata
 - **Fase 8** ✅ Notifiche push Expo (2026-07-13, solo reminder calendario)
 - **Fase 9** Catalogo esteso: in dev/test import CSV manuale in `species_import_raw` (`fonte='csv'`, set ridotto — script da scrivere); in prod import massivo Trefle (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
