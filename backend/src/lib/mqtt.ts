@@ -1,29 +1,79 @@
 import mqtt, { MqttClient } from 'mqtt';
+import { prisma } from './prisma';
+import * as vaseService from '../services/vase.service';
 
 let client: MqttClient | null = null;
 
-// ── Handlers per ogni tipo di messaggio ──────────────────────────────────────
-
-function handleTelemetry(deviceId: string, payload: string) {
-  try {
-    const data = JSON.parse(payload);
-    console.log(`[MQTT] Telemetria da ${deviceId}:`, data);
-
-    // TODO (Fase 6): salvare in sensor_readings (TimescaleDB)
-    // TODO (Fase 6): triggerare BullMQ per check soglie
-  } catch {
-    console.error(`[MQTT] Payload telemetria non valido da ${deviceId}:`, payload);
-  }
+interface TelemetryPayload {
+  umidita?: number;
+  luce?: number;
+  temperatura?: number;
+  batteria?: number;
 }
 
-function handleStatus(deviceId: string, payload: string) {
-  try {
-    const data = JSON.parse(payload);
-    console.log(`[MQTT] Status da ${deviceId}:`, data);
+interface StatusPayload {
+  status: 'online' | 'offline';
+  batteria?: number;
+}
 
-    // TODO (Fase 6): aggiornare smart_vases.stato e last_seen
+// ── Handlers per ogni tipo di messaggio ──────────────────────────────────────
+
+async function handleTelemetry(deviceId: string, payload: string) {
+  let data: TelemetryPayload;
+  try {
+    data = JSON.parse(payload);
+  } catch {
+    console.error(`[MQTT] Payload telemetria non valido da ${deviceId}:`, payload);
+    return;
+  }
+
+  const vase = await prisma.smartVase.findUnique({ where: { deviceId } });
+  if (!vase) {
+    console.warn(`[MQTT] Telemetria da vaso sconosciuto: ${deviceId}`);
+    return;
+  }
+
+  const plant = await prisma.plant.findFirst({ where: { vasoId: vase.id } });
+
+  await prisma.sensorReading.create({
+    data: {
+      time: new Date(),
+      vasoId: vase.id,
+      plantId: plant?.id ?? null,
+      umidita: data.umidita ?? null,
+      luce: data.luce ?? null,
+      temperatura: data.temperatura ?? null,
+      batteria: data.batteria ?? null,
+    },
+  });
+
+  await vaseService.touchVaseLastSeen(deviceId, data.batteria);
+
+  // TODO (Fase 7): triggerare BullMQ per check soglie umidità e alert push
+}
+
+async function handleStatus(deviceId: string, payload: string) {
+  let data: StatusPayload;
+  try {
+    data = JSON.parse(payload);
   } catch {
     console.error(`[MQTT] Payload status non valido da ${deviceId}:`, payload);
+    return;
+  }
+
+  const vase = await prisma.smartVase.findUnique({ where: { deviceId } });
+  if (!vase) {
+    console.warn(`[MQTT] Status da vaso sconosciuto: ${deviceId}`);
+    return;
+  }
+
+  if (data.status === 'online') {
+    await vaseService.markVaseOnline(deviceId, data.batteria);
+    console.log(`[MQTT] Vaso ${deviceId} online (pairing completato o riconnesso)`);
+  } else {
+    await vaseService.markVaseOffline(deviceId);
+    console.log(`[MQTT] Vaso ${deviceId} offline`);
+    // TODO (Fase 7): notifica push + fallback a reminder calendario
   }
 }
 
@@ -35,14 +85,18 @@ function routeMessage(topic: string, payload: Buffer) {
   // fiora/vaso/{device_id}/telemetry
   const telemetryMatch = topic.match(/^fiora\/vaso\/([^/]+)\/telemetry$/);
   if (telemetryMatch) {
-    handleTelemetry(telemetryMatch[1], message);
+    handleTelemetry(telemetryMatch[1], message).catch((err) =>
+      console.error(`[MQTT] Errore gestione telemetria da ${telemetryMatch[1]}:`, err)
+    );
     return;
   }
 
   // fiora/vaso/{device_id}/status
   const statusMatch = topic.match(/^fiora\/vaso\/([^/]+)\/status$/);
   if (statusMatch) {
-    handleStatus(statusMatch[1], message);
+    handleStatus(statusMatch[1], message).catch((err) =>
+      console.error(`[MQTT] Errore gestione status da ${statusMatch[1]}:`, err)
+    );
     return;
   }
 

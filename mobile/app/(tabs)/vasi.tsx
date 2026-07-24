@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
+import { Button } from '../../src/components/Button';
 
 export default function VasiScreen() {
   const theme = useTheme();
@@ -11,10 +13,13 @@ export default function VasiScreen() {
         <Text style={[styles.title, { color: theme.t1 }]}>Vasi Smart</Text>
         <View style={styles.placeholder}>
           <Text style={{ fontSize: 44, marginBottom: 16 }}>🪴</Text>
-          <Text style={[styles.placeholderTitle, { color: theme.t1 }]}>In arrivo</Text>
+          <Text style={[styles.placeholderTitle, { color: theme.t1 }]}>Nessun vaso collegato</Text>
           <Text style={[styles.placeholderSub, { color: theme.t2 }]}>
             Collega il tuo vaso smart per monitorare umidità, luce e temperatura in tempo reale.
           </Text>
+          <View style={styles.button}>
+            <Button label="Collega vaso" onPress={() => router.push('/vase/pair')} />
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -28,4 +33,5 @@ const styles = StyleSheet.create({
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
   placeholderTitle: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
   placeholderSub: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
+  button: { marginTop: 24, alignSelf: 'stretch', paddingHorizontal: 40 },
 });

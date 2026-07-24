@@ -45,6 +45,14 @@
             "useFrameworks": "static"
           }
         }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [],
+          "bluetoothAlwaysPermission": "Fiora usa il Bluetooth per collegare il vaso smart alla tua rete WiFi durante il pairing."
+        }
       ]
     ],
     "extra": {
