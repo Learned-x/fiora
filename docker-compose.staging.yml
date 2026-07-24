@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+
+  # ─── PostgreSQL con TimescaleDB ──────────────────────────────────────────────
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: fiora-postgres-staging
+    restart: unless-stopped
+    env_file:
+      - backend/.env.staging
+    environment:
+      POSTGRES_DB: fiora_staging
+      POSTGRES_USER: fiora
+    volumes:
+      - postgres_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fiora -d fiora_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: fiora-redis-staging
+    restart: unless-stopped
+    env_file:
+      - backend/.env.staging
+    entrypoint: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\" --loglevel warning"]
+    volumes:
+      - redis_staging:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend ─────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fiora-backend-staging
+    restart: unless-stopped
+    env_file:
+      - backend/.env.staging
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_staging:
+  redis_staging:

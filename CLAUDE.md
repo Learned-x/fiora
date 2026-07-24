@@ -151,6 +151,23 @@ docker compose -f docker-compose.dev.yml down -v  # reset completo con dati
 docker compose -f docker-compose.dev.yml ps        # stato container
 ```
 
+## Ambiente staging (server Ubuntu locale, LAN)
+- File: `docker-compose.staging.yml` (root) + `backend/Dockerfile` + `backend/.env.staging` (da `.env.staging.example`, mai committato)
+- Deploy da `develop` (staging riflette sempre l'ultimo `develop`):
+```bash
+# Sul server Ubuntu, dentro il repo (branch develop)
+git pull origin develop
+docker compose -f docker-compose.staging.yml up -d --build
+docker compose -f docker-compose.staging.yml exec backend npx prisma migrate deploy
+```
+- Backend raggiungibile su `http://<ip-lan-ubuntu>:3000` dagli altri device della stessa rete WiFi
+- Mobile: profilo EAS `staging` in `mobile/eas.json` con `EXPO_PUBLIC_API_URL` puntato all'IP LAN del server (placeholder attuale `192.168.1.100` — **da sostituire con l'IP reale**)
+```bash
+# Da /mobile
+eas build --profile staging --platform ios
+```
+- Install su iPhone: cavo USB + Xcode → Window → Devices and Simulators → trascina l'`.ipa` scaricato (no TestFlight, manca account Apple Developer)
+
 ## Convenzioni codice
 - TypeScript strict, nessun `any` esplicito
 - Tutti gli endpoint rispondono `{ success: true, data: ... }` oppure `{ success: false, error: { code, message } }`
