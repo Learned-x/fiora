@@ -9,6 +9,37 @@ Monorepo con backend Node.js (`/backend`), app mobile React Native/Expo (`/mobil
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo (iOS) o `expo run:android --device` (Android) su device reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
 **Da testare stasera/prossima sessione** (vedi dettagli in Fase 6 sotto): pairing BLE completo su device Android reale, firmware con provisioning su hardware fisico.
 
+## Setup ambiente Android su altro Mac (es. lavoro fuori casa)
+Fatto il 2026-07-24 su questo Mac, da rifare se si lavora da un Mac diverso (SDK/cache non sincronizzati via git):
+1. **Android SDK cmdline-tools** (mancavano: SDK aveva solo platform-tools/emulator, niente `sdkmanager`/`avdmanager`):
+   ```bash
+   mkdir -p "$HOME/Library/Android/sdk/cmdline-tools"
+   curl -o /tmp/cmdline-tools.zip -L https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip
+   unzip -q /tmp/cmdline-tools.zip -d "$HOME/Library/Android/sdk/cmdline-tools"
+   mv "$HOME/Library/Android/sdk/cmdline-tools/cmdline-tools" "$HOME/Library/Android/sdk/cmdline-tools/latest"
+   ```
+2. **`ANDROID_HOME` in `.zshrc`** (verificare presente, altrimenti `adb`/`emulator` non trovati in shell):
+   ```bash
+   export ANDROID_HOME="$HOME/Library/Android/sdk"
+   export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin"
+   ```
+3. **System image + emulatore** (per test senza device fisico — attenzione: BLE non funziona su emulatore, serve device reale per pairing vaso):
+   ```bash
+   yes | sdkmanager --licenses > /dev/null 2>&1
+   sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;arm64-v8a" "emulator"
+   avdmanager create avd -n Fiora_Test -k "system-images;android-34;google_apis;arm64-v8a" -d pixel_6
+   emulator -avd Fiora_Test -no-snapshot-load &
+   ```
+4. **Build**: `cd mobile && npx expo run:android` (device fisico: aggiungere `--device <model>`, es. `2107113SG` per Galaxy; con `adb devices -l` si legge il campo `model:`)
+
+### Problemi noti risolti (probabile ripresentarsi su altro Mac)
+- **Gradle cache corrotta** (`Could not read workspace metadata from .../kotlin-dsl/accessors/.../metadata.bin`): causato da 2 daemon Gradle vivi contemporaneamente con JDK diversi (visto: Corretto 17 + Homebrew OpenJDK 21). Fix: `cd mobile/android && ./gradlew --stop`, poi `rm -rf ~/.gradle/caches/8.14.3`, ribuild pulito. Se JDK multipli installati, verificare `JAVA_HOME` non ambiguo prima di lanciare Gradle.
+- **`react-native-svg` install locale corrotto** (mancava intera cartella `android/` in `node_modules/react-native-svg`, solo `apple/`,`windows/`,`common/` presenti — causa ignota, forse interruzione npm install): sintomo runtime `IllegalViewOperationException: Can't find ViewManager 'RNSVGPath'` schermata rossa DevLauncher. Fix: `rm -rf node_modules/react-native-svg && npm install react-native-svg@<versione da package.json> --no-save`. **Non basta**: l'autolinking Gradle cachava la lista pacchetti nativi da PRIMA del fix, quindi serve anche pulire `android/build`, `android/app/build`, `android/.cxx`, `android/app/.cxx` per forzare rigenerazione autolinking (verificabile in `android/build/generated/autolinking/autolinking.json`, deve comparire `react-native-svg` tra le dependencies).
+- **Google Sign-In Android `DEVELOPER_ERROR` code 10**: serve un Client ID OAuth di tipo **Android** su Google Cloud Console (diverso dal client Web/iOS già esistente), con package `com.fiora.app` + SHA-1 del keystore debug locale (`android/app/debug.keystore`, non `~/.android/debug.keystore` — usa quello dentro il progetto). SHA-1 si ottiene con `keytool -list -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android`. **Ogni keystore diverso (altro Mac, build EAS, ecc.) ha SHA-1 diverso** → va aggiunto come client Android separato (o fingerprint aggiuntivo) in Console, altrimenti stesso errore su ogni macchina/build nuova. Non serve mettere questo nuovo client ID Android nel codice/env — Google lo trova da solo via package+SHA-1, il `webClientId` in `.env.development` resta quello usato per la verifica lato backend.
+
+### ⚠️ TODO bloccante: mismatch pairing BLE mobile/firmware
+`mobile/app/vase/pair.tsx` (commit `b3de697`, 2026-07-24) invia payload BLE con campi `mqtt_user`/`mqtt_pass`. `firmware/vaso/vaso.ino` (righe 42-43) legge ancora i nomi vecchi `mqtt_username`/`mqtt_password` — **non aggiornato di proposito su richiesta utente**. Finché il firmware non viene allineato, il pairing reale su hardware fisico riceve credenziali MQTT nulle (campi non trovati nel JSON). Da sistemare prima del prossimo test end-to-end su ESP32 reale.
+
 ## Workflow Git (Git Flow)
 - **`main`**: solo release taggate, sempre deployabile/stabile. Mai commit diretti.
 - **`develop`**: branch di lavoro quotidiano, base per le feature. Deploya in **staging** (server Ubuntu) ad ogni push/merge — ambiente di test continuo.
