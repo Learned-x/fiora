@@ -33,5 +33,5 @@ const styles = StyleSheet.create({
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
   placeholderTitle: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
   placeholderSub: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
-  button: { marginTop: 24, alignSelf: 'stretch', paddingHorizontal: 40 },
+  button: { marginTop: 24, alignSelf: 'stretch', width: '100%' },
 });

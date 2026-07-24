@@ -1,18 +1,98 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { BleManager, Device } from 'react-native-ble-plx';
+import { BleError, BleErrorCode, BleManager, Device, State } from 'react-native-ble-plx';
+import { isAxiosError } from 'axios';
+import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
-import { startPairing } from '../../src/services/vases.api';
+import { startPairing, getVase, deleteVase, PairingCredentials } from '../../src/services/vases.api';
 
 // Deve combaciare con firmware/vaso/vaso.ino
 const PROV_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const PROV_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
-type Step = 'wifi-form' | 'scanning' | 'connecting' | 'sending' | 'done' | 'error';
+const SCAN_TIMEOUT_MS = 20000;
+const VERIFY_TIMEOUT_MS = 45000;
+const VERIFY_INTERVAL_MS = 3000;
+
+type Step =
+  | 'scanning'
+  | 'device-list'
+  | 'wifi-form'
+  | 'connecting'
+  | 'sending'
+  | 'verifying'
+  | 'done'
+  | 'done-unverified'
+  | 'error';
+
+// btoa gestisce solo latin1: SSID/password con caratteri non ASCII lo rompono.
+// Encoder base64 UTF-8 senza dipendenze.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function utf8ToBase64(str: string): string {
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    const code = str.codePointAt(i)!;
+    if (code > 0xffff) i++;
+    if (code < 0x80) bytes.push(code);
+    else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 63));
+    else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63));
+    else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 63), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63));
+  }
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = bytes[i + 1];
+    const c = bytes[i + 2];
+    out += B64[a >> 2];
+    out += B64[((a & 3) << 4) | ((b ?? 0) >> 4)];
+    out += b === undefined ? '=' : B64[((b & 15) << 2) | ((c ?? 0) >> 6)];
+    out += c === undefined ? '=' : B64[c & 63];
+  }
+  return out;
+}
+
+function friendlyError(err: unknown, context: 'scan' | 'provision'): string {
+  if (err instanceof BleError) {
+    switch (err.errorCode) {
+      case BleErrorCode.BluetoothPoweredOff:
+        return 'Il Bluetooth è spento. Attivalo dalle impostazioni del telefono e riprova.';
+      case BleErrorCode.BluetoothUnauthorized:
+        return 'Fiora non ha il permesso di usare il Bluetooth. Concedilo da Impostazioni > Fiora.';
+      case BleErrorCode.BluetoothUnsupported:
+        return 'Questo dispositivo non supporta il Bluetooth LE.';
+      case BleErrorCode.DeviceDisconnected:
+      case BleErrorCode.DeviceConnectionFailed:
+        return 'Connessione con il vaso persa. Avvicina il telefono al vaso e riprova.';
+      case BleErrorCode.OperationTimedOut:
+        return 'Il vaso non risponde. Controlla che sia acceso e vicino al telefono.';
+      case BleErrorCode.CharacteristicWriteFailed:
+        return 'Invio delle credenziali fallito. Riavvia il vaso per rimetterlo in modalità pairing e riprova.';
+    }
+    return context === 'scan'
+      ? 'Errore Bluetooth durante la ricerca. Riprova.'
+      : 'Errore Bluetooth durante il collegamento. Riprova.';
+  }
+  if (isAxiosError(err)) {
+    const backendMsg = err.response?.data?.error?.message;
+    if (backendMsg) return backendMsg;
+    return 'Impossibile contattare il server. Controlla la connessione a internet e riprova.';
+  }
+  return context === 'scan' ? 'Errore imprevisto durante la ricerca. Riprova.' : 'Errore imprevisto durante il collegamento. Riprova.';
+}
 
 async function ensureBlePermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -27,78 +107,131 @@ async function ensureBlePermissions(): Promise<boolean> {
 export default function VasePairScreen() {
   const theme = useTheme();
   const managerRef = useRef<BleManager | null>(null);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
+
+  const [step, setStep] = useState<Step>('scanning');
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [scanActive, setScanActive] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
-  const [step, setStep] = useState<Step>('wifi-form');
   const [errorMsg, setErrorMsg] = useState('');
-  const [foundDeviceName, setFoundDeviceName] = useState('');
+  // Dove riporta il tasto Riprova dopo un errore
+  const [retryTarget, setRetryTarget] = useState<'scan' | 'wifi-form'>('scan');
 
   useEffect(() => {
     managerRef.current = new BleManager();
+    startScan();
     return () => {
+      unmountedRef.current = true;
+      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
       managerRef.current?.stopDeviceScan();
       managerRef.current?.destroy();
     };
   }, []);
 
-  async function handleStart() {
-    if (!ssid.trim() || !wifiPassword) {
-      Alert.alert('Dati mancanti', 'Inserisci SSID e password del WiFi.');
-      return;
-    }
+  function stopScan() {
+    if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
+    managerRef.current?.stopDeviceScan();
+    setScanActive(false);
+  }
 
+  function failScan(message: string) {
+    stopScan();
+    setErrorMsg(message);
+    setRetryTarget('scan');
+    setStep('error');
+  }
+
+  async function startScan() {
     const hasPermissions = await ensureBlePermissions();
+    if (unmountedRef.current) return;
     if (!hasPermissions) {
-      Alert.alert('Permessi mancanti', 'Servono i permessi Bluetooth per collegare il vaso.');
+      failScan('Fiora non ha il permesso di usare il Bluetooth. Concedilo dalle impostazioni del telefono.');
       return;
     }
 
+    const btState = await managerRef.current!.state();
+    if (unmountedRef.current) return;
+    if (btState !== State.PoweredOn) {
+      failScan(
+        btState === State.Unsupported
+          ? 'Questo dispositivo non supporta il Bluetooth LE.'
+          : 'Il Bluetooth è spento. Attivalo dalle impostazioni del telefono e riprova.'
+      );
+      return;
+    }
+
+    setDevices([]);
+    setSelectedDevice(null);
+    setErrorMsg('');
+    setScanActive(true);
     setStep('scanning');
+
+    managerRef.current!.startDeviceScan(null, null, (error, device) => {
+      if (error) {
+        failScan(friendlyError(error, 'scan'));
+        return;
+      }
+      if (device?.name?.startsWith('Fiora-')) {
+        setDevices((prev) => (prev.some((d) => d.id === device.id) ? prev : [...prev, device]));
+        setStep((current) => (current === 'scanning' ? 'device-list' : current));
+      }
+    });
+
+    scanTimeoutRef.current = setTimeout(() => {
+      managerRef.current?.stopDeviceScan();
+      setScanActive(false);
+      setStep((current) => {
+        if (current === 'scanning') {
+          setErrorMsg('Nessun vaso trovato nelle vicinanze. Controlla che sia acceso e in modalità pairing (LED lampeggiante).');
+          setRetryTarget('scan');
+          return 'error';
+        }
+        return current; // device-list: la lista resta, la scansione si ferma
+      });
+    }, SCAN_TIMEOUT_MS);
+  }
+
+  function handleSelectDevice(device: Device) {
+    stopScan();
+    setSelectedDevice(device);
+    setStep('wifi-form');
+  }
+
+  async function handleConfirmWifi() {
+    if (!ssid.trim()) {
+      Alert.alert('Rete mancante', 'Inserisci il nome della rete WiFi (SSID).');
+      return;
+    }
+    if (!wifiPassword) {
+      Alert.alert('Password mancante', 'Inserisci la password della rete WiFi.');
+      return;
+    }
+
+    setStep('connecting');
     setErrorMsg('');
 
+    let credentials: PairingCredentials | null = null;
     try {
-      const credentials = await startPairing();
-      const manager = managerRef.current!;
-
-      manager.startDeviceScan(null, null, async (error, device) => {
-        if (error) {
-          manager.stopDeviceScan();
-          setErrorMsg(error.message);
-          setStep('error');
-          return;
-        }
-
-        if (device?.name?.startsWith('Fiora-')) {
-          manager.stopDeviceScan();
-          setFoundDeviceName(device.name);
-          setStep('connecting');
-
-          try {
-            await connectAndProvision(device, {
-              ssid: ssid.trim(),
-              password: wifiPassword,
-              device_id: credentials.deviceId,
-              mqtt_username: credentials.mqttUsername,
-              mqtt_password: credentials.mqttPassword,
-            });
-            setStep('done');
-          } catch (err: any) {
-            setErrorMsg(err?.message ?? 'Errore durante il provisioning');
-            setStep('error');
-          }
-        }
+      credentials = await startPairing();
+      await connectAndProvision(selectedDevice!, {
+        ssid: ssid.trim(),
+        password: wifiPassword,
+        device_id: credentials.deviceId,
+        mqtt_username: credentials.mqttUsername,
+        mqtt_password: credentials.mqttPassword,
       });
-
-      // Timeout scansione: 20s
-      setTimeout(() => {
-        if (step === 'scanning') {
-          manager.stopDeviceScan();
-          setErrorMsg('Nessun vaso trovato nelle vicinanze. Assicurati che sia acceso e in modalità pairing.');
-          setStep('error');
-        }
-      }, 20000);
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? 'Impossibile avviare il pairing');
+      await verifyVaseOnline(credentials.vaseId);
+    } catch (err) {
+      // Il vaso creato dal pairing non ha mai parlato: rimuovilo per non lasciare orfani
+      if (credentials) {
+        deleteVase(credentials.vaseId).catch(() => {});
+      }
+      if (unmountedRef.current) return;
+      setErrorMsg(friendlyError(err, 'provision'));
+      setRetryTarget('wifi-form'); // SSID e password restano compilati
       setStep('error');
     }
   }
@@ -113,13 +246,13 @@ export default function VasePairScreen() {
       mqtt_password: string;
     }
   ) {
-    const connected = await device.connect();
+    // MTU alto: il payload JSON supera i 20 byte del default BLE (iOS lo negozia da solo)
+    const connected = await device.connect({ requestMTU: 512 });
     await connected.discoverAllServicesAndCharacteristics();
 
     setStep('sending');
 
-    const json = JSON.stringify(payload);
-    const base64Payload = btoa(json);
+    const base64Payload = utf8ToBase64(JSON.stringify(payload));
 
     await connected.writeCharacteristicWithResponseForService(
       PROV_SERVICE_UUID,
@@ -127,62 +260,208 @@ export default function VasePairScreen() {
       base64Payload
     );
 
-    await connected.cancelConnection();
+    await connected.cancelConnection().catch(() => {});
   }
+
+  // Il provisioning BLE è andato: aspetta che il vaso si connetta davvero a MQTT
+  async function verifyVaseOnline(vaseId: string) {
+    setStep('verifying');
+    const deadline = Date.now() + VERIFY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (unmountedRef.current) return;
+      try {
+        const vase = await getVase(vaseId);
+        if (vase.stato === 'connesso') {
+          setStep('done');
+          return;
+        }
+      } catch {
+        // errori transitori di rete: continua a provare fino al timeout
+      }
+      await new Promise((resolve) => setTimeout(resolve, VERIFY_INTERVAL_MS));
+    }
+    if (!unmountedRef.current) setStep('done-unverified');
+  }
+
+  function handleRetry() {
+    if (retryTarget === 'wifi-form' && selectedDevice) {
+      setStep('wifi-form');
+    } else {
+      startScan();
+    }
+  }
+
+  function handleExit() {
+    stopScan();
+    router.back();
+  }
+
+  // Durante connessione/invio/verifica non si esce: interrompere a metà lascia il vaso a metà configurazione
+  const backVisible = step !== 'connecting' && step !== 'sending' && step !== 'verifying';
+  const busy = step === 'scanning' || step === 'connecting' || step === 'sending' || step === 'verifying';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+      <View style={styles.nav}>
+        {backVisible && (
+          <Pressable onPress={handleExit} style={styles.backBtn}>
+            <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
+              <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <Text style={{ fontSize: 17, color: theme.acc }}>Indietro</Text>
+          </Pressable>
+        )}
+      </View>
+
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.t1 }]}>Collega vaso smart</Text>
 
-        {step === 'wifi-form' && (
+        {(step === 'scanning' || step === 'device-list') && (
           <View style={styles.form}>
             <Text style={[styles.label, { color: theme.t2 }]}>
-              Assicurati che il vaso sia acceso e in modalità pairing (LED lampeggiante), poi inserisci la tua rete WiFi.
+              Accendi il vaso e assicurati che sia in modalità pairing (LED lampeggiante).
             </Text>
-            <TextInput placeholder="Nome rete WiFi (SSID)" value={ssid} onChangeText={setSsid} autoCapitalize="none" />
+
+            {step === 'scanning' && (
+              <View style={styles.inlineStatus}>
+                <ActivityIndicator color={theme.acc} />
+                <Text style={[styles.statusText, { color: theme.t2 }]}>Ricerca vasi nelle vicinanze…</Text>
+              </View>
+            )}
+
+            {step === 'device-list' && (
+              <>
+                <Text style={[styles.sectionLabel, { color: theme.t2 }]}>
+                  {devices.length === 1 ? 'Vaso trovato — toccalo per collegarlo' : 'Vasi trovati — tocca il tuo'}
+                </Text>
+                <FlatList
+                  data={devices}
+                  keyExtractor={(d) => d.id}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => handleSelectDevice(item)}
+                      style={[styles.deviceRow, { backgroundColor: theme.card, borderColor: theme.bord }]}
+                    >
+                      <Text style={{ fontSize: 20 }}>🪴</Text>
+                      <Text style={[styles.deviceName, { color: theme.t1 }]}>{item.name}</Text>
+                      <Svg width={8} height={13} viewBox="0 0 9 15" fill="none" style={{ marginLeft: 'auto' }}>
+                        <Path d="M1 1L7.5 7.5L1 14" stroke={theme.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </Pressable>
+                  )}
+                  ListFooterComponent={
+                    scanActive ? (
+                      <View style={styles.inlineStatus}>
+                        <ActivityIndicator color={theme.acc} size="small" />
+                        <Text style={[styles.footerText, { color: theme.t3 }]}>Ricerca di altri vasi…</Text>
+                      </View>
+                    ) : (
+                      <View style={{ marginTop: 12 }}>
+                        <Button label="Cerca di nuovo" onPress={startScan} variant="outline" />
+                      </View>
+                    )
+                  }
+                />
+              </>
+            )}
+          </View>
+        )}
+
+        {step === 'wifi-form' && (
+          <View style={styles.form}>
+            <View style={[styles.selectedBox, { backgroundColor: theme.card, borderColor: theme.bord }]}>
+              <Text style={{ fontSize: 20 }}>🪴</Text>
+              <Text style={[styles.deviceName, { color: theme.t1 }]}>{selectedDevice?.name}</Text>
+            </View>
+            <Text style={[styles.label, { color: theme.t2 }]}>
+              Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete a
+              2.4 GHz (il vaso non supporta le reti 5 GHz).
+            </Text>
+            <TextInput
+              placeholder="Nome rete WiFi (SSID)"
+              value={ssid}
+              onChangeText={setSsid}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
             <TextInput
               placeholder="Password WiFi"
               value={wifiPassword}
               onChangeText={setWifiPassword}
               secureTextEntry
               autoCapitalize="none"
+              autoCorrect={false}
             />
-            <Button label="Cerca vaso nelle vicinanze" onPress={handleStart} />
-          </View>
-        )}
-
-        {step === 'scanning' && (
-          <View style={styles.status}>
-            <Text style={[styles.statusText, { color: theme.t1 }]}>Ricerca vaso in corso…</Text>
+            <Button label="Collega vaso" onPress={handleConfirmWifi} />
+            <Button label="Scegli un altro vaso" onPress={startScan} variant="outline" />
           </View>
         )}
 
         {step === 'connecting' && (
           <View style={styles.status}>
-            <Text style={[styles.statusText, { color: theme.t1 }]}>Trovato {foundDeviceName}, connessione…</Text>
+            <View style={styles.statusCenter}>
+              <ActivityIndicator color={theme.acc} size="large" />
+              <Text style={[styles.statusText, { color: theme.t1 }]}>Connessione a {selectedDevice?.name}…</Text>
+            </View>
           </View>
         )}
 
         {step === 'sending' && (
           <View style={styles.status}>
-            <Text style={[styles.statusText, { color: theme.t1 }]}>Invio credenziali al vaso…</Text>
+            <View style={styles.statusCenter}>
+              <ActivityIndicator color={theme.acc} size="large" />
+              <Text style={[styles.statusText, { color: theme.t1 }]}>Invio credenziali al vaso…</Text>
+            </View>
+          </View>
+        )}
+
+        {step === 'verifying' && (
+          <View style={styles.status}>
+            <View style={styles.statusCenter}>
+              <ActivityIndicator color={theme.acc} size="large" />
+              <Text style={[styles.statusText, { color: theme.t1 }]}>
+                Credenziali inviate. In attesa che il vaso si connetta alla rete…
+              </Text>
+              <Text style={[styles.footerText, { color: theme.t3 }]}>Può volerci fino a un minuto.</Text>
+            </View>
           </View>
         )}
 
         {step === 'done' && (
           <View style={styles.status}>
-            <Text style={[styles.statusText, { color: theme.t1 }]}>
-              Credenziali inviate. Il vaso si sta riavviando e connettendo alla rete — potrebbe volerci qualche secondo.
-            </Text>
+            <View style={styles.statusCenter}>
+              <Text style={{ fontSize: 44 }}>✅</Text>
+              <Text style={[styles.statusTitle, { color: theme.t1 }]}>Vaso collegato!</Text>
+              <Text style={[styles.statusText, { color: theme.t2 }]}>
+                {selectedDevice?.name} è online e sta inviando i dati dei sensori.
+              </Text>
+            </View>
             <Button label="Fatto" onPress={() => router.back()} />
+          </View>
+        )}
+
+        {step === 'done-unverified' && (
+          <View style={styles.status}>
+            <View style={styles.statusCenter}>
+              <Text style={{ fontSize: 44 }}>⏳</Text>
+              <Text style={[styles.statusTitle, { color: theme.t1 }]}>Credenziali inviate</Text>
+              <Text style={[styles.statusText, { color: theme.t2 }]}>
+                Il vaso non risulta ancora online. Se la password WiFi è corretta comparirà tra i tuoi vasi entro
+                qualche minuto; altrimenti rimettilo in modalità pairing e riprova.
+              </Text>
+            </View>
+            <Button label="Chiudi" onPress={() => router.back()} />
           </View>
         )}
 
         {step === 'error' && (
           <View style={styles.status}>
-            <Text style={[styles.statusText, { color: theme.red }]}>{errorMsg}</Text>
-            <Button label="Riprova" onPress={() => setStep('wifi-form')} variant="outline" />
+            <View style={styles.statusCenter}>
+              <Text style={{ fontSize: 44 }}>⚠️</Text>
+              <Text style={[styles.statusText, { color: theme.t1 }]}>{errorMsg}</Text>
+            </View>
+            <Button label="Riprova" onPress={handleRetry} />
+            <Button label="Annulla" onPress={handleExit} variant="outline" />
           </View>
         )}
       </View>
@@ -192,10 +471,35 @@ export default function VasePairScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  nav: { paddingHorizontal: 16, paddingTop: 4, height: 32, justifyContent: 'center' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
   content: { flex: 1, padding: 16 },
   title: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, marginBottom: 20 },
-  form: { gap: 12 },
-  label: { fontSize: 14, lineHeight: 20, marginBottom: 4 },
-  status: { alignItems: 'center', gap: 16, paddingTop: 40 },
+  form: { gap: 12, flex: 1 },
+  label: { fontSize: 14, lineHeight: 20 },
+  sectionLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 8 },
+  status: { alignItems: 'stretch', gap: 16, paddingTop: 40, paddingHorizontal: 8 },
+  statusCenter: { alignItems: 'center', gap: 8 },
+  statusTitle: { fontSize: 18, fontWeight: '600' },
   statusText: { fontSize: 15, textAlign: 'center', lineHeight: 21 },
+  inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+  footerText: { fontSize: 13, textAlign: 'center' },
+  selectedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  deviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  deviceName: { fontSize: 16, fontWeight: '500' },
 });
