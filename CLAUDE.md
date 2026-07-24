@@ -7,6 +7,15 @@ Monorepo con backend Node.js (`/backend`) e app mobile React Native/Expo (`/mobi
 ## Stato attuale sviluppo
 **Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro).
 Decisione utente (2026-07-13): MinIO/Fase 5 e vaso smart (Fasi 6-7) rimandati — prossimo obiettivo: **ambiente di test + TestFlight**.
+Tag `v0.1.0` su `main` (2026-07-24) = baseline di questo stato. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo su iPhone reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
+
+## Workflow Git (Git Flow)
+- **`main`**: solo release taggate, sempre deployabile/stabile. Mai commit diretti.
+- **`develop`**: branch di lavoro quotidiano, base per le feature. Deploya in **staging** (server Ubuntu) ad ogni push/merge — ambiente di test continuo.
+- **`feature/*`**: da `develop`, merge in `develop` a fine lavoro.
+- **`release/x.y.z`**: da `develop` quando si stabilizza una versione candidata per test manuale su iPhone. Solo bugfix qui dentro, no nuove feature. A fine stabilizzazione: merge in `main` (tag `vx.y.z`) **e** back-merge in `develop`.
+- **`hotfix/*`**: da `main`, per fix urgenti su una release già taggata. Merge in `main` (nuovo tag patch) **e** back-merge in `develop`.
+- **Versioning**: SemVer (`vMAJOR.MINOR.PATCH`), tag git su `main` ad ogni release. `CHANGELOG.md` aggiornato ad ogni release (sezione `[Unreleased]` durante lo sviluppo). Mobile: `app.json` `version`/`ios.buildNumber` allineati al tag alla creazione del branch `release/*`.
 
 ### Completato
 - Infrastruttura Docker locale: PostgreSQL (TimescaleDB), Redis, MinIO
@@ -29,11 +38,11 @@ Decisione utente (2026-07-13): MinIO/Fase 5 e vaso smart (Fasi 6-7) rimandati �
 - Repository GitHub privato
 
 ### Prossimi passi
-- Committare Fase 8 + onboarding invertito (non ancora committato)
-- Ambiente di test: backend deployato, Postgres+Redis, `.env` staging, build EAS production, TestFlight (richiede account Apple Developer → arriva anche Apple Sign-In)
+- **Ambiente staging** (in corso, 2026-07-24): backend in Docker su server Ubuntu locale (LAN casa), Postgres+Redis dedicati staging, `.env.staging`, `docker-compose.staging.yml`; mobile build EAS profilo `staging` puntata a IP LAN del server, installata su iPhone via Xcode+cavo (no TestFlight, manca account Apple Developer)
 - Script import CSV specie in `species_import_raw` (da scrivere, dentro /backend)
 - Rimandati: Fase 5 (foto MinIO), Fasi 6-7 (vaso smart), fiori bouquet, empty state suggerimenti
-- QA push su device reale/TestFlight: token iOS, ricezione notifiche, tap → deep link (https://expo.dev/notifications)
+- QA push su device reale: token iOS, ricezione notifiche, tap → deep link
+- TestFlight + Apple Sign-In: rimandati, richiedono account Apple Developer
 
 ### Note build iOS locale (npx expo run:ios)
 - Lo spazio nei path ("SSD Lexar", "Fiora TG") rompe script di build RN/Expo. Patch attive:
