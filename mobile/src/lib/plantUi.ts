@@ -67,3 +67,39 @@ export function formatTodayLong(): string {
   });
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
+
+export type SensorStatus = 'ok' | 'warning';
+
+export function umiditaStatus(umidita: number, sogliaUmidita: number | null | undefined): SensorStatus {
+  const soglia = sogliaUmidita ?? 30;
+  if (umidita < soglia) return 'warning';
+  if (umidita > 70) return 'warning';
+  return 'ok';
+}
+
+export function umiditaLabel(umidita: number, sogliaUmidita: number | null | undefined): string {
+  const soglia = sogliaUmidita ?? 30;
+  if (umidita < soglia) return 'Asciutto';
+  if (umidita > 70) return 'Saturo';
+  return 'Umido';
+}
+
+export function luceSensoreStatus(lux: number): SensorStatus {
+  return lux < 200 ? 'warning' : 'ok';
+}
+
+export function luceSensoreLabel(lux: number): string {
+  return lux < 200 ? 'Scarsa' : 'Sufficiente';
+}
+
+export function temperaturaStatus(temp: number, tempMin: number | null, tempMax: number | null): SensorStatus {
+  if (tempMin !== null && temp < tempMin) return 'warning';
+  if (tempMax !== null && temp > tempMax) return 'warning';
+  return 'ok';
+}
+
+export function temperaturaLabel(temp: number, tempMin: number | null, tempMax: number | null): string {
+  if (tempMin !== null && temp < tempMin) return 'Bassa';
+  if (tempMax !== null && temp > tempMax) return 'Alta';
+  return 'Ottimale';
+}

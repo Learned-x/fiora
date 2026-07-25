@@ -6,13 +6,14 @@ export interface SpeciesSummary {
   luce: 'bassa' | 'media' | 'alta';
   annaffiatura: 'poca' | 'media' | 'frequente';
   umidita: string | null;
+  sogliaUmidita: number | null;
+  tempMin: number | null;
+  tempMax: number | null;
   tossicita: boolean | null;
   immaginePrincipaleUrl: string | null;
 }
 
 export interface Species extends SpeciesSummary {
-  tempMin: number | null;
-  tempMax: number | null;
   noteCura: string | null;
   fonte: string;
 }
@@ -33,6 +34,7 @@ export interface Plant {
   note: string | null;
   createdAt: string;
   species: SpeciesSummary | null;
+  vasoId: string | null;
   _count?: { tasks: number };
 }
 

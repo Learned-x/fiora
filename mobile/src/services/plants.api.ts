@@ -36,6 +36,7 @@ export interface UpdatePlantInput {
   note?: string | null;
   stato?: PlantStato;
   statoBouquet?: StatoBouquet;
+  vasoId?: string | null;
 }
 
 export async function updatePlant(id: string, input: UpdatePlantInput): Promise<Plant> {

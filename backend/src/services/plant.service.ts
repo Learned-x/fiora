@@ -9,6 +9,9 @@ const speciesSelect = {
   luce: true,
   annaffiatura: true,
   umidita: true,
+  sogliaUmidita: true,
+  tempMin: true,
+  tempMax: true,
   tossicita: true,
   immaginePrincipaleUrl: true,
 } as const;
@@ -34,6 +37,7 @@ export interface UpdatePlantInput {
   stato?: 'attivo' | 'archiviato';
   statoBouquet?: string | null;
   dataRicezione?: string | null;
+  vasoId?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -145,6 +149,17 @@ export async function updatePlant(userId: string, plantId: string, input: Update
     await assertSpeciesExists(input.speciesId);
   }
 
+  if (input.vasoId) {
+    const vaso = await prisma.smartVase.findFirst({ where: { id: input.vasoId, userId } });
+    if (!vaso) {
+      throw { code: 'VASE_NOT_FOUND', status: 404, message: 'Vaso non trovato' };
+    }
+    const giaCollegato = await prisma.plant.findFirst({ where: { vasoId: input.vasoId, id: { not: plantId } } });
+    if (giaCollegato) {
+      throw { code: 'VASE_ALREADY_LINKED', status: 409, message: 'Vaso già collegato a un\'altra pianta' };
+    }
+  }
+
   const updated = await prisma.plant.update({
     where: { id: plantId },
     data: {
@@ -158,6 +173,7 @@ export async function updatePlant(userId: string, plantId: string, input: Update
       ...(input.dataRicezione !== undefined && {
         dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
       }),
+      ...(input.vasoId !== undefined && { vasoId: input.vasoId }),
     },
     include: { species: { select: speciesSelect } },
   });

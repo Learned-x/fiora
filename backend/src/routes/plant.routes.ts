@@ -187,6 +187,7 @@ router.patch(
     body('stato').optional().isIn(['attivo', 'archiviato']).withMessage('Stato non valido: attivo o archiviato'),
     body('statoBouquet').optional({ nullable: true }).isIn(['fresco', 'in_cura', 'appassendo', 'concluso']).withMessage('statoBouquet non valido'),
     body('dataRicezione').optional({ nullable: true }).isISO8601().withMessage('dataRicezione non valida'),
+    body('vasoId').optional({ nullable: true }).custom((v) => v === null || /^[0-9a-f-]{36}$/i.test(v)).withMessage('vasoId non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;

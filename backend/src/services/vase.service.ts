@@ -4,7 +4,10 @@ import { prisma } from '../lib/prisma';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export async function findOwnedVase(userId: string, vaseId: string) {
-  const vase = await prisma.smartVase.findFirst({ where: { id: vaseId, userId } });
+  const vase = await prisma.smartVase.findFirst({
+    where: { id: vaseId, userId },
+    include: { plants: { select: { id: true, nome: true }, take: 1 } },
+  });
   if (!vase) {
     throw { code: 'VASE_NOT_FOUND', status: 404, message: 'Vaso non trovato' };
   }
@@ -38,11 +41,30 @@ export async function startPairing(userId: string) {
 }
 
 export async function getVase(userId: string, vaseId: string) {
-  return findOwnedVase(userId, vaseId);
+  const vase = await findOwnedVase(userId, vaseId);
+  const ultimaLettura = await prisma.sensorReading.findFirst({
+    where: { vasoId: vaseId },
+    orderBy: { time: 'desc' },
+  });
+  return { ...vase, ultimaLettura };
+}
+
+export async function getVaseReadings24h(userId: string, vaseId: string) {
+  await findOwnedVase(userId, vaseId);
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return prisma.sensorReading.findMany({
+    where: { vasoId: vaseId, time: { gte: since } },
+    orderBy: { time: 'asc' },
+    select: { time: true, umidita: true, luce: true, temperatura: true },
+  });
 }
 
 export async function listVases(userId: string) {
-  return prisma.smartVase.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+  return prisma.smartVase.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    include: { plants: { select: { id: true, nome: true }, take: 1 } },
+  });
 }
 
 export async function renameVase(userId: string, vaseId: string, nome: string) {

@@ -6,8 +6,23 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import type { ThemeColors } from '../../src/theme/colors';
 import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
+import { getVase, getVaseReadings24h } from '../../src/services/vases.api';
+import type { SensorReading, SmartVase } from '../../src/services/vases.api';
+import { Sparkline } from '../../src/components/Sparkline';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
-import { annaffiaturaLabel, formatDay, luceLabel, plantEmoji, TASK_LABELS } from '../../src/lib/plantUi';
+import {
+  annaffiaturaLabel,
+  formatDay,
+  luceLabel,
+  luceSensoreLabel,
+  luceSensoreStatus,
+  plantEmoji,
+  temperaturaLabel,
+  temperaturaStatus,
+  TASK_LABELS,
+  umiditaLabel,
+  umiditaStatus,
+} from '../../src/lib/plantUi';
 
 type PlantDetail = Plant & { tasks: Task[] };
 
@@ -39,10 +54,24 @@ export default function PlantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [plant, setPlant] = useState<PlantDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const [vase, setVase] = useState<SmartVase | null>(null);
+  const [readings24h, setReadings24h] = useState<SensorReading[]>([]);
 
   const load = useCallback(async () => {
     try {
-      setPlant(await getPlant(id));
+      const data = await getPlant(id);
+      setPlant(data);
+      if (data.vasoId) {
+        const [vaseData, readings] = await Promise.all([
+          getVase(data.vasoId),
+          getVaseReadings24h(data.vasoId),
+        ]);
+        setVase(vaseData);
+        setReadings24h(readings);
+      } else {
+        setVase(null);
+        setReadings24h([]);
+      }
     } catch {
       Alert.alert('Errore', 'Pianta non trovata.', [{ text: 'OK', onPress: () => router.back() }]);
     }
@@ -121,6 +150,112 @@ export default function PlantDetailScreen() {
             {plant.stato === 'archiviato' && <Text style={[styles.meta, { color: theme.amb }]}>Archiviata</Text>}
           </View>
         </View>
+
+        {/* Vaso Smart */}
+        {vase && vase.ultimaLettura && (
+          <View style={styles.section}>
+            <View style={styles.sensorHeader}>
+              <Text style={[styles.sectionLabel, { marginBottom: 0, color: theme.t2 }]}>Vaso smart</Text>
+              <View style={styles.sensorHeaderRight}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: vase.stato === 'connesso' ? theme.acc : theme.t3 },
+                  ]}
+                />
+                <Text style={[styles.sensorStatusText, { color: vase.stato === 'connesso' ? theme.acc : theme.t3 }]}>
+                  {vase.stato === 'connesso' ? 'Connesso' : 'Disconnesso'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.sensorTiles}>
+              {vase.ultimaLettura.umidita !== null && (
+                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                  <Text
+                    style={[
+                      styles.sensorValue,
+                      { color: umiditaStatus(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita) === 'ok' ? theme.acc : theme.amb },
+                    ]}
+                  >
+                    {vase.ultimaLettura.umidita}%
+                  </Text>
+                  <Text style={[styles.sensorUnit, { color: theme.t2 }]}>umidità</Text>
+                  <Text
+                    style={[
+                      styles.sensorTag,
+                      { color: umiditaStatus(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita) === 'ok' ? theme.acc : theme.amb },
+                    ]}
+                  >
+                    {umiditaLabel(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita)}
+                  </Text>
+                </View>
+              )}
+              {vase.ultimaLettura.luce !== null && (
+                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                  <Text
+                    style={[
+                      styles.sensorValue,
+                      { color: luceSensoreStatus(vase.ultimaLettura.luce) === 'ok' ? theme.acc : theme.amb },
+                    ]}
+                  >
+                    {vase.ultimaLettura.luce}
+                  </Text>
+                  <Text style={[styles.sensorUnit, { color: theme.t2 }]}>lux</Text>
+                  <Text
+                    style={[
+                      styles.sensorTag,
+                      { color: luceSensoreStatus(vase.ultimaLettura.luce) === 'ok' ? theme.acc : theme.amb },
+                    ]}
+                  >
+                    {luceSensoreLabel(vase.ultimaLettura.luce)}
+                  </Text>
+                </View>
+              )}
+              {vase.ultimaLettura.temperatura !== null && (
+                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                  <Text
+                    style={[
+                      styles.sensorValue,
+                      {
+                        color:
+                          temperaturaStatus(Number(vase.ultimaLettura.temperatura), plant.species?.tempMin ?? null, plant.species?.tempMax ?? null) === 'ok'
+                            ? theme.acc
+                            : theme.amb,
+                      },
+                    ]}
+                  >
+                    {vase.ultimaLettura.temperatura}°
+                  </Text>
+                  <Text style={[styles.sensorUnit, { color: theme.t2 }]}>temp.</Text>
+                  <Text
+                    style={[
+                      styles.sensorTag,
+                      {
+                        color:
+                          temperaturaStatus(Number(vase.ultimaLettura.temperatura), plant.species?.tempMin ?? null, plant.species?.tempMax ?? null) === 'ok'
+                            ? theme.acc
+                            : theme.amb,
+                      },
+                    ]}
+                  >
+                    {temperaturaLabel(Number(vase.ultimaLettura.temperatura), plant.species?.tempMin ?? null, plant.species?.tempMax ?? null)}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {readings24h.length >= 2 && (
+              <View style={{ marginTop: 12 }}>
+                <Sparkline
+                  label="Umidità"
+                  unit="%"
+                  values={readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number)}
+                />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Ciclo di vita bouquet */}
         {isBouquet && (
@@ -236,6 +371,17 @@ export default function PlantDetailScreen() {
           <Pressable onPress={() => quickAction('concimazione')} style={[styles.actionCard, { backgroundColor: theme.card }]}>
             <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>🌿 Concima</Text>
           </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: '/plant-history', params: { id: plant.id, nome: plant.nome } })}
+            style={[styles.actionCard, { backgroundColor: theme.card }]}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>Storico cure</Text>
+          </Pressable>
+          {plant.vasoId && (
+            <Pressable onPress={() => router.push(`/vase/${plant.vasoId}`)} style={[styles.actionCard, { backgroundColor: theme.card }]}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>🪴 Vaso Smart</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -261,6 +407,15 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   meta: { fontSize: 13 },
   section: { paddingHorizontal: 16, marginBottom: 20 },
+  sensorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  sensorHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+  sensorStatusText: { fontSize: 12, fontWeight: '600' },
+  sensorTiles: { flexDirection: 'row', gap: 10 },
+  sensorTile: { flex: 1, borderRadius: 14, padding: 12, alignItems: 'center' },
+  sensorValue: { fontSize: 20, fontWeight: '700' },
+  sensorUnit: { fontSize: 11, marginTop: 2 },
+  sensorTag: { fontSize: 12, fontWeight: '600', marginTop: 6 },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
@@ -294,6 +449,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   taskDoneBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
-  actionsGrid: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
-  actionCard: { flex: 1, borderRadius: 13, padding: 14, alignItems: 'center' },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
+  actionCard: { flexBasis: '48%', flexGrow: 1, borderRadius: 13, padding: 14, alignItems: 'center' },
 });

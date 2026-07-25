@@ -1,5 +1,13 @@
 import { api } from './api';
 
+export interface SensorReading {
+  time: string;
+  umidita: number | null;
+  luce: number | null;
+  temperatura: string | null;
+  batteria: number | null;
+}
+
 export interface SmartVase {
   id: string;
   deviceId: string;
@@ -8,6 +16,8 @@ export interface SmartVase {
   batteria: number | null;
   lastSeen: string | null;
   createdAt: string;
+  plants?: { id: string; nome: string }[];
+  ultimaLettura?: SensorReading | null;
 }
 
 export interface PairingCredentials {
@@ -30,6 +40,11 @@ export async function listVases(): Promise<SmartVase[]> {
 
 export async function getVase(id: string): Promise<SmartVase> {
   const res = await api.get<{ data: SmartVase }>(`/vases/${id}`);
+  return res.data.data;
+}
+
+export async function getVaseReadings24h(id: string): Promise<SensorReading[]> {
+  const res = await api.get<{ data: SensorReading[] }>(`/vases/${id}/readings`);
   return res.data.data;
 }
 

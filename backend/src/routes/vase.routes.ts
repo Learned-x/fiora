@@ -99,6 +99,38 @@ router.get(
 
 /**
  * @swagger
+ * /vases/{id}/readings:
+ *   get:
+ *     summary: Letture sensori ultime 24h
+ *     tags: [Vases]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200: { description: Letture sensori ultime 24h }
+ *       404: { description: Vaso non trovato }
+ */
+// ── GET /vases/:id/readings ───────────────────────────────────────────────────
+
+router.get(
+  '/:id/readings',
+  [param('id').isUUID().withMessage('ID non valido')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      const readings = await vaseService.getVaseReadings24h(req.userId!, req.params.id as string);
+      res.json({ success: true, data: readings });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
  * /vases/{id}:
  *   patch:
  *     summary: Modifica nome vaso
