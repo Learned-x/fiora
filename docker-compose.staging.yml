@@ -53,6 +53,19 @@ services:
       redis:
         condition: service_healthy
 
+  # ─── Portainer ───────────────────────────────────────────────────────────────
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: fiora-portainer-staging
+    restart: unless-stopped
+    command: -H unix:///var/run/docker.sock
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_staging:/data
+
 volumes:
   postgres_staging:
   redis_staging:
+  portainer_staging:
