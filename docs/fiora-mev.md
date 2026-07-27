@@ -1,0 +1,257 @@
+# 🌿 Fiora — MEV (Manutenzione Evolutiva)
+
+**Versione 1.0 · 2026-07-27**
+
+Interventi evolutivi da pianificare **dopo il completamento della Fase 6**, ognuno
+autonomo e rilasciabile per conto proprio. Non sono nuove fasi della roadmap: sono
+migliorie su funzioni già esistenti, che possono entrare in qualsiasi release senza
+dipendere l'una dall'altra.
+
+Documenti collegati:
+- **`fiora-specifiche-funzionali.md`** — comportamento corrente, con lo stato di ogni funzione.
+- **`fiora-specifiche-tecniche.md`** — implementazione.
+- **`fiora-roadmap.md`** — fasi e debito noto (D1–D11).
+
+**Differenza fra MEV e debito noto:** il debito (D1–D11 nella roadmap) è codice che
+non fa quello che le specifiche dicono già — va allineato. Le MEV sono cambiamenti
+*alle* specifiche: funzioni che oggi si comportano come previsto, ma che vogliamo
+migliorare.
+
+---
+
+## Quadro d'insieme
+
+| ID | Intervento | Perché | Impatto | Priorità |
+|---|---|---|---|---|
+| **MEV-01** | Orario promemoria libero | Le 3 fasce fisse non coprono chi si alza presto o rientra tardi | Backend + mobile | Alta |
+| **MEV-02** | Email transazionali e recupero password | **Chi dimentica la password perde l'account** | Backend + infra + mobile | Alta |
+| **MEV-03** | Rinominare e riordinare i vasi | Con più vasi diventano indistinguibili | Mobile + backend minimo | Media |
+| **MEV-04** | Storico ambientale a 7 e 30 giorni | Oggi solo 24 h non aggregate | Backend | Media |
+| **MEV-05** | Riconfigurazione WiFi senza ri-pairing | Cambio rete o password rende il vaso muto | Firmware + mobile | Media |
+| **MEV-06** | Empty state con suggerimenti | Prima schermata vuota per un utente nuovo | Mobile | Bassa |
+| **MEV-07** | Esportazione dei dati utente | Obbligo GDPR alla portabilità | Backend | Bassa |
+
+**Ordine consigliato:** MEV-02 → MEV-01 → MEV-03 → MEV-05 → MEV-04 → MEV-06 → MEV-07.
+MEV-02 per prima perché è l'unica che oggi provoca una **perdita definitiva di accesso**;
+MEV-01 subito dopo perché è la lamentela più probabile sulle notifiche.
+
+---
+
+## MEV-01 — Orario dei promemoria libero
+
+**Stato: 📋 da fare** · Riferimento: §13.3 funzionali, §12 tecniche
+
+### Situazione attuale
+
+L'utente sceglie fra tre fasce predefinite: mattina (9:00), pomeriggio (15:00),
+sera (19:00). Il valore è salvato in `User.orarioReminder` come stringa
+(`'mattina_9'`, …) e un job ricorrente gira alle 9, 15 e 19; a ogni esecuzione il
+worker converte l'ora corrente nella fascia corrispondente e seleziona gli utenti
+che l'hanno scelta.
+
+### Problema
+
+Tre orari fissi non coprono le abitudini reali: chi si alza alle 6 riceve il
+promemoria tre ore dopo essere uscito di casa, chi rientra alle 22 lo trova già
+vecchio. Il promemoria di annaffiare vale se arriva quando la persona può farlo:
+fuori da quel momento è rumore, e il rumore porta a disattivare le notifiche.
+
+### Comportamento richiesto
+
+1. In Impostazioni → Notifiche, l'orario si sceglie con un **selettore di orario**
+   (ore e minuti), non da una lista di fasce.
+2. Granularità: **5 minuti**. Al minuto esatto non serve, e una griglia più fitta
+   moltiplica le esecuzioni del job senza alcun beneficio percepibile.
+3. Il valore mostrato rispetta il formato orario del dispositivo (24 h o AM/PM).
+4. Alla migrazione, chi aveva una fascia predefinita mantiene lo stesso orario
+   (mattina → 09:00, pomeriggio → 15:00, sera → 19:00): nessuno si vede cambiare
+   l'ora dei promemoria senza averlo chiesto.
+
+### Note di implementazione
+
+- **Modello dati:** `User.orarioReminder` passa da stringa-fascia a un campo orario
+  (`TIME` o minuti-da-mezzanotte come intero). Migrazione con conversione dei tre
+  valori esistenti; il vecchio campo va rimosso solo dopo la conversione.
+- **Scheduling:** il job passa da 3 esecuzioni a una **ogni 5 minuti**, che seleziona
+  gli utenti il cui orario coincide con lo slot corrente. Sono 288 esecuzioni al
+  giorno, ognuna con una query indicizzata sull'orario: il costo è trascurabile ed
+  è molto più semplice di un job schedulato per utente.
+- **Fuso orario:** oggi l'orario è implicitamente quello del server. Con un orario
+  libero la questione diventa visibile — un utente che viaggia riceverebbe il
+  promemoria all'ora sbagliata. Va salvato il fuso del dispositivo su User e usato
+  nella selezione. **Da valutare se includerlo qui o rimandarlo**: senza, la MEV
+  resta corretta per utenti in un solo fuso, che è la totalità dei casi attuali.
+- **Indice** sul campo orario, altrimenti ogni esecuzione fa una scansione completa
+  della tabella utenti.
+
+---
+
+## MEV-02 — Email transazionali e recupero password
+
+**Stato: 📋 da fare** · Riferimento: §1.7 e §13.4 funzionali · **Priorità alta**
+
+### Problema
+
+Non esiste alcun servizio email nello stack, e la conseguenza non è una comodità
+mancante: **un utente che dimentica la password perde definitivamente l'accesso al
+proprio account.** L'unico endpoint disponibile (`POST /auth/change-password`)
+richiede la password attuale, e non c'è nessun'altra via di recupero. Chi ha
+effettuato l'accesso con Google non è esposto — non ha una password Fiora — ma chi
+si è registrato con email e password sì.
+
+Dipendono dalla stessa infrastruttura anche: la conferma di eliminazione account
+(§1.7, oggi gestita solo in-app) e il cambio dell'indirizzo email (§13.4), che senza
+verifica del nuovo indirizzo permetterebbe di dirottare un account su una casella
+non posseduta.
+
+### Comportamento richiesto
+
+**Recupero password:**
+1. Nella schermata di accesso compare "Password dimenticata?".
+2. L'utente inserisce l'email e conferma.
+3. L'app mostra **sempre lo stesso messaggio**, esista o meno quell'account
+   ("Se l'indirizzo è registrato, riceverai un'email con le istruzioni"): una
+   risposta diversa nei due casi permetterebbe di scoprire quali indirizzi sono
+   iscritti a Fiora.
+4. Se l'account esiste, parte un'email con un link contenente un token di reset.
+5. Il link apre l'app (deep link) sulla schermata di nuova password.
+6. Impostata la nuova password, **tutti i refresh token dell'utente vengono revocati**:
+   se la richiesta è nata da un accesso non autorizzato, le sessioni aperte cadono.
+
+**Cambio email:**
+1. L'utente inserisce il nuovo indirizzo, confermando con la password attuale.
+2. Un'email di verifica parte verso il **nuovo** indirizzo; l'account continua a
+   usare il vecchio finché il link non viene aperto.
+3. Una notifica informativa parte verso il **vecchio** indirizzo, con le istruzioni
+   nel caso il cambio non sia stato richiesto dal legittimo proprietario.
+
+**Conferma eliminazione account:** email riepilogativa con la data di eliminazione
+definitiva e il link per annullare entro i 30 giorni di grazia.
+
+### Note di implementazione
+
+- **Servizio:** **Resend**. Piano gratuito da 3.000 email al mese, ampiamente
+  sufficiente per i volumi di Fiora (solo messaggi transazionali, nessun invio
+  massivo), configurazione DNS semplice e SDK Node pulito.
+- **Mittente:** casella no-reply dedicata sul dominio del progetto, es.
+  `no-reply@tangifiori.com`. Richiede la configurazione dei record **SPF, DKIM e
+  DMARC**: senza, le email finiscono in posta indesiderata proprio nei momenti in
+  cui l'utente le sta aspettando.
+- **Token di reset:** valore casuale ad alta entropia, **salvato come hash** (non in
+  chiaro: chi legge il database non deve poterlo riusare), **scadenza 30 minuti**,
+  **a uso singolo**, invalidato dopo l'uso e alla generazione di uno nuovo.
+- **Rate limit** sulla richiesta di reset, per indirizzo e per IP: senza, l'endpoint
+  diventa uno strumento per inondare di email la casella di un altro.
+- **Invio asincrono** tramite coda BullMQ (già in uso): un errore del servizio email
+  non deve far fallire la richiesta dell'utente, e i tentativi vanno ripetuti.
+- **Template** in italiano, con testo essenziale e un solo pulsante d'azione, più la
+  versione in solo testo per i client che non mostrano l'HTML.
+- **Nessun dato sensibile nell'email**: mai la password, né vecchia né nuova.
+
+---
+
+## MEV-03 — Rinominare e riordinare i vasi
+
+**Stato: 📋 da fare** · Riferimento: §13.5 funzionali
+
+Il nome del vaso viene assegnato al pairing (§10.1.3) con un default `Vaso 1`,
+`Vaso 2`. Chi accetta il default e poi arriva a tre o quattro vasi si trova un
+elenco di nomi che non dicono nulla su quale sia quale.
+
+**Comportamento richiesto:**
+- Rinomina del vaso dall'elenco e dal dettaglio, senza passare dalle impostazioni.
+- Riordino manuale dell'elenco tramite trascinamento, con l'ordine salvato sul profilo.
+- Nell'elenco, sotto il nome, la **pianta collegata**: è l'informazione che permette
+  di riconoscere il vaso fisico più del nome stesso.
+
+**Note:** serve un campo `ordine` su `smart_vases` e un endpoint per aggiornare
+l'ordinamento in blocco. `PATCH /vases/:id` supporta già la modifica del nome.
+
+---
+
+## MEV-04 — Storico ambientale a 7 e 30 giorni
+
+**Stato: 📋 da fare** · Riferimento: §11.2 funzionali
+
+Oggi `GET /vases/:id/readings` restituisce le letture grezze delle ultime 24 ore e
+l'app mostra una sparkline dell'umidità. Le specifiche prevedono anche le finestre a
+7 e 30 giorni con dati aggregati.
+
+**Comportamento richiesto:**
+- Selettore 24 h / 7 giorni / 30 giorni nel dettaglio vaso.
+- Grafici a linee per umidità, luce e temperatura.
+- Dati **aggregati dal backend** (media oraria per 7 giorni, giornaliera per 30):
+  un mese di campioni grezzi sono decine di migliaia di punti, inutili da trasmettere
+  e impossibili da leggere su un grafico da telefono.
+
+**Note:** TimescaleDB fa l'aggregazione in modo nativo con le *continuous aggregates*,
+che mantengono le medite precalcolate invece di ricalcolarle a ogni apertura della
+schermata. La retention resta a 90 giorni, quindi la finestra a 30 giorni è sempre
+coperta.
+
+---
+
+## MEV-05 — Riconfigurazione WiFi senza ri-pairing
+
+**Stato: 📋 da fare** · Riferimento: §10.4 funzionali, §6 tecniche
+
+Se l'utente cambia rete o password WiFi, il vaso resta muto e l'unica via è
+rimuoverlo e rifare il pairing da zero — perdendo l'associazione con la pianta.
+Le specifiche prevedono già il flusso (pulsante fisico 5 secondi → BLE advertising)
+ma il firmware non gestisce il pulsante e l'app non ha la voce corrispondente.
+
+**Comportamento richiesto:** quanto già descritto in §10.4 funzionali, più la voce
+"Riconfigura WiFi" nel dettaglio vaso, che riporta al flusso di §10.1 mantenendo
+`device_id`, credenziali MQTT, nome del vaso e associazione alla pianta.
+
+**Note:** coincide con il debito **D7** della roadmap. È una MEV perché il valore per
+l'utente è nel flusso completo in app, non solo nella gestione del pulsante.
+Dipende dal ritorno automatico in advertising descritto in §6 tecniche.
+
+---
+
+## MEV-06 — Empty state con suggerimenti
+
+**Stato: 📋 da fare** · Riferimento: §2.2 funzionali (già specificato, mai implementato)
+
+Un utente che completa l'onboarding senza aggiungere nulla trova una collezione
+vuota. Le specifiche prevedono già una griglia di piante comuni suggerite con un
+pulsante "Aggiungi" che le inserisce con i parametri precompilati: le dieci specie
+dell'elenco in §2.2 sono tutte presenti nel catalogo curato.
+
+**Note:** puramente mobile, nessuna modifica al backend. Era già prevista in Fase 10.
+
+---
+
+## MEV-07 — Esportazione dei dati utente
+
+**Stato: 📋 da fare** · Nuovo
+
+Il GDPR riconosce il diritto alla portabilità: l'utente deve poter ottenere una copia
+dei propri dati in un formato leggibile da una macchina. Fiora oggi permette di
+cancellare l'account ma non di estrarne i dati.
+
+**Comportamento richiesto:**
+- In Impostazioni → Profilo, "Esporta i miei dati".
+- Il backend genera un archivio con piante, task, storico cure, letture dei sensori,
+  foto del diario e dati del profilo, in JSON più le immagini.
+- L'archivio arriva via email con un link a scadenza (dipende da **MEV-02**).
+
+**Note:** generazione asincrona su coda BullMQ — per un account con mesi di letture
+sensori l'operazione non è istantanea. Link a scadenza breve e a uso singolo, con le
+stesse cautele dei token di MEV-02.
+
+---
+
+## Interventi valutati e scartati
+
+**Notifiche push per vaso offline.** Sembra utile ma è già prevista in Fase 7 insieme
+agli alert da sensore: farla prima significherebbe costruire due volte lo stesso
+meccanismo di invio.
+
+**Widget schermata home.** Rimandato: richiede sviluppo nativo separato per iOS e
+Android, e il valore aggiunto rispetto alla notifica è modesto finché i promemoria
+arrivano all'ora giusta (MEV-01).
+
+**Condivisione della collezione fra utenti.** Fuori scope: cambierebbe il modello dei
+permessi su tutte le risorse, che oggi assume un solo proprietario per pianta.

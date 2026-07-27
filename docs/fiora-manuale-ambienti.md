@@ -1,5 +1,21 @@
 # Fiora — Manuale di Configurazione Ambienti
-**Versione 1.0 — Giugno 2026**
+**Versione 1.1 — aggiornato al 2026-07-27**
+ 
+Documenti collegati:
+- **`fiora-specifiche-funzionali.md`** — cosa fa l'app.
+- **`fiora-specifiche-tecniche.md`** — come è implementata.
+- **`fiora-roadmap.md`** — fasi, stato di avanzamento e debito noto.
+ 
+> **Stato degli ambienti (2026-07-27).**
+> **Development** e **staging** sono operativi. **Production non esiste ancora**: il
+> capitolo 3 descrive un ambiente di destinazione, non una macchina attiva, e i domini
+> `*.tangifiori.com` non sono configurati.
+>
+> Lo **staging reale è più semplice** di quanto descritto nel capitolo 2: gira su un
+> server Ubuntu in rete locale di casa, raggiungibile via IP LAN o Tailscale, **senza
+> dominio pubblico, senza HTTPS e senza Mosquitto** (usa HiveMQ Cloud come il
+> development). Vedi §2.0 per la configurazione effettivamente in uso; il resto del
+> capitolo resta valido come riferimento per quando lo staging verrà esposto.
  
 ---
  
@@ -14,11 +30,11 @@ Questo documento descrive come configurare, avviare e mantenere i tre ambienti d
 - **Production** è l'unico ambiente che vede dati reali degli utenti. Si aggiorna solo tramite tag di versione espliciti su `main`, mai direttamente.
 ### Panoramica rapida
  
-| Ambiente | Dove gira | Branch | Trigger aggiornamento | Dominio backend |
-|---|---|---|---|---|
-| development | Macchina locale sviluppatore | `feature/*`, `fix/*` | Manuale | `localhost:3000` |
-| staging | Server personale del team | `develop` | Push su `develop` | `api-staging.tangifiori.com` |
-| production | Hetzner CX33 + CX23 | `main` | Tag `vX.Y.Z` su `main` | `api.tangifiori.com` |
+| Ambiente | Dove gira | Branch | Trigger aggiornamento | Indirizzo backend | Stato |
+|---|---|---|---|---|---|
+| development | Macchina locale sviluppatore | `feature/*`, `fix/*` | Manuale | `localhost:3000` | ✅ attivo |
+| staging | Server Ubuntu in LAN di casa | `develop` | Push su `develop` | `192.168.1.50:3000` (LAN)<br>`100.102.50.17:3000` (Tailscale) | ✅ attivo |
+| production | Hetzner CX33 + CX23 | `main` | Tag `vX.Y.Z` su `main` | `api.tangifiori.com` | 📋 da allestire |
  
 ### Struttura del repository
  
@@ -378,7 +394,48 @@ Il bucket non ha la policy pubblica. Rieseguire i comandi della sezione 1.7.
  
 ## 2. Ambiente Staging
  
-### 2.1 Filosofia
+### 2.0 Configurazione attualmente in uso (2026-07-24)
+ 
+Questa è la staging **realmente attiva**. Il resto del capitolo descrive la versione
+esposta pubblicamente, non ancora allestita.
+ 
+| Aspetto | Configurazione reale |
+|---|---|
+| Server | Ubuntu in rete locale di casa |
+| Indirizzi | `192.168.1.50` (LAN), `100.102.50.17` (Tailscale) |
+| Accesso | HTTP sulla porta 3000, nessun dominio, nessun TLS |
+| Broker MQTT | HiveMQ Cloud, **stesso cluster del development** (no Mosquitto) |
+| Database | Postgres e Redis dedicati allo staging, in Docker |
+| File | `docker-compose.staging.yml` + `backend/Dockerfile` + `backend/.env.staging` |
+| Gestione container | Portainer |
+ 
+Nessun TLS e nessun dominio perché il servizio non è esposto su internet: si
+raggiunge solo dalla rete di casa o via Tailscale. Tailscale è ciò che permette di
+usare lo staging anche fuori casa senza aprire porte sul router.
+ 
+**Deploy** (sul server, dentro il repo sul branch `develop`):
+ 
+```bash
+git pull origin develop
+docker compose -f docker-compose.staging.yml up -d --build
+docker compose -f docker-compose.staging.yml exec backend npx prisma migrate deploy
+```
+ 
+**Build mobile per staging** — il profilo EAS `staging` punta all'IP Tailscale, così
+funziona sia in casa sia fuori. Richiede l'app Tailscale installata e autenticata
+sul dispositivo di test.
+ 
+```bash
+cd mobile
+eas build --profile staging --platform ios
+```
+ 
+L'installazione su iPhone avviene via cavo USB e Xcode (Window → Devices and
+Simulators, trascinare l'`.ipa`): niente TestFlight, manca un account Apple Developer.
+ 
+---
+ 
+### 2.1 Filosofia (staging esposta — da allestire)
  
 Lo staging gira sul server personale del team ed è accessibile pubblicamente tramite HTTPS. Viene aggiornato automaticamente ad ogni push su `develop`. A differenza del development:
  

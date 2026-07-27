@@ -4,6 +4,17 @@
 App mobile per la cura delle piante con integrazione IoT (vaso smart con sensori).
 Monorepo con backend Node.js (`/backend`), app mobile React Native/Expo (`/mobile`) e firmware ESP32 (`/firmware/vaso`, Arduino).
 
+## Documentazione (`/docs`) — riordinata il 2026-07-27
+Cinque documenti, ognuno con un ruolo distinto. **Non crearne altri**: aggiornare quello pertinente.
+- **`fiora-specifiche-funzionali.md`** — cosa fa l'app, per utente. Ogni sezione ha un marcatore di stato (✅ / 🚧 / 📋). Ha assorbito il vecchio documento "integrazioni".
+- **`fiora-specifiche-tecniche.md`** — come è implementata (schema DB, API, MQTT, firmware, OTA in §16). Ha assorbito il documento OTA separato.
+- **`fiora-roadmap.md`** — fasi, stato di avanzamento e **debito noto D1–D11** (bug firmware, test rotti). Numerazione fasi allineata a questo file.
+- **`fiora-mev.md`** — **MEV-01..07**, manutenzione evolutiva post-Fase 6. MEV = miglioria a una funzione che già si comporta come specificato; il debito D1–D11 è invece codice non allineato alle specifiche.
+- **`fiora-manuale-ambienti.md`** — setup dev/staging/produzione. §2.0 = staging realmente in uso.
+- `docs/archivio/` — documenti superati tenuti come riferimento (catalogo botanico esteso).
+
+Le specifiche descrivono il **target**: dove il firmware è indietro, la differenza è marcata nel documento e tracciata come debito nella roadmap.
+
 ## Stato attuale sviluppo
 **Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro) + **Fase 6 in corso** (pairing BLE vaso smart, 2026-07-24; schermate Vasi/dettaglio vaso + sensori in dettaglio pianta, 2026-07-25).
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo (iOS) o `expo run:android --device` (Android) su device reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
@@ -238,7 +249,7 @@ eas build --profile staging --platform ios
 - Tutti coperti da `.gitignore`
 
 ## Roadmap fasi
-(dettaglio revisioni in `docs/fiora-specifiche-integrazioni-v1.md`)
+(dettaglio in `docs/fiora-roadmap.md`)
 - **Fase 0** ✅ Setup infrastruttura
 - **Fase 1** ✅ Backend Core + Autenticazione
 - **Fase 2** ✅ CRUD piante + task (+ catalogo specie read-only)

@@ -1,5 +1,20 @@
 # Specifiche funzionali per il catalogo piante di Fiora
 
+> ## ⚠️ Documento archiviato — visione futura, non pianificata
+>
+> **Archiviato il 2026-07-27.** Questo documento descrive un catalogo botanico che
+> fonde tre sorgenti (Trefle, USDA PLANTS, ECOCROP) in un profilo di coltivazione
+> unificato, con entità dedicate e regole di fusione dei dati.
+>
+> **Non è ciò che il progetto sta costruendo.** La Fase 9 prevede qualcosa di molto
+> più ridotto: import CSV manuale in dev e test, import dell'indice Trefle in
+> produzione, senza USDA né ECOCROP e senza logica di fusione. La ragione principale
+> è che i dati di cura di Trefle sono quasi sempre nulli, quindi i reminder continuano
+> a basarsi sul catalogo curato interno anziché su quello importato.
+>
+> Resta qui come riferimento nel caso il catalogo venga ripreso e ampliato post-MVP.
+> Per lo stato reale: `../fiora-specifiche-funzionali.md` §12 e `../fiora-roadmap.md` Fase 9.
+
 ## 1. Obiettivo
 
 Costruire un catalogo piante unificato che:

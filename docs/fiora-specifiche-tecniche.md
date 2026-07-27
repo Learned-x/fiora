@@ -1,6 +1,20 @@
 # 🌿 Fiora — Specifiche tecniche per lo sviluppo
  
-**Versione 1.4 · Fase 1 · Software + Hardware · Mobile**
+**Versione 2.0 · aggiornato al 2026-07-27 · Software + Hardware + Mobile**
+ 
+Documento unico dell'implementazione. Incorpora le specifiche dell'aggiornamento
+firmware OTA (§16), prima in un documento separato.
+ 
+Documenti collegati:
+- **`fiora-specifiche-funzionali.md`** — cosa fa l'app, dal punto di vista dell'utente.
+- **`fiora-roadmap.md`** — fasi, stato di avanzamento e debito noto.
+- **`fiora-manuale-ambienti.md`** — setup di development, staging e produzione.
+- **`fiora-mev.md`** — manutenzione evolutiva pianificata per le prossime versioni.
+ 
+> **Come leggere questo documento.** Descrive l'architettura **di destinazione**.
+> Dove il codice non è ancora allineato (in particolare il firmware, vedi §6 e §16)
+> la differenza è segnalata da un riquadro come questo e tracciata nel debito noto
+> della roadmap. Le specifiche restano il bersaglio: è il codice a doversi allineare.
  
 ---
  
@@ -21,6 +35,7 @@
 13. [Storage foto](#13-storage-foto)
 14. [Variabili d'ambiente](#14-variabili-dambiente)
 15. [Convenzioni di sviluppo](#15-convenzioni-di-sviluppo)
+16. [Aggiornamento firmware OTA](#16-aggiornamento-firmware-ota)
 ---
  
 ## 1. Stack tecnologico
@@ -359,7 +374,7 @@ CREATE TABLE plants (
 );
  
 -- Catalogo botanico grezzo importato da fonti esterne (rinominata da trefle_species_raw il 2026-07-13,
--- vedi fiora-specifiche-integrazioni-v1.md §2.5): CSV manuale in dev/test, Trefle in produzione.
+-- vedi §8): CSV manuale in dev/test, Trefle in produzione.
 -- Creata PRIMA di species, perché species.external_id referenzia questa tabella
 CREATE TABLE species_import_raw (
   external_id        INTEGER PRIMARY KEY,        -- ID numerico della fonte (ID Trefle o ID assegnato nel CSV)
@@ -506,7 +521,7 @@ CREATE UNIQUE INDEX idx_species_external_id ON species(external_id) WHERE extern
 >
 > Quando una specie viene modificata manualmente da un admin, la sua `fonte` passa da `trefle` a `curato` e non viene più sovrascritta automaticamente dal job di sync (vedi sezione 8).
  
-> **species_import_raw** (rinominata da `trefle_species_raw` il 2026-07-13, vedi integrazioni §2.5)
+> **species_import_raw** (rinominata da `trefle_species_raw` il 2026-07-13, vedi §8)
 > Contiene **i dati grezzi importati da fonti esterne** per ogni specie, in formato JSONB nel campo `data`, con la colonna `fonte` a distinguere l'origine (`csv` per l'import manuale in dev/test, `trefle` per l'import massivo in produzione). È la sorgente dati "grezza" da cui deriva il catalogo interno `species`. In questo modo, se in futuro servono nuovi campi (es. `growth.*`, `specifications.*`, immagini, distribuzioni) sono già disponibili senza dover richiamare di nuovo l'API o cambiare schema. In produzione il catalogo Trefle viene importato **integralmente** da un job batch (sezione 8), non popolato in modo incrementale durante la ricerca utente.
  
 ---
@@ -563,7 +578,18 @@ POST   /auth/oauth/google      Login con token Google
 POST   /auth/oauth/apple       Login con token Apple
 POST   /auth/refresh           Rinnova access token con refresh token
 POST   /auth/logout            Revoca refresh token
+POST   /auth/change-password   Cambio password (richiede password attuale)
+GET    /auth/me                Profilo dell'utente autenticato
 DELETE /auth/account           Richiesta eliminazione account (avvia periodo di grazia)
+```
+ 
+#### Utente e opzioni
+ 
+```
+PATCH  /users/me               Aggiorna name, clima, mostraNomiScientifici,
+                               orarioReminder, pushToken
+GET    /options                Tutte le opzioni dinamiche, raggruppate per categoria
+GET    /options/:categoria     Opzioni attive di una categoria
 ```
  
 #### Piante
@@ -572,12 +598,18 @@ DELETE /auth/account           Richiesta eliminazione account (avvia periodo di 
 GET    /plants                 Lista piante attive dell'utente
 POST   /plants                 Crea nuova pianta o bouquet
 GET    /plants/:id             Dettaglio pianta
-PATCH  /plants/:id             Modifica pianta
+PATCH  /plants/:id             Modifica pianta (include vasoId per collegare
+                               o scollegare un vaso smart)
 DELETE /plants/:id             Eliminazione definitiva (con conferma)
 PATCH  /plants/:id/archive     Archivia pianta
 PATCH  /plants/:id/restore     Ripristina dall'archivio
 GET    /plants/archived        Lista piante archiviate
+GET    /plants/:id/actions     Storico cure paginato (filtri: tipo, periodo)
 ```
+ 
+`PATCH /plants/:id` con `vasoId` verifica che il vaso appartenga all'utente e che non
+sia già collegato a un'altra pianta, altrimenti risponde `VASE_ALREADY_LINKED`.
+Passare `vasoId: null` scollega il vaso.
  
 #### Task e reminder
  
@@ -605,12 +637,16 @@ PATCH  /species/:id/reject     [admin] Rifiuta con nota
  
 ```
 GET    /vases                  Lista vasi dell'utente
-POST   /vases/pair             Avvia pairing nuovo vaso (genera token)
-GET    /vases/:id              Stato e dati vaso
+POST   /vases/pair             Avvia pairing (genera device_id, restituisce
+                               le credenziali MQTT da inviare al vaso via BLE)
+GET    /vases/:id              Stato e dati vaso, con pianta collegata
+                               e ultima lettura sensori
 PATCH  /vases/:id              Modifica nome vaso
 DELETE /vases/:id              Rimuovi vaso
-GET    /vases/:id/readings     Storico dati sensori (con range temporale)
+GET    /vases/:id/readings     Letture delle ultime 24 ore (non aggregate)
 ```
+ 
+Tutte le rotte `/vases` richiedono autenticazione e operano solo sui vasi dell'utente.
  
 #### Foto e diario
  
@@ -714,9 +750,20 @@ STORAGE_ERROR
  
 Il vaso smart è basato su **ESP32** con modulo WiFi integrato e Bluetooth Low Energy (BLE). Il firmware utilizza:
  
-- **ESP-IDF WiFi Provisioning** per la configurazione WiFi iniziale via BLE
-- **PubSubClient** o **AsyncMqttClient** per la connessione MQTT su TLS
-- Certificato CA Mosquitto embeddato nel firmware per la verifica TLS
+- **Servizio BLE custom** (libreria Arduino `BLEDevice`, già nel core ESP32) per la
+  configurazione WiFi iniziale — vedi la decisione qui sotto
+- **ArduinoJson** per il parsing del payload di provisioning
+- **PubSubClient** per la connessione MQTT su TLS
+- **Preferences** (NVS) per la persistenza di credenziali e `device_id` in flash
+- Certificato CA per la verifica TLS: CA pubblica di HiveMQ in dev e staging,
+  CA propria di Mosquitto embeddata nel firmware in produzione
+ 
+> **BLE custom invece di ESP-IDF WiFi Provisioning (decisione 2026-07-24).**
+> Il protocollo standard Espressif (protobuf, handshake di sicurezza) richiedeva un
+> tempo di implementazione sproporzionato per questa fase. È stato scelto un servizio
+> BLE semplice con una sola characteristic in scrittura che riceve un JSON. È **meno
+> sicuro** — il payload BLE non è cifrato — ma sufficiente per un MVP locale.
+> Da rivalutare prima di un rilascio con utenti reali.
 ### Frequenza di campionamento
  
 | Condizione | Frequenza invio | Note |
@@ -733,9 +780,15 @@ La frequenza è configurabile dal backend in tempo reale pubblicando sul topic `
 }
 ```
  
+> **Non ancora implementato (debito D3, D4).** Il firmware pubblica ogni 3 secondi
+> anziché ogni 15 minuti, e pur essendo iscritto al topic `config` non registra
+> alcuna callback: i comandi di `sampling_interval_seconds` vengono ignorati.
+> Lato backend `publishToVase()` esiste ma nessun endpoint la richiama.
+ 
 ### Flusso di provisioning WiFi (BLE — prima configurazione)
  
-Il primo avvio del vaso richiede la configurazione delle credenziali WiFi tramite Bluetooth Low Energy, usando il protocollo ESP-IDF WiFi Provisioning.
+Il primo avvio del vaso richiede la configurazione delle credenziali WiFi via Bluetooth
+Low Energy, con il servizio BLE custom descritto sopra.
  
 ```
 PRIMO AVVIO — flusso completo
@@ -747,14 +800,10 @@ PRIMO AVVIO — flusso completo
    dispositivi BLE nelle vicinanze e mostra quelli con
    prefisso "Fiora-".
 4. L'utente seleziona il proprio vaso nell'app.
-5. L'app invia via BLE:
-     - SSID della rete WiFi dell'utente
-     - Password WiFi
-     - device_id generato dal backend (vedi sotto)
-     - MQTT credentials (username + password)
-     - Broker URL e porta
-6. L'ESP32 salva le credenziali in NVS (flash non volatile)
-   e tenta la connessione WiFi.
+5. L'app invia via BLE il payload JSON di provisioning
+   (contratto definito qui sotto).
+6. L'ESP32 salva le credenziali in NVS (flash non volatile),
+   si riavvia e tenta la connessione WiFi.
 7. Se la connessione WiFi riesce, l'ESP32 si connette a
    Mosquitto e pubblica il primo messaggio su:
      fiora/vaso/{device_id}/status → { "status": "online" }
@@ -763,6 +812,37 @@ PRIMO AVVIO — flusso completo
 9. L'app riceve conferma via polling su GET /vases/{id}
    e mostra il vaso come connesso.
 ```
+ 
+#### Contratto del payload BLE
+ 
+Servizio BLE `6e400001-b5a3-f393-e0a9-e50e24dcca9e`, characteristic in scrittura
+`6e400002-b5a3-f393-e0a9-e50e24dcca9e`. Il valore scritto è un JSON con questi campi —
+**i nomi sono normativi**, app e firmware devono usare esattamente questi:
+ 
+```json
+{
+  "ssid":        "NomeRete",
+  "password":    "passwordWiFi",
+  "device_id":   "uuid-generato-dal-backend",
+  "mqtt_user":   "username-mqtt",
+  "mqtt_pass":   "password-mqtt",
+  "broker_host": "xxxxx.s1.eu.hivemq.cloud",
+  "broker_port": 8883
+}
+```
+ 
+> **Disallineamento aperto (debito D1, bloccante).** L'app invia `mqtt_user` e
+> `mqtt_pass`; il firmware legge `mqtt_username` e `mqtt_password`, quindi non li
+> trova e resta senza credenziali MQTT. **Il firmware va allineato ai nomi qui sopra**
+> prima del primo test su hardware reale.
+>
+> **Debito D9:** `broker_host` e `broker_port` sono parte del contratto ma oggi l'app
+> non li invia e il firmware ha host e porta hardcoded. Vanno implementati: senza,
+> la migrazione a Mosquitto in produzione richiederebbe il reflash di ogni vaso.
+ 
+**Codifica:** il payload va codificato in **base64 UTF-8-safe**. `btoa` non basta —
+SSID e password italiani possono contenere caratteri accentati fuori dal range Latin1,
+che verrebbero corrotti silenziosamente.
  
 ### Flusso di pairing backend (lato API)
  
@@ -785,11 +865,58 @@ PRIMO AVVIO — flusso completo
      smart_vases.last_seen = NOW()
 ```
 
-> **Nota broker per ambiente (2026-07-24):** lo step "Aggiunge l'utente Mosquitto con adduser" vale solo in produzione. In dev/staging il broker è HiveMQ Cloud e le credenziali device vanno pre-create manualmente nella console (il piano gratuito non ha API di gestione credenziali): il backend restituisce credenziali già esistenti invece di crearle al volo. Inoltre il firmware ESP32 in dev/test verifica TLS con la CA pubblica di HiveMQ (Let's Encrypt), non con la CA propria di Mosquitto.
+> **Credenziali MQTT per ambiente (decisione 2026-07-24).** Lo step "aggiunge l'utente
+> Mosquitto" vale **solo in produzione**, dove ogni vaso ha credenziali proprie
+> (`vaso-{device_id}`) e ACL per topic.
+>
+> In **dev e staging** il broker è HiveMQ Cloud nel piano gratuito, che non espone API
+> di gestione utenti: tutti i vasi condividono le stesse credenziali del backend, e
+> `POST /vases/pair` restituisce quelle già esistenti invece di crearne di nuove.
+> Restano comunque **trasmesse via BLE a ogni pairing** anziché essere scritte nel
+> firmware, così cambiarle non richiede un reflash.
+>
+> Conseguenze: la revoca per singolo vaso alla rimozione (§10.5 funzionali) è possibile
+> solo in produzione; il `device_id` è comunque sempre generato dal backend. In dev e
+> test la verifica TLS usa la CA pubblica di HiveMQ (Let's Encrypt), non quella di Mosquitto.
  
 ### Riconfigurazione WiFi (rete cambiata)
  
-Se l'utente cambia rete WiFi, il vaso deve essere riconfigurato. Il flusso è identico al primo avvio: tenere premuto il pulsante di reset sul vaso per 5 secondi per riportarlo in modalità BLE advertising. Le credenziali MQTT rimangono invariate — solo il WiFi viene riconfigurato.
+Se l'utente cambia rete WiFi, il vaso deve essere riconfigurato. Il flusso è identico al primo avvio: tenere premuto il pulsante di reset sul vaso per 5 secondi per riportarlo in modalità BLE advertising. Le credenziali MQTT e il `device_id` rimangono invariati — solo il WiFi viene riconfigurato.
+ 
+> **Non implementato (debito D7).** Il firmware non gestisce il pulsante fisico e
+> l'app non ha una voce "Riconfigura WiFi": oggi un vaso che perde la rete va rimosso
+> e ri-appaiato da zero.
+ 
+### Fallimento della connessione dopo il provisioning
+ 
+Se il vaso, riavviato con le credenziali appena ricevute, **non riesce a connettersi**,
+deve tornare da solo in modalità BLE advertising invece di restare in un ciclo di
+tentativi infinito:
+ 
+```
+1. Tentativo di connessione WiFi, timeout 30 secondi.
+2. Se fallisce → ritenta ancora 2 volte (totale 3 tentativi, ~90 s).
+3. Se falliscono tutti → cancella le credenziali appena salvate,
+   riavvia in modalità BLE advertising `Fiora-XXXX`.
+4. Se il WiFi si connette ma il broker MQTT non risponde entro
+   30 secondi → stessa procedura: le credenziali MQTT o
+   l'host potrebbero essere sbagliati.
+```
+ 
+**Perché cancellare le credenziali.** Un vaso che le conserva e continua a ritentare
+resta invisibile: non è più raggiungibile via BLE (non fa advertising) e non parla col
+backend (non ha rete). Sarebbe recuperabile solo col pulsante fisico di reset, che oggi
+il firmware non gestisce (debito D7): un solo errore di battitura nella password
+renderebbe il vaso inutilizzabile.
+ 
+Le credenziali salvate da un provisioning **andato a buon fine** non vanno invece mai
+cancellate per una disconnessione successiva: in quel caso il vaso ritenta
+indefinitamente, perché una rete che cade e torna è normale e non deve richiedere
+un nuovo pairing. La distinzione è fra *credenziali mai validate* e *credenziali che
+hanno già funzionato almeno una volta*, da tracciare con un flag in NVS.
+ 
+> **Non implementato.** Il firmware attuale non ha questa logica di ritorno in
+> advertising. È il requisito che rende possibile il "Riprova" dell'app (§10.1.2 funzionali).
  
 ### Lato app mobile — flusso BLE provisioning
  
@@ -799,52 +926,58 @@ import { BleManager } from 'react-native-ble-plx';
  
 const manager = new BleManager();
  
-async function startProvisioning() {
-  // 1. Chiedi credenziali pairing al backend
-  const { device_id, mqtt_username, mqtt_password, broker_url } =
+// Ordine scan-first: prima si scopre e si sceglie il vaso,
+// solo dopo si chiedono le credenziali WiFi (vedi §6).
+ 
+// 1. Scansiona i dispositivi BLE con prefisso "Fiora-" e
+//    mostrali in lista; l'utente sceglie il proprio vaso.
+manager.startDeviceScan(null, null, (error, device) => {
+  if (device?.name?.startsWith('Fiora-')) aggiungiAllaLista(device);
+});
+ 
+// 2. Dopo la scelta del vaso e l'inserimento delle credenziali WiFi:
+async function provisiona(device, wifiSSID, wifiPassword) {
+  // 3. Il backend genera device_id e restituisce le credenziali MQTT
+  const { device_id, mqtt_user, mqtt_pass, broker_host, broker_port } =
     await api.post('/vases/pair');
  
-  // 2. Scansiona dispositivi BLE con prefisso "Fiora-"
-  manager.startDeviceScan(null, null, async (error, device) => {
-    if (device?.name?.startsWith('Fiora-')) {
-      manager.stopDeviceScan();
+  const connected = await device.connect();
+  await connected.discoverAllServicesAndCharacteristics();
  
-      // 3. Connetti e invia credenziali via BLE
-      const connected = await device.connect();
-      await connected.discoverAllServicesAndCharacteristics();
- 
-      const payload = JSON.stringify({
-        ssid: wifiSSID,
-        password: wifiPassword,
-        device_id,
-        mqtt_username,
-        mqtt_password,
-        broker_url: 'api.tangifiori.com',
-        broker_port: 8883,
-      });
- 
-      // Scrivi sulla caratteristica di provisioning ESP-IDF
-      await connected.writeCharacteristicWithResponseForService(
-        ESP_PROV_SERVICE_UUID,
-        ESP_PROV_CHAR_UUID,
-        btoa(payload)
-      );
- 
-      // 4. Polling per conferma pairing completato
-      await pollVaseStatus(device_id);
-    }
+  const payload = JSON.stringify({
+    ssid: wifiSSID,
+    password: wifiPassword,
+    device_id,
+    mqtt_user,      // nomi normativi: vedi il contratto in §6
+    mqtt_pass,
+    broker_host,
+    broker_port,
   });
+ 
+  await connected.writeCharacteristicWithResponseForService(
+    FIORA_PROV_SERVICE_UUID,  // 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+    FIORA_PROV_CHAR_UUID,     // 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+    utf8ToBase64(payload)     // non btoa: SSID/password possono avere accenti
+  );
+ 
+  // 4. Verifica dello stato reale: polling su GET /vases/:id fino a 45 s,
+  //    finché stato === 'connesso'. Una scrittura BLE riuscita non basta.
+  await attendiVasoConnesso(device_id, { timeoutMs: 45_000 });
 }
 ```
  
 ### Gestione disconnessioni post-pairing
  
-Dopo il pairing, se il vaso si disconnette da MQTT, Mosquitto invia automaticamente il Last Will Message. Il backend:
+Dopo il pairing, se il vaso si disconnette da MQTT il broker pubblica il Last Will
+Message configurato dal dispositivo. Il backend:
  
-1. Segna `smart_vases.stato = 'disconnesso'`
-2. Mette in coda una notifica push all'utente
-3. Passa ai reminder calendar-based per quella pianta
-4. Quando il vaso torna online, ripristina automaticamente i reminder da sensore
+1. Segna `smart_vases.stato = 'disconnesso'` ✅
+2. Mette in coda una notifica push all'utente — 📋 Fase 7
+3. Passa ai reminder da calendario per quella pianta — 📋 Fase 7
+4. Quando il vaso torna online, ripristina i reminder da sensore — 📋 Fase 7
+ 
+Oggi è implementato solo il punto 1: finché gli alert da sensore non esistono (Fase 7),
+i reminder sono comunque sempre da calendario e non c'è nulla da commutare.
 ### Servizio MQTT nel backend
  
 ```typescript
@@ -1027,7 +1160,7 @@ const REMINDER_INTERVALS = {
  
 Fiora utilizza **Trefle** come sorgente principale per i dati botanici in produzione (tassonomia, crescita, distribuzione, immagini). A differenza di un fallback "live" al momento della ricerca, l'intero catalogo Trefle accessibile dalla chiave API viene **importato una volta in `species_import_raw`** (con `fonte='trefle'`) tramite un job batch, e da lì sincronizzato verso `species`. La ricerca utente (sezione "Flusso ricerca specie" sotto) lavora quindi sempre su dati già presenti in PostgreSQL, mai su chiamate dirette a Trefle in tempo reale.
  
-In **dev e test** la stessa tabella viene popolata manualmente **via import CSV** (`fonte='csv'`) con un set ridotto di specie, senza dipendere da Trefle (vedi integrazioni §2.5).
+In **dev e test** la stessa tabella viene popolata manualmente **via import CSV** (`fonte='csv'`) con un set ridotto di specie, senza dipendere da Trefle.
  
 > ⚠️ **Nota sui tempi e i volumi**: Trefle espone centinaia di migliaia di specie, con un rate limit di **120 richieste/minuto**. L'import completo richiede quindi ore o giorni, non minuti. Il job di import va progettato come **resumable**: deve salvare il progresso (es. ultima pagina importata) e poter ripartire da dove si era interrotto in caso di crash, riavvio del backend o superamento di una sessione di rate limit, senza ripartire da zero.
  
@@ -1760,7 +1893,20 @@ log_timestamp true
 - Payload completi delle richieste HTTP in produzione (solo in debug)
 ---
  
-## Note per il partner hardware (vaso smart)
+## Requisiti del firmware del vaso smart
+ 
+> **Nota storica.** Questo capitolo nasce come brief per un partner hardware esterno.
+> Il firmware è oggi **nel monorepo** (`firmware/vaso/vaso.ino`) e mantenuto insieme al
+> resto del progetto: va letto come l'elenco dei requisiti che il firmware deve
+> soddisfare, non come una consegna a terzi.
+>
+> **Il contratto normativo del payload di provisioning è quello in §6**, non l'esempio
+> qui sotto, che riporta i nomi dei campi in una forma superata (`mqtt_username`,
+> `broker_url`). In caso di divergenza vale §6.
+>
+> Diversi requisiti di questo capitolo non sono ancora implementati: buffer offline (D8),
+> segnalazione batteria (D5), reset fisico (D7), frequenza di campionamento (D4).
+> Vedi il debito noto nella roadmap.
  
 ### Hardware di riferimento
  
@@ -1771,7 +1917,7 @@ log_timestamp true
  
 **1. WiFi Provisioning via BLE (primo avvio)**
  
-Implementare il protocollo **ESP-IDF WiFi Provisioning** in modalità BLE. Al primo avvio (o dopo reset a lungo), il dispositivo si avvia in modalità BLE advertising con nome `Fiora-{ultimi4MAC}`.
+Al primo avvio (o dopo un reset prolungato) il dispositivo si avvia in modalità BLE advertising con nome `Fiora-{ultimi4MAC}`, esponendo il servizio BLE custom descritto in §6 (non il protocollo ESP-IDF WiFi Provisioning: vedi la motivazione della scelta in §6).
  
 Il payload di provisioning ricevuto via BLE contiene:
 ```json
@@ -1843,8 +1989,506 @@ Quando `batteria < 20`, includere nel payload un campo aggiuntivo:
  
 **8. Reset e riconfigurazione**
  
-Tenere premuto il pulsante fisico per 5 secondi cancella le credenziali WiFi da NVS e riavvia in modalità BLE provisioning. Le credenziali MQTT rimangono invariate.
+Tenere premuto il pulsante fisico per 5 secondi cancella le credenziali WiFi da NVS e riavvia in modalità BLE provisioning. Le credenziali MQTT e il `device_id` rimangono invariati.
  
+**9. Aggiornamento firmware over-the-air**
+ 
+Il firmware deve poter essere aggiornato via OTA, senza cavo: vedi §16 per il protocollo
+completo. Sostituisce l'assunto originale di questo capitolo, per cui firmware e OTA
+sarebbero rimasti responsabilità di un partner esterno — non è più così.
 ---
- 
-Il backend Fiora non gestisce firmware né OTA update — questi restano responsabilità del partner esterno.
+
+## 16. Aggiornamento firmware OTA
+
+**Stato: 📋 non implementato.** Specifica di progetto, prevista dopo il completamento
+della Fase 6 (pairing BLE). Il firmware è nel monorepo (`firmware/vaso/vaso.ino`),
+quindi l'OTA è responsabilità di Fiora e non di un partner esterno.
+
+### 16.1 Perché serve
+
+Senza OTA ogni correzione al firmware richiede di smontare il vaso, collegarlo
+via USB a un Mac con Arduino IDE e riflasharlo. Con un solo prototipo è
+fastidioso; con vasi in mano a utenti è impossibile. Casi concreti già presenti
+nel progetto:
+
+- Il mismatch `mqtt_username`/`mqtt_user` del payload BLE (debito D1, vedi §6):
+  un fix di due righe che oggi richiede il cavo.
+- Cambio delle credenziali MQTT condivise o migrazione da HiveMQ a Mosquitto in
+  produzione (broker host oggi hardcoded nello sketch).
+- Calibrazione del sensore di umidità (`soilDry`/`soilWet`).
+- Frequenza di campionamento, buffer offline, gestione batteria — tutte
+  funzionalità firmware ancora da scrivere.
+
+---
+
+### 16.2 Decisioni di progetto
+
+| Decisione | Scelta | Motivazione |
+|---|---|---|
+| Trasporto del comando | MQTT (topic dedicato) | Il canale vaso↔backend esiste già ed è bidirezionale; nessuna porta in ingresso da aprire sul vaso |
+| Trasporto del binario | HTTPS (GET singolo) | Un `.bin` è ~1,2–1,5 MB: spezzarlo in chunk MQTT QoS 1 è fragile e lento. `HTTPClient` + `Update` sono nel core ESP32, zero dipendenze extra |
+| Hosting del binario | MinIO (bucket `fiora-firmware`), URL presigned 15 min | MinIO è già in `docker-compose.dev.yml` per le foto (Fase 5); in produzione stesso storage dietro Nginx |
+| Verifica integrità | SHA-256 del binario confrontato sul device | Difesa minima contro download troncati o corrotti; l'HTTPS copre il transito, non l'artefatto |
+| Firma del firmware (Secure Boot) | **Fuori scope MVP** | Richiede fusing degli eFuse dell'ESP32, irreversibile — da valutare solo prima di una distribuzione reale |
+| Chi decide l'aggiornamento | L'utente, dall'app | Nessun auto-update silenzioso in MVP: un OTA che fallisce a metà lascia un vaso muto e l'utente deve sapere perché |
+| Aggiornamento obbligatorio | Flag `obbligatorio` sulla release | Serve per rilasci che rompono la compatibilità del protocollo MQTT: l'app lo mostra come bloccante, ma resta l'utente a confermare |
+| Rollback | Best-effort applicativo (vedi §7) | Il rollback del bootloader ESP-IDF non è abilitato nelle build standard del core Arduino |
+
+---
+
+### 16.3 Modello dati
+
+#### 16.3.1 Nuova tabella `firmware_releases`
+
+```sql
+CREATE TABLE firmware_releases (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  versione     VARCHAR(20) UNIQUE NOT NULL,   -- SemVer, es. '1.2.0'
+  canale       VARCHAR(20) NOT NULL DEFAULT 'stable',  -- 'stable' | 'beta'
+  url          TEXT NOT NULL,                 -- object key su MinIO (non URL firmato)
+  sha256       CHAR(64) NOT NULL,             -- hash del .bin, hex minuscolo
+  dimensione   INTEGER NOT NULL,              -- byte
+  note         TEXT,                          -- changelog mostrato nell'app
+  obbligatorio BOOLEAN NOT NULL DEFAULT FALSE,
+  pubblicata   BOOLEAN NOT NULL DEFAULT FALSE,-- una release non pubblicata non viene mai offerta
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 16.3.2 Nuove colonne su `smart_vases`
+
+```sql
+ALTER TABLE smart_vases
+  ADD COLUMN firmware_version        VARCHAR(20),                    -- versione riportata dal vaso
+  ADD COLUMN firmware_target_version VARCHAR(20),                    -- versione richiesta dall'utente, NULL se nessun OTA in corso
+  ADD COLUMN ota_stato               VARCHAR(20) DEFAULT 'idle',     -- 'idle'|'richiesto'|'download'|'installazione'|'fallito'
+  ADD COLUMN ota_progresso           SMALLINT,                       -- 0-100, NULL fuori da un OTA
+  ADD COLUMN ota_errore              TEXT,                           -- ultimo errore leggibile
+  ADD COLUMN ota_aggiornato_a        TIMESTAMPTZ;                    -- ultimo cambio di stato OTA
+```
+
+Nomi Prisma corrispondenti su `model SmartVase`: `firmwareVersion`,
+`firmwareTargetVersion`, `otaStato`, `otaProgresso`, `otaErrore`,
+`otaAggiornatoA` (con `@map` verso le colonne snake_case, come il resto dello schema).
+
+---
+
+### 16.4 Protocollo MQTT
+
+#### 16.4.1 Topic nuovi
+
+| Topic | Direzione | QoS | Retained | Payload |
+|---|---|---|---|---|
+| `fiora/vaso/{device_id}/ota` | backend → vaso | 1 | no | comando di aggiornamento |
+| `fiora/vaso/{device_id}/ota/status` | vaso → backend | 1 | no | avanzamento ed esito |
+
+> ⚠️ La sottoscrizione esistente `fiora/vaso/+/status` **non** intercetta
+> `fiora/vaso/{id}/ota/status`: il wildcard `+` copre un solo livello. Va
+> aggiunta una `subscribe('fiora/vaso/+/ota/status')` in `connectMqtt()`, e
+> `routeMessage()` va aggiornato perché oggi fa match sull'ultimo segmento del
+> topic (`ota/status` finirebbe in "topic non gestito").
+
+#### 16.4.2 Comando (backend → vaso)
+
+```json
+{
+  "action": "update",
+  "version": "1.2.0",
+  "url": "https://storage.fiora.local/fiora-firmware/vaso-1.2.0.bin?X-Amz-...",
+  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "size": 1348912
+}
+```
+
+L'URL è **presigned con scadenza 15 minuti**: il bucket non è pubblico e il
+firmware non ha credenziali di storage.
+
+#### 16.4.3 Stato (vaso → backend)
+
+```json
+{ "device_id": "vaso-abc", "version": "1.2.0", "state": "download", "progress": 42 }
+{ "device_id": "vaso-abc", "version": "1.2.0", "state": "installazione", "progress": 100 }
+{ "device_id": "vaso-abc", "version": "1.2.0", "state": "fallito", "error": "SHA256_MISMATCH" }
+```
+
+Stati ammessi: `download` | `installazione` | `fallito`.
+**Non esiste uno stato `success` inviato prima del riavvio**: il successo è
+implicito e viene confermato dal messaggio `status: online` post-riavvio, che
+riporta la nuova `fw_version`. Un vaso che dichiara "riuscito" e poi non torna
+online avrebbe mentito.
+
+Codici di errore firmware: `HTTP_ERROR`, `SHA256_MISMATCH`, `NO_SPACE`,
+`WRITE_FAILED`, `BATTERY_LOW`, `WIFI_LOST`.
+
+#### 16.4.4 Versione firmware riportata dal vaso
+
+Il campo `fw_version` va aggiunto ai payload esistenti:
+
+```json
+// fiora/vaso/{device_id}/status
+{ "device_id": "vaso-abc", "status": "online", "fw_version": "1.1.0" }
+```
+
+`handleStatus()` in `src/lib/mqtt.ts` lo salva in `smart_vases.firmware_version`.
+Se la versione ricevuta coincide con `firmware_target_version`, l'OTA è concluso
+con successo: azzera `firmware_target_version`, `ota_progresso`, `ota_errore` e
+imposta `ota_stato = 'idle'`.
+
+---
+
+### 16.5 API backend
+
+```
+GET   /vases/:id/firmware          Stato firmware + aggiornamento disponibile
+POST  /vases/:id/firmware/update   Avvia l'OTA (pubblica il comando MQTT)
+
+# Admin (protetti da role='admin', vedi User.role di Fase 4.5)
+GET   /admin/firmware/releases     Lista release
+POST  /admin/firmware/releases     Upload .bin (multipart) + metadati
+PATCH /admin/firmware/releases/:id Pubblica/ritira una release
+```
+
+**`GET /vases/:id/firmware`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "versioneCorrente": "1.1.0",
+    "versioneDisponibile": "1.2.0",
+    "aggiornamentoDisponibile": true,
+    "obbligatorio": false,
+    "note": "Corregge il pairing BLE e la calibrazione del sensore di umidità",
+    "ota": { "stato": "idle", "progresso": null, "errore": null }
+  }
+}
+```
+
+`versioneDisponibile` = release `pubblicata` più alta (SemVer) del canale
+`stable` maggiore di `versioneCorrente`. Se il vaso non ha mai riportato una
+versione (`firmware_version` NULL, firmware pre-OTA), `aggiornamentoDisponibile`
+è `false` e l'app mostra "aggiornabile solo via cavo".
+
+**`POST /vases/:id/firmware/update`** — body opzionale `{ "version": "1.2.0" }`
+(default: ultima disponibile). Il backend:
+
+1. verifica ownership del vaso;
+2. rifiuta se `stato != 'connesso'` → `VASE_OFFLINE`;
+3. rifiuta se `ota_stato` è già `richiesto`/`download`/`installazione` → `FIRMWARE_UPDATE_IN_PROGRESS`;
+4. rifiuta se la versione richiesta è uguale alla corrente → `FIRMWARE_UP_TO_DATE`;
+5. rifiuta se `batteria != null && batteria < 50` → `FIRMWARE_BATTERY_LOW`;
+6. genera l'URL presigned MinIO (15 min), pubblica il comando su
+   `fiora/vaso/{device_id}/ota`;
+7. scrive `firmware_target_version`, `ota_stato='richiesto'`, `ota_progresso=0`.
+
+**Watchdog:** un job BullMQ ricorrente (ogni 5 min) porta a
+`ota_stato='fallito'`, `ota_errore='TIMEOUT'` ogni vaso fermo in uno stato OTA
+da più di 15 minuti — altrimenti un vaso che si spegne a metà download lascia
+l'app in caricamento per sempre.
+
+**Nuovi codici errore** (da aggiungere alla lista di §5):
+`FIRMWARE_NOT_FOUND`, `FIRMWARE_UP_TO_DATE`, `FIRMWARE_UPDATE_IN_PROGRESS`,
+`FIRMWARE_BATTERY_LOW`, `FIRMWARE_UPDATE_FAILED`, `VASE_OFFLINE`.
+
+---
+
+### 16.6 Firmware ESP32
+
+#### 16.6.1 Prerequisito: tabella delle partizioni con OTA
+
+L'OTA richiede **due partizioni applicative** (`app0`/`app1`): il nuovo firmware
+si scrive in quella inattiva e il bootloader ci passa al riavvio.
+
+- In Arduino IDE: **Tools → Partition Scheme → "Minimal SPIFFS (1.9MB APP with
+  OTA / 190KB SPIFFS)"**.
+- Lo schema di default ("Default 4MB with spiffs") ha sì due slot, ma da 1,2 MB
+  ciascuno: lo sketch attuale (WiFi + TLS + BLE + ArduinoJson + PubSubClient +
+  sensori) rischia di non entrarci. **Verificare la dimensione compilata prima
+  di scegliere**: se supera 1,2 MB serve per forza lo schema "Minimal SPIFFS".
+- Cambiare schema di partizioni richiede **un ultimo flash via cavo** su ogni
+  vaso già in giro: i vasi flashati con il layout attuale non sono aggiornabili
+  OTA finché non ricevono una build con il layout nuovo. È il motivo per cui
+  questa modifica va fatta **prima** di distribuire qualsiasi vaso.
+
+#### 16.6.2 Costante di versione
+
+```cpp
+#define FW_VERSION "1.1.0"   // SemVer, allineata al tag git firmware-v1.1.0
+```
+
+Da includere nel payload `status` e nei messaggi `ota/status`.
+
+#### 16.6.3 Handler MQTT (oggi mancante)
+
+Lo sketch attuale si sottoscrive a `fiora/vaso/{id}/config` ma **non chiama mai
+`client.setCallback()`**: qualunque messaggio in arrivo viene ignorato. Va
+aggiunto un callback che smista `config` e `ota`:
+
+```cpp
+void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  String t(topic);
+  String body; body.reserve(length);
+  for (unsigned int i = 0; i < length; i++) body += (char)payload[i];
+
+  if (t.endsWith("/ota"))    { handleOtaCommand(body); return; }
+  if (t.endsWith("/config")) { handleConfigCommand(body); return; }
+}
+
+// in connectMQTT(), prima di client.connect():
+client.setCallback(onMqttMessage);
+client.setBufferSize(1024);   // il payload OTA supera i 256 byte di default
+// dopo la connessione:
+client.subscribe(("fiora/vaso/" + deviceId + "/ota").c_str(), 1);
+```
+
+> Nota: il buffer di default di `PubSubClient` è 256 byte — il comando OTA con
+> URL presigned lo supera abbondantemente e verrebbe **scartato in silenzio**.
+> `setBufferSize(1024)` non è opzionale.
+
+#### 16.6.4 Download e scrittura
+
+```cpp
+#include <HTTPClient.h>
+#include <Update.h>
+#include <mbedtls/sha256.h>
+
+void handleOtaCommand(const String& body) {
+  StaticJsonDocument<768> doc;
+  if (deserializeJson(doc, body)) return;
+  if (String((const char*)doc["action"]) != "update") return;
+
+  String version = doc["version"] | "";
+  String url     = doc["url"] | "";
+  String sha     = doc["sha256"] | "";
+  size_t  size   = doc["size"] | 0;
+  if (version.isEmpty() || url.isEmpty() || sha.isEmpty() || size == 0) return;
+
+  publishOtaStatus(version, "download", 0, "");
+
+  WiFiClientSecure otaClient;
+  otaClient.setCACert(ca_cert);          // stessa CA usata per MQTT/HTTPS storage
+
+  HTTPClient http;
+  http.begin(otaClient, url);
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    publishOtaStatus(version, "fallito", 0, "HTTP_ERROR");
+    http.end();
+    return;
+  }
+
+  if (!Update.begin(size)) {
+    publishOtaStatus(version, "fallito", 0, "NO_SPACE");
+    http.end();
+    return;
+  }
+
+  mbedtls_sha256_context sha_ctx;
+  mbedtls_sha256_init(&sha_ctx);
+  mbedtls_sha256_starts_ret(&sha_ctx, 0);
+
+  WiFiClient* stream = http.getStreamPtr();
+  uint8_t buf[1024];
+  size_t written = 0;
+  int lastPct = -1;
+
+  while (http.connected() && written < size) {
+    size_t avail = stream->available();
+    if (!avail) { delay(10); continue; }
+
+    int n = stream->readBytes(buf, min(avail, sizeof(buf)));
+    if (n <= 0) continue;
+
+    mbedtls_sha256_update_ret(&sha_ctx, buf, n);
+    if (Update.write(buf, n) != (size_t)n) {
+      Update.abort();
+      publishOtaStatus(version, "fallito", 0, "WRITE_FAILED");
+      http.end();
+      return;
+    }
+    written += n;
+
+    int pct = (written * 100) / size;
+    if (pct >= lastPct + 5) {                 // report ogni 5%, non a ogni chunk
+      publishOtaStatus(version, "download", pct, "");
+      client.loop();                          // tiene viva la connessione MQTT
+      lastPct = pct;
+    }
+  }
+
+  uint8_t digest[32];
+  mbedtls_sha256_finish_ret(&sha_ctx, digest);
+  mbedtls_sha256_free(&sha_ctx);
+
+  char hex[65];
+  for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", digest[i]);
+  hex[64] = '\0';
+
+  if (sha != String(hex)) {
+    Update.abort();
+    publishOtaStatus(version, "fallito", 0, "SHA256_MISMATCH");
+    http.end();
+    return;
+  }
+
+  if (!Update.end(true)) {
+    publishOtaStatus(version, "fallito", 0, "WRITE_FAILED");
+    http.end();
+    return;
+  }
+
+  publishOtaStatus(version, "installazione", 100, "");
+  prefs.putString("fw_pending", version);     // per la validazione post-boot (§7)
+  http.end();
+  delay(500);
+  ESP.restart();
+}
+```
+
+**Vincoli:**
+- Non toccare mai le `Preferences` del namespace `fiora` durante l'OTA: le
+  credenziali WiFi/MQTT devono sopravvivere all'aggiornamento (le partizioni
+  NVS e app sono separate, quindi un OTA "pulito" non le tocca — ma non vanno
+  cancellate a mano nel codice di update).
+- Rifiutare l'OTA se `batteria` è nota e `< 50%` (errore `BATTERY_LOW`), anche
+  se il backend già filtra: il vaso è l'ultimo a sapere il proprio stato reale.
+- Durante il download non pubblicare telemetria: il TLS + scrittura flash usa
+  già molta RAM.
+
+---
+
+### 16.7 Rollback e protezione dal brick
+
+Il rollback automatico del bootloader (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`)
+**non è attivo** nelle build standard del core Arduino-ESP32: se il nuovo
+firmware si avvia ma non funziona, nessuno lo riporta indietro da solo. La
+protezione realistica in MVP è applicativa, a due livelli:
+
+1. **Auto-validazione post-boot.** All'avvio, se `fw_pending` è valorizzata in
+   `Preferences`, il firmware ha 90 secondi per connettersi a WiFi **e** MQTT.
+   Se ci riesce: pubblica `status: online` con la nuova `fw_version`, cancella
+   `fw_pending` e azzera il contatore `fw_boot_fail`. Se non ci riesce:
+   incrementa `fw_boot_fail` e riavvia.
+2. **Ritorno alla partizione precedente.** Al terzo fallimento consecutivo
+   (`fw_boot_fail >= 3`) il firmware chiama
+   `esp_ota_set_boot_partition(esp_ota_get_next_update_partition(NULL))` e
+   riavvia, tornando alla versione precedente, che è ancora integra nell'altro
+   slot.
+
+Questo copre il caso "firmware nuovo che non si connette" (il più probabile:
+broker cambiato, bug nella logica di rete). **Non** copre un firmware che non
+arriva nemmeno a `setup()` (crash in boot loop): lì serve il cavo. È il limite
+accettato per l'MVP; il rollback del bootloader va valutato se si passa a
+PlatformIO/ESP-IDF, che lo espone come opzione di build.
+
+---
+
+### 16.8 App mobile
+
+#### 16.8.1 Dove vive la funzione
+
+In `app/vase/[id].tsx`, nuova sezione **"Firmware"** sotto i dati ambientali:
+
+```
+┌─ Firmware ────────────────────────────┐
+│ Versione installata      1.1.0        │
+│ ● Aggiornamento disponibile: 1.2.0    │
+│   "Corregge il pairing BLE…"          │
+│            [ Aggiorna ora ]           │
+└───────────────────────────────────────┘
+```
+
+Stati della sezione:
+
+| Condizione | UI |
+|---|---|
+| Nessun aggiornamento | "Firmware aggiornato · 1.2.0", nessun bottone |
+| Aggiornamento disponibile | Badge + changelog + bottone "Aggiorna ora" |
+| Aggiornamento obbligatorio | Badge ambra "Aggiornamento necessario", testo che spiega che il vaso può smettere di inviare dati |
+| OTA in corso | Progress bar `ota.progresso`, testo di stato, bottone disabilitato, avviso "Non spegnere il vaso" |
+| OTA fallito | Messaggio d'errore tradotto + "Riprova" |
+| Vaso offline | Sezione in sola lettura + "Il vaso deve essere connesso per aggiornarsi" |
+| `firmware_version` NULL | "Versione sconosciuta — aggiornabile solo via cavo" |
+
+#### 16.8.2 Conferma e polling
+
+Prima di avviare, un `ActionSheet` (lo stesso componente già usato in questa
+schermata) spiega cosa succede: "L'aggiornamento richiede circa 2 minuti. Il
+vaso si riavvierà e non invierà dati durante l'operazione. Tienilo alimentato."
+
+Durante l'OTA l'app fa polling su `GET /vases/:id/firmware` **ogni 3 secondi,
+per un massimo di 5 minuti** — stessa filosofia del pairing (vedi §6,
+"Verifica pairing = stato reale"): il successo si dichiara solo quando
+`versioneCorrente` è diventata quella nuova e il vaso è tornato `connesso`, non
+quando il comando MQTT è stato pubblicato.
+
+Alla scadenza dei 5 minuti senza esito: "Non siamo riusciti a confermare
+l'aggiornamento. Controlla che il vaso sia acceso e riprova tra qualche minuto"
+— senza dichiarare fallimento, perché il vaso potrebbe essere ancora in
+riavvio.
+
+#### 16.8.3 Notifica push
+
+Fuori scope di questa versione. Se in futuro si vuole avvisare gli utenti di un
+firmware obbligatorio, riusare l'infrastruttura di Fase 8
+(`notification.service.ts`) con un nuovo tipo di messaggio e deep link
+`/vase/{id}`.
+
+---
+
+### 16.9 Flusso di rilascio (per lo sviluppatore)
+
+```bash
+# 1. Bump della versione nello sketch
+#    firmware/vaso/vaso.ino → #define FW_VERSION "1.2.0"
+
+# 2. Compilazione con lo schema di partizioni OTA
+arduino-cli compile \
+  --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
+  --output-dir build firmware/vaso
+
+# 3. Hash del binario (deve coincidere con quello caricato)
+shasum -a 256 build/vaso.ino.bin
+
+# 4. Upload della release (admin)
+curl -X POST https://<api>/admin/firmware/releases \
+  -H "Authorization: Bearer <token-admin>" \
+  -F file=@build/vaso.ino.bin \
+  -F versione=1.2.0 \
+  -F canale=stable \
+  -F note="Corregge il pairing BLE e la calibrazione del sensore di umidità"
+
+# 5. Test su un vaso di prova (canale beta), poi pubblicazione
+curl -X PATCH https://<api>/admin/firmware/releases/<id> \
+  -H "Authorization: Bearer <token-admin>" \
+  -d '{"pubblicata": true}'
+
+# 6. Tag git
+git tag firmware-v1.2.0 && git push origin firmware-v1.2.0
+```
+
+Il versionamento del firmware è **indipendente** da quello dell'app (tag
+`firmware-vX.Y.Z` contro `vX.Y.Z`): hardware e app si rilasciano con ritmi
+diversi. Il changelog firmware va in `CHANGELOG.md` in una sezione dedicata.
+
+---
+
+### 16.10 Ordine di implementazione consigliato
+
+| # | Passo | Perché prima | Stima |
+|---|---|---|---|
+| 1 | Firmware: `FW_VERSION` + `fw_version` nel payload `status` + `setCallback`/`setBufferSize` | Senza sapere la versione installata non si può decidere nulla; e questo va flashato via cavo comunque | mezza giornata |
+| 2 | Firmware: passaggio allo schema partizioni `min_spiffs` | Ultimo flash via cavo obbligatorio — dopo, l'OTA è possibile | 1 ora + verifica dimensione sketch |
+| 3 | Backend: colonne `smart_vases`, `handleStatus` che salva `firmware_version`, `GET /vases/:id/firmware` | Rende visibile lo stato in app senza ancora aggiornare nulla | mezza giornata |
+| 4 | Backend: tabella `firmware_releases` + endpoint admin + bucket MinIO `fiora-firmware` | Serve un artefatto da servire prima di poterlo scaricare | 1 giorno |
+| 5 | Firmware: `handleOtaCommand` (download + SHA-256 + `Update`) | Il pezzo grosso, testabile subito contro un binario finto su MinIO | 1-2 giorni |
+| 6 | Backend: `POST /vases/:id/firmware/update`, sottoscrizione `ota/status`, watchdog BullMQ | Chiude il ciclo | 1 giorno |
+| 7 | Mobile: sezione Firmware in `app/vase/[id].tsx` con polling | Ultimo: senza il resto non ha niente da mostrare | 1 giorno |
+| 8 | Firmware: auto-validazione post-boot + fallback partizione (§7) | Rete di sicurezza, ma richiede un OTA già funzionante per essere testata | mezza giornata |
+
+**Test end-to-end minimo:** flashare via cavo la 1.0.0, pubblicare la 1.0.1 che
+cambia solo una stringa di log, aggiornare dall'app, verificare che
+`GET /vases/:id` riporti `firmware_version: "1.0.1"` e che le credenziali
+WiFi/MQTT siano sopravvissute al riavvio (il vaso torna online da solo, senza
+ri-pairing BLE).
+
