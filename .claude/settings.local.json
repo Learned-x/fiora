@@ -24,7 +24,9 @@
       "Bash(npx prisma *)",
       "Bash(npm test *)",
       "Bash(git add *)",
-      "Bash(node -e \"console.log\\(require.resolve\\('ts-jest/jest-preset'\\)\\)\")"
+      "Bash(node -e \"console.log\\(require.resolve\\('ts-jest/jest-preset'\\)\\)\")",
+      "Bash(git mv *)",
+      "Bash(git rm *)"
     ]
   }
 }
