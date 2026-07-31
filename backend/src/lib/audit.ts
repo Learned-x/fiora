@@ -40,7 +40,9 @@ export type AuditEvent =
   | 'auth.account_deletion.cancelled'
   | 'vase.pairing.started'
   | 'vase.deleted'
-  | 'plant.vase_link.changed';
+  | 'plant.vase_link.changed'
+  | 'email.sent'
+  | 'email.failed';
 
 interface AuditContext {
   userId?: string;

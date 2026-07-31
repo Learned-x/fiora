@@ -188,7 +188,10 @@ export async function requestPasswordReset(email: string, ip?: string): Promise<
     text: `Hai chiesto di reimpostare la password del tuo account Fiora.\n\nApri questo link per continuare: ${resetUrl}\n\nIl link scade tra 30 minuti. Se non hai richiesto tu questa email, ignorala.`,
   });
 
-  audit('auth.password_reset.requested', { userId: user.id, email, ip, meta: { esito: 'ok' } });
+  // "accodata": il job email è stato messo in coda, non che l'email sia stata
+  // consegnata — l'esito reale dell'invio è nell'evento auth.password_reset.email_sent,
+  // loggato dal worker dopo la chiamata a Resend (vedi src/jobs/email.job.ts).
+  audit('auth.password_reset.requested', { userId: user.id, email, ip, meta: { esito: 'accodata' } });
 }
 
 export async function resetPassword(token: string, newPassword: string, ip?: string): Promise<void> {

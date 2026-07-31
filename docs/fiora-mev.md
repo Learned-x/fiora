@@ -165,6 +165,16 @@ definitiva e il link per annullare entro i 30 giorni di grazia.
   dell'utente. BullMQ gestisce i retry automatici di default.
 - **Template:** ✅ italiano, testo essenziale, versione HTML + solo testo.
 - **Nessun dato sensibile nell'email**: ✅ rispettato, mai la password.
+- **Bug trovato e corretto (2026-07-31):** il SDK Resend non lancia mai
+  un'eccezione sugli errori API — restituisce `{ data, error }`. `sendEmail()` non
+  controllava `error`, quindi un 403 (o qualsiasi altro rifiuto Resend, es. invio a un
+  indirizzo diverso da quello dell'account durante l'uso della sandbox
+  `onboarding@resend.dev`) veniva trattato come invio riuscito: il job BullMQ risultava
+  `completed`, l'audit segnava `esito:'ok'`, nessun errore visibile da nessuna parte.
+  Corretto: `sendEmail()` ora lancia se `error` è presente, il worker logga l'esito
+  reale come evento audit dedicato (`email.sent`/`email.failed`, con messaggio Resend).
+  L'evento `auth.password_reset.requested` con `esito:'ok'` è stato rinominato in
+  `'accodata'` per chiarire che significa solo "job in coda", non "email consegnata".
 - **Da fare:** cambio email (§13.4) e conferma eliminazione account (§1.7), stessa
   infrastruttura (coda `email`, `sendEmail()`) da riusare senza modifiche.
 
