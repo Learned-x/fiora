@@ -12,6 +12,8 @@ services:
     environment:
       POSTGRES_DB: fiora_staging
       POSTGRES_USER: fiora
+    ports:
+      - "100.102.50.17:5434:5432"
     volumes:
       - postgres_staging:/var/lib/postgresql/data
     healthcheck:
