@@ -34,6 +34,8 @@ export type AuditEvent =
   | 'auth.logout'
   | 'auth.refresh'
   | 'auth.change_password'
+  | 'auth.password_reset.requested'
+  | 'auth.password_reset.completed'
   | 'auth.account_deletion.requested'
   | 'auth.account_deletion.cancelled'
   | 'vase.pairing.started'

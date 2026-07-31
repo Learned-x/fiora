@@ -88,7 +88,9 @@ fuori da quel momento è rumore, e il rumore porta a disattivare le notifiche.
 
 ## MEV-02 — Email transazionali e recupero password
 
-**Stato: 📋 da fare** · Riferimento: §1.7 e §13.4 funzionali · **Priorità alta**
+**Stato: 🚧 parziale** · Riferimento: §1.7 e §13.4 funzionali · **Priorità alta**
+**Recupero password fatto e testato end-to-end il 2026-07-31.** Cambio email e
+conferma eliminazione account restano da fare (riusano la stessa infrastruttura).
 
 ### Problema
 
@@ -106,17 +108,29 @@ non posseduta.
 
 ### Comportamento richiesto
 
-**Recupero password:**
-1. Nella schermata di accesso compare "Password dimenticata?".
+**Recupero password — ✅ fatto (2026-07-31):**
+1. Nella schermata di accesso compare "Password dimenticata?" (`app/(auth)/forgot-password.tsx`).
 2. L'utente inserisce l'email e conferma.
 3. L'app mostra **sempre lo stesso messaggio**, esista o meno quell'account
    ("Se l'indirizzo è registrato, riceverai un'email con le istruzioni"): una
    risposta diversa nei due casi permetterebbe di scoprire quali indirizzi sono
    iscritti a Fiora.
 4. Se l'account esiste, parte un'email con un link contenente un token di reset.
-5. Il link apre l'app (deep link) sulla schermata di nuova password.
+5. Il link apre l'app sulla schermata di nuova password (`app/reset-password.tsx`).
 6. Impostata la nuova password, **tutti i refresh token dell'utente vengono revocati**:
    se la richiesta è nata da un accesso non autorizzato, le sessioni aperte cadono.
+
+**Nota sul link nell'email:** senza un dominio pubblico verificato, un vero universal
+link (Apple/Google) non è implementabile né verificabile. Come soluzione **realistica
+e non provvisoria** — è lo stesso pattern usato in produzione come fallback quando il
+sistema operativo non intercetta l'universal link — il backend serve una pagina HTML
+su `GET /reset-password?token=...` (`app.ts`) che rilancia lo schema custom
+`fiora://reset-password?token=...`. L'email linka questa pagina (http/https, quindi
+cliccabile nei client di posta) invece dello schema nudo, che molti client — Gmail
+incluso — non rendono cliccabile. Quando un dominio pubblico sarà disponibile, va
+aggiunto il file di verifica (`apple-app-site-association`/`assetlinks.json`) per far
+scattare l'intercettazione nativa: la pagina fallback resta comunque utile come rete
+di sicurezza.
 
 **Cambio email:**
 1. L'utente inserisce il nuovo indirizzo, confermando con la password attuale.
@@ -130,23 +144,29 @@ definitiva e il link per annullare entro i 30 giorni di grazia.
 
 ### Note di implementazione
 
-- **Servizio:** **Resend**. Piano gratuito da 3.000 email al mese, ampiamente
-  sufficiente per i volumi di Fiora (solo messaggi transazionali, nessun invio
-  massivo), configurazione DNS semplice e SDK Node pulito.
-- **Mittente:** casella no-reply dedicata sul dominio del progetto, es.
-  `no-reply@tangifiori.com`. Richiede la configurazione dei record **SPF, DKIM e
-  DMARC**: senza, le email finiscono in posta indesiderata proprio nei momenti in
-  cui l'utente le sta aspettando.
-- **Token di reset:** valore casuale ad alta entropia, **salvato come hash** (non in
-  chiaro: chi legge il database non deve poterlo riusare), **scadenza 30 minuti**,
-  **a uso singolo**, invalidato dopo l'uso e alla generazione di uno nuovo.
-- **Rate limit** sulla richiesta di reset, per indirizzo e per IP: senza, l'endpoint
-  diventa uno strumento per inondare di email la casella di un altro.
-- **Invio asincrono** tramite coda BullMQ (già in uso): un errore del servizio email
-  non deve far fallire la richiesta dell'utente, e i tentativi vanno ripetuti.
-- **Template** in italiano, con testo essenziale e un solo pulsante d'azione, più la
-  versione in solo testo per i client che non mostrano l'HTML.
-- **Nessun dato sensibile nell'email**: mai la password, né vecchia né nuova.
+- **Servizio:** **Resend** — ✅ integrato (`src/lib/email.ts`, SDK `resend` npm).
+  Piano gratuito da 3.000 email al mese. **Senza dominio verificato**, il mittente in
+  uso è la sandbox `onboarding@resend.dev`: le email arrivano solo alla casella
+  dell'account Resend, non a utenti reali. Da sostituire con un mittente sul dominio
+  del progetto (es. `no-reply@tangifiori.com`) non appena disponibile, con record
+  **SPF, DKIM e DMARC** configurati — senza, le email finiscono in posta indesiderata
+  proprio nei momenti in cui l'utente le sta aspettando.
+- **Token di reset:** ✅ valore casuale 32 byte (`crypto.randomBytes`), **salvato come
+  hash SHA-256** (non in chiaro), **scadenza 30 minuti**
+  (`passwordResetExpiresAt`), invalidato dopo l'uso (`resetPassword` lo azzera) e alla
+  generazione di uno nuovo (sovrascritto). In dev/test il token in chiaro viene
+  stampato nei log del server (`NODE_ENV !== 'production'`) per poter testare via
+  Postman senza dover leggere l'email — mai in staging/produzione.
+- **Rate limit:** ✅ riusa `authLimiter` esistente (5 richieste/minuto per IP) su
+  `/auth/forgot-password` e `/auth/reset-password`. Non ancora per-indirizzo email
+  (solo per IP) — da valutare se serve un limite aggiuntivo lato email.
+- **Invio asincrono:** ✅ coda BullMQ `email` (`src/lib/bullmq.ts`) + worker
+  `src/jobs/email.job.ts` — un errore di Resend non fa fallire la richiesta HTTP
+  dell'utente. BullMQ gestisce i retry automatici di default.
+- **Template:** ✅ italiano, testo essenziale, versione HTML + solo testo.
+- **Nessun dato sensibile nell'email**: ✅ rispettato, mai la password.
+- **Da fare:** cambio email (§13.4) e conferma eliminazione account (§1.7), stessa
+  infrastruttura (coda `email`, `sendEmail()`) da riusare senza modifiche.
 
 ---
 

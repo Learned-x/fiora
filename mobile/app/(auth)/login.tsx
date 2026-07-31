@@ -48,6 +48,10 @@ export default function LoginScreen() {
           <Button label="Accedi" onPress={handleLogin} loading={isLoading} disabled={!email || !password} />
         </View>
 
+        <Pressable style={styles.link} onPress={() => router.push('/(auth)/forgot-password')}>
+          <Text style={[styles.linkText, { color: theme.acc }]}>Password dimenticata?</Text>
+        </Pressable>
+
         <Pressable style={styles.link} onPress={() => router.push('/(auth)/register')}>
           <Text style={[styles.linkText, { color: theme.acc }]}>Non hai un account? Registrati</Text>
         </Pressable>

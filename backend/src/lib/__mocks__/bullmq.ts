@@ -13,4 +13,8 @@ export const notificationQueue = {
   upsertJobScheduler: jest.fn(),
 };
 
+export const emailQueue = {
+  add: jest.fn(),
+};
+
 export const redisConnection = {};

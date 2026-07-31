@@ -61,7 +61,7 @@ router.post(
   '/register',
   authLimiter,
   [
-    body('email').isEmail().normalizeEmail().withMessage('Email non valida'),
+    body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }).withMessage('Email non valida'),
     body('password').isLength({ min: 8 }).withMessage('Password minimo 8 caratteri'),
     body('name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Nome non valido'),
   ],
@@ -107,7 +107,7 @@ router.post(
   '/login',
   authLimiter,
   [
-    body('email').isEmail().normalizeEmail().withMessage('Email non valida'),
+    body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }).withMessage('Email non valida'),
     body('password').notEmpty().withMessage('Password obbligatoria'),
   ],
   async (req: Request, res: Response) => {
@@ -323,6 +323,89 @@ router.post('/account/cancel-deletion', requireAuth, async (req: Request, res: R
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
   }
 });
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Richiede il reset della password (invia email se l'account esiste)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, format: email }
+ *     responses:
+ *       200: { description: "Risposta sempre identica, esista o meno l'account" }
+ */
+// ── POST /auth/forgot-password ────────────────────────────────────────────────
+
+router.post(
+  '/forgot-password',
+  authLimiter,
+  [body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }).withMessage('Email non valida')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      await authService.requestPasswordReset(req.body.email, req.ip);
+    } catch {
+      // Non propagato al client: la risposta resta identica in ogni caso.
+    }
+    res.json({
+      success: true,
+      data: { message: "Se l'indirizzo è registrato, riceverai un'email con le istruzioni" },
+    });
+  }
+);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Imposta una nuova password tramite il token ricevuto via email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, newPassword]
+ *             properties:
+ *               token: { type: string }
+ *               newPassword: { type: string, minLength: 8 }
+ *     responses:
+ *       200: { description: Password aggiornata }
+ *       401: { description: Token non valido o scaduto }
+ */
+// ── POST /auth/reset-password ─────────────────────────────────────────────────
+
+router.post(
+  '/reset-password',
+  authLimiter,
+  [
+    body('token').notEmpty().withMessage('Token obbligatorio'),
+    body('newPassword').isLength({ min: 8 }).withMessage('Nuova password minimo 8 caratteri'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      await authService.resetPassword(req.body.token, req.body.newPassword, req.ip);
+      res.json({ success: true, data: { message: 'Password aggiornata' } });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
 
 /**
  * @swagger

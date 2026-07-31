@@ -28,6 +28,8 @@ model User {
   orarioReminder        String   @default("mattina_9") @map("orario_reminder") @db.VarChar(50)
   role                  String   @default("user") @db.VarChar(50)
   pushToken             String?  @map("push_token") @db.VarChar(255)
+  passwordResetTokenHash String? @map("password_reset_token_hash") @db.VarChar(255)
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz()
 
   plants              Plant[]
   tasks               Task[]

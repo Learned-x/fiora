@@ -3,12 +3,14 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
-import { accountDeletionQueue } from '../lib/bullmq';
+import { accountDeletionQueue, emailQueue } from '../lib/bullmq';
 import { audit } from '../lib/audit';
+import { logger } from '../lib/logger';
 
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES_DAYS = Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS) || 30;
 const BCRYPT_ROUNDS = 12;
+const PASSWORD_RESET_EXPIRES_MINUTES = 30;
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
 
@@ -142,6 +144,74 @@ export async function changePassword(userId: string, currentPassword: string, ne
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 
   audit('auth.change_password', { userId, ip, meta: { esito: 'ok' } });
+}
+
+// ── Recupero password ─────────────────────────────────────────────────────────
+
+function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Non rivela mai se l'email esiste: la risposta al chiamante è identica nei due casi.
+export async function requestPasswordReset(email: string, ip?: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Chi ha fatto login solo con Google/Apple non ha una password Fiora da resettare.
+  if (!user || !user.passwordHash) {
+    audit('auth.password_reset.requested', { email, ip, meta: { esito: 'account_non_idoneo' } });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const passwordResetTokenHash = hashResetToken(token);
+  const passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MINUTES * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordResetTokenHash, passwordResetExpiresAt },
+  });
+
+  // URL http/https invece dello schema custom fiora:// nudo: molti client email
+  // (Gmail incluso) non rendono cliccabili gli schemi custom nel corpo dell'email.
+  // La pagina su /reset-password fa da fallback web e rilancia l'app (vedi app.ts).
+  const resetUrl = `${process.env.APP_WEB_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+
+  // Solo in dev/test: il token in chiaro non va mai in log/audit di staging o produzione.
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info({ token, resetUrl }, 'Token reset password (solo dev/test)');
+  }
+
+  await emailQueue.add('password-reset', {
+    to: email,
+    subject: 'Reimposta la tua password Fiora',
+    html: `<p>Hai chiesto di reimpostare la password del tuo account Fiora.</p><p><a href="${resetUrl}">Reimposta la password</a></p><p>Il link scade tra 30 minuti. Se non hai richiesto tu questa email, ignorala.</p>`,
+    text: `Hai chiesto di reimpostare la password del tuo account Fiora.\n\nApri questo link per continuare: ${resetUrl}\n\nIl link scade tra 30 minuti. Se non hai richiesto tu questa email, ignorala.`,
+  });
+
+  audit('auth.password_reset.requested', { userId: user.id, email, ip, meta: { esito: 'ok' } });
+}
+
+export async function resetPassword(token: string, newPassword: string, ip?: string): Promise<void> {
+  const passwordResetTokenHash = hashResetToken(token);
+
+  const user = await prisma.user.findFirst({ where: { passwordResetTokenHash } });
+
+  if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+    audit('auth.password_reset.completed', { ip, meta: { esito: 'token_non_valido' } });
+    throw { code: 'AUTH_TOKEN_INVALID', status: 401, message: 'Link di reset non valido o scaduto' };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null },
+  });
+
+  // Reset nato da un possibile accesso non autorizzato: chiude tutte le sessioni aperte.
+  await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+
+  audit('auth.password_reset.completed', { userId: user.id, ip, meta: { esito: 'ok' } });
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────

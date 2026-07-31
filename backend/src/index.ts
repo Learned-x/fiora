@@ -9,6 +9,7 @@ import { connectMqtt } from './lib/mqtt';
 import { logger } from './lib/logger';
 import './jobs/account-deletion.job';
 import './jobs/reminder.job';
+import './jobs/email.job';
 import { scheduleReminderJob } from './jobs/reminder.job';
 import { schedulePushReminderJob } from './jobs/notification.job';
 

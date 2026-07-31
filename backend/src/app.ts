@@ -56,6 +56,38 @@ app.use('/users', requireAuth, userRoutes);
 app.use('/options', requireAuth, optionsRoutes);
 app.use('/vases', requireAuth, vaseRoutes);
 
+// ── Fallback web per i link email (reset password) ────────────────────────────
+// In produzione un dominio verificato userebbe universal link/app link (il sistema
+// operativo apre l'app senza passare dal browser). Senza dominio pubblico non è
+// verificabile: questa pagina simula lo stesso pattern con un redirect esplicito
+// allo schema custom dell'app, cliccabile dai client email (http/https, a
+// differenza di uno schema fiora:// nudo che molti client non rendono cliccabile).
+app.get('/reset-password', (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  const deepLink = `fiora://reset-password?token=${encodeURIComponent(token)}`;
+
+  res.type('html').send(`<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reimposta password Fiora</title>
+<meta http-equiv="refresh" content="0;url=${deepLink}">
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f4f6f4; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .card { background: #fff; border-radius: 16px; padding: 32px 24px; max-width: 360px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  a.button { display: inline-block; margin-top: 16px; padding: 14px 24px; background: #3a7d44; color: #fff; border-radius: 12px; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p>Apertura dell'app Fiora in corso…</p>
+    <a class="button" href="${deepLink}">Apri Fiora</a>
+  </div>
+</body>
+</html>`);
+});
+
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', env: process.env.NODE_ENV });
