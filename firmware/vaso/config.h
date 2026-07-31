@@ -18,6 +18,8 @@ extern String cfg_ssid;
 extern String cfg_wifi_pass;
 extern String cfg_mqtt_user;
 extern String cfg_mqtt_pass;
+extern String cfg_mqtt_host;
+extern int cfg_mqtt_port;
 extern String cfg_device_id;
 
 // ---------- SCHEDULING LETTURE SENSORI ----------

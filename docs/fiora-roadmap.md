@@ -116,14 +116,13 @@ Fase attiva. Backend e app sono scritti; **manca la validazione su hardware real
 
 ### Da fare prima di chiudere la fase
 
-1. **Test end-to-end su hardware reale.** Nessun pairing è mai stato completato su un
-   ESP32 fisico: finora ha girato solo la versione precedente del firmware, con le
-   credenziali hardcoded. Include il test su device Android reale (il BLE non funziona
-   né su simulatore iOS né su emulatore Android).
-2. **Allineare i nomi dei campi nel payload BLE** (vedi debito D1) — bloccante per il punto 1.
+1. ~~Test end-to-end su hardware reale~~ — **fatto** (2026-07-31): primo pairing
+   completato su ESP32 fisico con il firmware riscritto. Da ripetere dopo l'aggiunta
+   di `mqtt_host`/`mqtt_port` (D9, non ancora verificata su hardware).
+2. ~~Allineare i nomi dei campi nel payload BLE~~ — **fatto**, vedi D1 (chiuso).
 3. **Verificare i permessi dell'utente MQTT** su HiveMQ Cloud per publish e subscribe
    sui topic `fiora/vaso/+/...`.
-4. **Investigare il bug collega/scollega pianta** (vedi debito D2).
+4. **Investigare il bug collega/scollega pianta** (vedi debito D2, ancora aperto).
 5. Ordinamento della collezione "per prossima azione" e filtro "con vaso smart"
    (§3.1 funzionali), rinviati qui perché richiedono l'esistenza dei vasi.
 
@@ -131,68 +130,87 @@ Fase attiva. Backend e app sono scritti; **manca la validazione su hardware real
 
 ## Debito noto
 
-Raccolto nell'audit del 2026-07-27 confrontando documentazione e codice. Ordinato
-per priorità. Le voci **D3–D8 e D11** riguardano il firmware, che è **indietro rispetto
-alle specifiche**: le specifiche restano il bersaglio, è il firmware a doversi allineare.
+Raccolto nell'audit del 2026-07-27 confrontando documentazione e codice, **rivisto il
+2026-07-31** dopo la riscrittura del firmware (commit `c146237`, non documentata al
+momento). Il firmware non è più un unico `vaso.ino` monolitico ma modulare: entry
+point **`firmware/vaso/vaso-testnale.ino`** (nome non allineato, probabile refuso —
+verificare se va rinominato) + `config.h/.cpp`, `ble_provisioning.h/.cpp`,
+`wifi_manager.h/.cpp`, `mqtt_handler.h/.cpp`, `sensors.h/.cpp`, `sleep_manager.h/.cpp`.
 
-### Bloccanti per la Fase 6
+### Chiuse dalla riscrittura firmware (2026-07-31)
 
-**D1 — Nomi dei campi nel payload BLE disallineati.**
-L'app invia `mqtt_user` e `mqtt_pass`; il firmware legge `mqtt_username` e
-`mqtt_password`. Al primo pairing reale il vaso non troverebbe le credenziali e
-riceverebbe valori nulli. Da correggere prima di qualsiasi test su hardware.
+**D1 — Nomi dei campi nel payload BLE.** ✅ Risolto. `ble_provisioning.cpp` legge
+`mqtt_user`/`mqtt_pass`, allineato all'app (`mqtt_handler.cpp` li usa per il connect).
+
+**D3 — Handler dei messaggi `config`.** ✅ Parziale. `mqttCallback` in
+`mqtt_handler.cpp` ora esiste e gestisce il comando `"check"` (forza una lettura
+immediata). Non gestisce ancora `sampling_interval_seconds` da remoto — resta da
+aggiungere se serve cambiare l'intervallo senza reflash.
+
+**D4 — Frequenza di campionamento.** ✅ Risolto (valore diverso dalla specifica).
+`samplingInterval` ora è 30 minuti (`config.cpp`), non più 3 secondi. Le specifiche
+indicano 15 minuti (5 in allerta): valutare se allineare o aggiornare la specifica.
+
+**D5 — Batteria mai inviata.** ✅ Risolto. `sensors.cpp` legge l'ADC (GPIO34, partitore
+100k/100k), converte in percentuale con curva di scarica Li-ion 1S e la passa a
+`publishTelemetry()`; `batteria_scarica:true` sotto il 20%.
+
+**D6 — Sensori non inizializzati.** ✅ Risolto. `initSensors()` chiama
+`lightMeter.begin()` e `bmp.begin(0x76)` davvero (non più commentati).
+
+**D7 — Reset fisico.** ✅ Risolto. Pin 13 con interrupt (`handleResetInterrupt`):
+a runtime cancella le credenziali WiFi e rilancia il provisioning BLE; a GPIO13 tenuto
+a GND al boot forza la stessa cancellazione. Manca ancora la voce lato app che spieghi
+il flusso all'utente (**MEV-05**, invariato).
+
+**D11 — Niente advertising se la connessione fallisce.** ✅ Risolto. `setup()` ora
+ritenta in loop `startBLEProvisioning()` finché `connectWiFi()` non riesce; il vaso non
+resta più bloccato irraggiungibile con credenziali sbagliate.
+
+### Bloccanti per la Fase 6 rimasti aperti
 
 **D2 — Collega/scollega pianta dal dettaglio vaso non affidabile.**
 Le azioni "Cambia pianta" e "Scollega" restituiscono "Operazione non riuscita"
 nell'app, ma lo stesso payload via `curl` riceve 200 dal backend. Il fallimento
 coincideva con un episodio di corruzione I/O di Docker Desktop, risolto; non è stato
 riverificato dopo. Indagare prima lato client (stato React non aggiornato, richiesta
-inviata prima che il vaso sia caricato) che lato backend.
+inviata prima che il vaso sia caricato) che lato backend. **Non toccato dalla
+riscrittura firmware**, resta da investigare.
 
-### Firmware — funzioni specificate e non implementate
+### Nuovi problemi emersi dall'audit del firmware riscritto (2026-07-31)
 
-**D3 — Handler dei messaggi `config` assente.** Lo sketch si iscrive al topic
-`fiora/vaso/{id}/config` ma non registra alcuna callback: i comandi di
-`sampling_interval_seconds` vengono ignorati. Anche lato backend `publishToVase()`
-esiste ma nessun endpoint la richiama.
+**D12 — `bmp.begin()` fallito blocca il boot per sempre.** `sensors.cpp:78-81`: se il
+BMP280 non risponde all'indirizzo I2C atteso, `initSensors()` entra in `while(1)`
+infinito. Il vaso non pubblica nemmeno lo stato offline (il blocco è prima della
+connessione MQTT/WiFi) — un sensore mal collegato o difettoso rende il vaso muto senza
+diagnosi possibile da remoto.
 
-**D4 — Frequenza di campionamento.** Le specifiche prevedono 15 minuti (5 in allerta);
-il firmware pubblica ogni 3 secondi. A regime è un carico inutile sul broker gratuito
-e sull'hypertable.
+**D13 — `Adafruit_BME280 bme` dichiarato e mai usato.** `sensors.cpp:20`, commento
+esplicito nel codice. Il sensore di temperatura/pressione in uso è il BMP280 (`bmp`),
+non il BME280 (niente umidità aria, nonostante il nome del tipo dichiarato). Da
+rimuovere o chiarire se un domani si vuole davvero leggere l'umidità dell'aria.
 
-**D5 — Batteria mai inviata.** `publishTelemetry()` viene chiamata con `batteria = -1`,
-quindi il campo non arriva mai e lo stato `batteria_scarica` non si attiva. Blocca
-anche la condizione sulla batteria prevista per l'OTA.
-
-**D6 — Sensori non inizializzati.** `lightMeter.begin()` e `bme.begin()` sono
-commentati nel `setup()`: luce e temperatura vengono lette da periferiche mai avviate.
-
-**D7 — Reset fisico di 5 secondi.** Nessuna gestione del pulsante nello sketch.
-Di conseguenza la riconfigurazione WiFi (§10.4 funzionali) non è realizzabile
-end-to-end e in app non esiste la voce che la avvia. Il flusso completo lato utente
-è **MEV-05**; qui resta la sola gestione del pulsante nel firmware.
-
-**D11 — Il vaso non torna in advertising se la connessione fallisce.** Se le
-credenziali ricevute via BLE non funzionano (password errata, rete 5 GHz, broker
-irraggiungibile), il firmware le conserva e continua a ritentare: il vaso resta
-irraggiungibile sia via BLE sia via MQTT, recuperabile solo col pulsante fisico —
-che per D7 non esiste. Un errore di battitura nella password basta a rendere il vaso
-inutilizzabile. Comportamento richiesto in §6 tecniche ("Fallimento della connessione
-dopo il provisioning"); è il presupposto del "Riprova" descritto in §10.1.2 funzionali.
+### Firmware — ancora indietro rispetto alle specifiche
 
 **D8 — Buffer offline.** Non implementato: i dati raccolti senza WiFi sono persi.
 
+**D9 — Endpoint del broker non trasmessi nel pairing.** 🚧 Implementato il 2026-07-31,
+non ancora testato su hardware. `mobile/app/vase/pair.tsx` ora estrae host e porta da
+`brokerUrl` (già restituito da `startPairing()`) e li aggiunge al payload BLE
+(`mqtt_host`/`mqtt_port`); il firmware (`config.h/.cpp`, `ble_provisioning.cpp`,
+`wifi_manager.cpp`, `mqtt_handler.cpp`) li riceve, salva in NVS e usa in
+`connectMQTT()` al posto delle costanti hardcoded. Verificare al prossimo pairing
+reale che il campo numerico `mqtt_port` sia deserializzato correttamente da
+ArduinoJson lato firmware.
+
 ### Altro
 
-**D9 — Endpoint del broker non trasmessi nel pairing.** Host e porta MQTT sono
-hardcoded nel firmware e l'app non li invia. Andrebbero aggiunti al payload BLE:
-servono per la migrazione a Mosquitto in produzione senza reflash dei vasi.
-
-**D10 — Suite di test del backend non eseguibile.** `npm test` fallisce con
-"Preset ts-jest not found relative to rootDir" nonostante `ts-jest` sia presente e
-risolvibile. Verificato con `git stash` che il problema esiste anche sul codice
-pristine, quindi preesistente e non causato dalla Fase 6. Da risolvere prima di
-poter tornare a fidarsi dei test.
+**D10 — Suite di test del backend non eseguibile.** ✅ Chiuso (verificato 2026-07-31):
+`npm test` ora passa pulito, 153/153 (`node v20.20.2`, `jest 30.4.2`, `ts-jest
+29.4.11`). L'errore "Preset ts-jest not found relative to rootDir" non si riproduce
+più su questa macchina — probabile causa originale un `node_modules` incompleto/
+corrotto, non un problema di configurazione. Se ricompare su un altro Mac, reinstallare
+le dipendenze (`rm -rf node_modules && npm install`) prima di indagare oltre.
 
 ---
 
@@ -259,7 +277,7 @@ Fase 6. Specifiche complete in **`fiora-mev.md`**.
 | ID | Intervento | Priorità |
 |---|---|---|
 | MEV-01 | Orario dei promemoria libero (oggi 3 fasce fisse) | Alta |
-| MEV-02 | Email transazionali e recupero password | Alta |
+| MEV-02 | Email transazionali e recupero password | 🚧 Alta — recupero password fatto (2026-07-31), cambio email e conferma eliminazione da fare |
 | MEV-03 | Rinominare e riordinare i vasi | Media |
 | MEV-04 | Storico ambientale a 7 e 30 giorni | Media |
 | MEV-05 | Riconfigurazione WiFi senza ri-pairing (copre il debito D7) | Media |

@@ -4,9 +4,6 @@
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
-static const char* mqtt_host = "6c6f661a355149fbb2e308bc4a2ed846.s1.eu.hivemq.cloud";
-static const int mqtt_port = 8883;
-
 static const char* ca_cert = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -67,7 +64,7 @@ void connectMQTT() {
   String willPayload = "{\"device_id\":\"" + cfg_device_id + "\",\"status\":\"offline\"}";
 
   while (!client.connected()) {
-    client.setServer(mqtt_host, mqtt_port);
+    client.setServer(cfg_mqtt_host.c_str(), cfg_mqtt_port);
     client.setCallback(mqttCallback);
     if (client.connect(clientId.c_str(), cfg_mqtt_user.c_str(), cfg_mqtt_pass.c_str(),
                         willTopic.c_str(), 1, false, willPayload.c_str())) {

@@ -45,6 +45,8 @@ bool loadStoredCredentials() {
     cfg_wifi_pass = prefs.getString("wifi_pass", "");
     cfg_mqtt_user = prefs.getString("mqtt_user", "");
     cfg_mqtt_pass = prefs.getString("mqtt_pass", "");
+    cfg_mqtt_host = prefs.getString("mqtt_host", "");
+    cfg_mqtt_port = prefs.getInt("mqtt_port", 8883);
     cfg_device_id = prefs.getString("device_id", "");
   }
   prefs.end();

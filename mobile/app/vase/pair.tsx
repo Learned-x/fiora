@@ -20,7 +20,7 @@ import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { startPairing, getVase, deleteVase, PairingCredentials } from '../../src/services/vases.api';
 
-// Deve combaciare con firmware/vaso/vaso.ino
+// Deve combaciare con firmware/vaso/ble_provisioning.cpp
 const PROV_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const PROV_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
@@ -63,6 +63,15 @@ function utf8ToBase64(str: string): string {
     out += c === undefined ? '=' : B64[c & 63];
   }
   return out;
+}
+
+// Il backend restituisce es. "mqtts://host:8883"; il firmware vuole host e porta separati.
+function parseBrokerUrl(brokerUrl: string): { host: string; port: number } {
+  const match = brokerUrl.match(/^mqtts?:\/\/([^:/]+):(\d+)/);
+  if (!match) {
+    throw new Error(`brokerUrl in formato inatteso: ${brokerUrl}`);
+  }
+  return { host: match[1], port: Number(match[2]) };
 }
 
 function friendlyError(err: unknown, context: 'scan' | 'provision'): string {
@@ -216,12 +225,15 @@ export default function VasePairScreen() {
     let credentials: PairingCredentials | null = null;
     try {
       credentials = await startPairing();
+      const { host, port } = parseBrokerUrl(credentials.brokerUrl);
       await connectAndProvision(selectedDevice!, {
         ssid: ssid.trim(),
         password: wifiPassword,
         device_id: credentials.deviceId,
         mqtt_user: credentials.mqttUsername,
         mqtt_pass: credentials.mqttPassword,
+        mqtt_host: host,
+        mqtt_port: port,
       });
       await verifyVaseOnline(credentials.vaseId);
     } catch (err) {
@@ -244,6 +256,8 @@ export default function VasePairScreen() {
       device_id: string;
       mqtt_user: string;
       mqtt_pass: string;
+      mqtt_host: string;
+      mqtt_port: number;
     }
   ) {
     // MTU alto: il payload JSON supera i 20 byte del default BLE (iOS lo negozia da solo)

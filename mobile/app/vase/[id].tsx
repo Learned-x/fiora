@@ -1,16 +1,18 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import type { ThemeColors } from '../../src/theme/colors';
-import { deleteVase, getVase } from '../../src/services/vases.api';
+import { deleteVase, getVase, renameVase } from '../../src/services/vases.api';
 import type { SmartVase } from '../../src/services/vases.api';
 import { formatDay } from '../../src/lib/plantUi';
 import { updatePlant } from '../../src/services/plants.api';
 import { PlantPickerModal } from '../../src/components/PlantPickerModal';
 import { ActionSheet } from '../../src/components/ActionSheet';
+import { TextInput } from '../../src/components/TextInput';
+import { Button } from '../../src/components/Button';
 import type { Plant } from '../../src/types/models';
 
 function BackNav({ theme }: { theme: ThemeColors }) {
@@ -38,7 +40,7 @@ function statoLabel(stato: SmartVase['stato']) {
   return 'Disconnesso';
 }
 
-type Sheet = 'none' | 'notFound' | 'linkError' | 'unlinkError' | 'deleteError' | 'plantActions' | 'confirmDelete';
+type Sheet = 'none' | 'notFound' | 'linkError' | 'unlinkError' | 'deleteError' | 'renameError' | 'plantActions' | 'confirmDelete';
 
 export default function VaseDetailScreen() {
   const theme = useTheme();
@@ -47,6 +49,8 @@ export default function VaseDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [sheet, setSheet] = useState<Sheet>('none');
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -97,6 +101,28 @@ export default function VaseDetailScreen() {
     setSheet('plantActions');
   }
 
+  function openRename() {
+    if (!vase) return;
+    setRenameValue(vase.nome ?? '');
+    setRenameVisible(true);
+  }
+
+  async function confirmRename() {
+    if (!vase) return;
+    const nome = renameValue.trim();
+    if (!nome) return;
+    setRenameVisible(false);
+    setBusy(true);
+    try {
+      await renameVase(vase.id, nome);
+      await load();
+    } catch {
+      setSheet('renameError');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmDeleteVase() {
     if (!vase) return;
     setSheet('none');
@@ -132,10 +158,13 @@ export default function VaseDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <BackNav theme={theme} />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerRow}>
+        <Pressable onPress={openRename} disabled={busy} style={styles.headerRow}>
           <View style={[styles.dot, { backgroundColor: statoColor(vase.stato, theme) }]} />
           <Text style={[styles.name, { color: theme.t1 }]}>{vase.nome ?? vase.deviceId}</Text>
-        </View>
+          <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
+            <Path d="M14.5 2.5a1.5 1.5 0 0 1 2.12 2.12L6.5 14.75 3 15.5l.75-3.5 10.75-9.5Z" stroke={theme.t3} strokeWidth={1.4} strokeLinejoin="round" />
+          </Svg>
+        </Pressable>
         <Text style={[styles.stato, { color: statoColor(vase.stato, theme) }]}>{statoLabel(vase.stato)}</Text>
 
         {vase.stato !== 'connesso' && (
@@ -225,7 +254,9 @@ export default function VaseDetailScreen() {
                   ? 'Operazione non riuscita, riprova.'
                   : sheet === 'deleteError'
                     ? 'Rimozione non riuscita, riprova.'
-                    : undefined
+                    : sheet === 'renameError'
+                      ? 'Rinomina non riuscita, riprova.'
+                      : undefined
         }
         actions={
           sheet === 'plantActions'
@@ -243,6 +274,30 @@ export default function VaseDetailScreen() {
         }
         onRequestClose={() => setSheet('none')}
       />
+
+      <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
+        <Pressable style={styles.renameBackdrop} onPress={() => setRenameVisible(false)}>
+          <Pressable style={[styles.renameCard, { backgroundColor: theme.card }]} onPress={() => {}}>
+            <Text style={[styles.sectionTitle, { color: theme.t1 }]}>Nome vaso</Text>
+            <TextInput
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Es. Vaso soggiorno"
+              autoFocus
+              maxLength={255}
+              style={{ marginTop: 12, marginBottom: 16 }}
+            />
+            <View style={styles.renameActions}>
+              <View style={{ flex: 1 }}>
+                <Button label="Annulla" variant="outline" onPress={() => setRenameVisible(false)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button label="Salva" onPress={confirmRename} disabled={!renameValue.trim()} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -269,4 +324,7 @@ const styles = StyleSheet.create({
   emptyData: { fontSize: 13, fontStyle: 'italic' },
   deleteBtn: { alignItems: 'center', paddingVertical: 12 },
   deleteText: { fontSize: 15, fontWeight: '600' },
+  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
+  renameCard: { borderRadius: 16, padding: 20 },
+  renameActions: { flexDirection: 'row', gap: 10 },
 });

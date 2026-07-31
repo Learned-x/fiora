@@ -34,6 +34,7 @@ class ProvisioningCallback : public BLECharacteristicCallbacks {
 
     if (!doc.containsKey("ssid") || !doc.containsKey("password") ||
         !doc.containsKey("mqtt_user") || !doc.containsKey("mqtt_pass") ||
+        !doc.containsKey("mqtt_host") || !doc.containsKey("mqtt_port") ||
         !doc.containsKey("device_id")) {
       Serial.println("JSON provisioning incompleto");
       return;
@@ -43,6 +44,8 @@ class ProvisioningCallback : public BLECharacteristicCallbacks {
     cfg_wifi_pass  = doc["password"].as<String>();
     cfg_mqtt_user  = doc["mqtt_user"].as<String>();
     cfg_mqtt_pass  = doc["mqtt_pass"].as<String>();
+    cfg_mqtt_host  = doc["mqtt_host"].as<String>();
+    cfg_mqtt_port  = doc["mqtt_port"].as<int>();
     cfg_device_id  = doc["device_id"].as<String>();
 
     prefs.begin("fiora", false);
@@ -50,6 +53,8 @@ class ProvisioningCallback : public BLECharacteristicCallbacks {
     prefs.putString("wifi_pass", cfg_wifi_pass);
     prefs.putString("mqtt_user", cfg_mqtt_user);
     prefs.putString("mqtt_pass", cfg_mqtt_pass);
+    prefs.putString("mqtt_host", cfg_mqtt_host);
+    prefs.putInt("mqtt_port", cfg_mqtt_port);
     prefs.putString("device_id", cfg_device_id);
     prefs.end();
 
@@ -82,7 +87,7 @@ void startBLEProvisioning() {
 
   Serial.println("In attesa di configurazione dall'app (Android/iOS)...");
   Serial.println("Formato JSON atteso:");
-  Serial.println("{\"ssid\":\"...\",\"password\":\"...\",\"mqtt_user\":\"...\",\"mqtt_pass\":\"...\",\"device_id\":\"...\"}");
+  Serial.println("{\"ssid\":\"...\",\"password\":\"...\",\"mqtt_user\":\"...\",\"mqtt_pass\":\"...\",\"mqtt_host\":\"...\",\"mqtt_port\":8883,\"device_id\":\"...\"}");
 
   credentialsReceived = false;
   while (!credentialsReceived) {
