@@ -45,8 +45,12 @@ services:
     restart: unless-stopped
     env_file:
       - backend/.env.staging
+    environment:
+      LOG_DIR: /app/logs
     ports:
       - "3000:3000"
+    volumes:
+      - ./logs/staging:/app/logs
     depends_on:
       postgres:
         condition: service_healthy

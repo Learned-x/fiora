@@ -3,6 +3,7 @@ import jwksClient from 'jwks-rsa';
 import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../lib/prisma';
 import { generateAccessToken, generateRefreshToken, saveRefreshToken } from './auth.service';
+import { audit } from '../lib/audit';
 
 const googleClient = new OAuth2Client();
 
@@ -69,7 +70,7 @@ async function issueTokensFor(userId: string) {
 
 // ── Login con Google ───────────────────────────────────────────────────────────
 
-export async function loginWithGoogle(idToken: string) {
+export async function loginWithGoogle(idToken: string, ip?: string) {
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -78,22 +79,26 @@ export async function loginWithGoogle(idToken: string) {
     });
     payload = ticket.getPayload();
   } catch {
+    audit('auth.login.failure', { ip, meta: { provider: 'google' } });
     throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Google non valido' };
   }
 
   if (!payload?.sub) {
+    audit('auth.login.failure', { ip, meta: { provider: 'google' } });
     throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Google non valido' };
   }
 
   const user = await findOrCreateOAuthUser('google', payload.sub, payload.email ?? null, payload.name ?? null);
   const tokens = await issueTokensFor(user.id);
 
+  audit('auth.login.success', { userId: user.id, email: user.email ?? undefined, ip, meta: { provider: 'google' } });
+
   return { ...tokens, user: { id: user.id, email: user.email, name: user.name } };
 }
 
 // ── Login con Apple ────────────────────────────────────────────────────────────
 
-export async function loginWithApple(identityToken: string) {
+export async function loginWithApple(identityToken: string, ip?: string) {
   let decoded: jwt.JwtPayload;
   try {
     const header = jwt.decode(identityToken, { complete: true })?.header;
@@ -106,10 +111,12 @@ export async function loginWithApple(identityToken: string) {
       issuer: 'https://appleid.apple.com',
     }) as jwt.JwtPayload;
   } catch {
+    audit('auth.login.failure', { ip, meta: { provider: 'apple' } });
     throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Apple non valido' };
   }
 
   if (!decoded.sub) {
+    audit('auth.login.failure', { ip, meta: { provider: 'apple' } });
     throw { code: 'AUTH_OAUTH_FAILED', status: 401, message: 'Token Apple non valido' };
   }
 
@@ -119,6 +126,8 @@ export async function loginWithApple(identityToken: string) {
   // Apple non include il nome nel token: arriverà solo dal body al primo login (gestito in futuro)
   const user = await findOrCreateOAuthUser('apple', decoded.sub, email, null);
   const tokens = await issueTokensFor(user.id);
+
+  audit('auth.login.success', { userId: user.id, email: user.email ?? undefined, ip, meta: { provider: 'apple' } });
 
   return { ...tokens, user: { id: user.id, email: user.email, name: user.name } };
 }

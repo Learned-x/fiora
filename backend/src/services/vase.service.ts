@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
+import { audit } from '../lib/audit';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,8 @@ export async function startPairing(userId: string) {
       stato: 'disconnesso',
     },
   });
+
+  audit('vase.pairing.started', { userId, targetId: vase.id, meta: { deviceId } });
 
   return {
     vaseId: vase.id,
@@ -73,10 +76,11 @@ export async function renameVase(userId: string, vaseId: string, nome: string) {
 }
 
 export async function deleteVase(userId: string, vaseId: string) {
-  await findOwnedVase(userId, vaseId);
+  const vase = await findOwnedVase(userId, vaseId);
   // Le piante collegate restano ma perdono il riferimento (tornano a reminder da calendario)
   await prisma.plant.updateMany({ where: { vasoId: vaseId }, data: { vasoId: null } });
   await prisma.smartVase.delete({ where: { id: vaseId } });
+  audit('vase.deleted', { userId, targetId: vaseId, meta: { deviceId: vase.deviceId } });
 }
 
 // ── Chiamato dal subscriber MQTT ────────────────────────────────────────────────

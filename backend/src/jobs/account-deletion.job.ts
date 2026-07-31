@@ -1,6 +1,9 @@
 import { Worker } from 'bullmq';
 import { redisConnection } from '../lib/bullmq';
 import { prisma } from '../lib/prisma';
+import { logger } from '../lib/logger';
+
+const log = logger.child({ module: 'job:account-deletion' });
 
 export const accountDeletionWorker = new Worker(
   'account-deletion',
@@ -24,9 +27,9 @@ export const accountDeletionWorker = new Worker(
 );
 
 accountDeletionWorker.on('completed', (job) => {
-  console.log(`Job eliminazione account completato: ${job.id}`);
+  log.info({ jobId: job.id }, 'Job eliminazione account completato');
 });
 
 accountDeletionWorker.on('failed', (job, err) => {
-  console.error(`Job eliminazione account fallito: ${job?.id}`, err);
+  log.error({ jobId: job?.id, err }, 'Job eliminazione account fallito');
 });

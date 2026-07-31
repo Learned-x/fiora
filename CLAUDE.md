@@ -122,6 +122,7 @@ Fatto il 2026-07-24 su questo Mac, da rifare se si lavora da un Mac diverso (SDK
 - **Build iOS**: EAS come via principale; build locale accantonata per bug path con spazi (vedi sopra)
 - **Push notifications (Fase 8, 2026-07-13)**: stile "digest + singola smart" (1 task → notifica specifica con deep link pianta, N → digest); notifiche attive = `pushToken != null` (nessuna colonna `enable_notifications`); orario invio per-utente da `orarioReminder` (cron unico `0 9,15,19 * * *`, worker filtra per fascia); niente polling receipts Expo (solo errori ticket, `DeviceNotRegistered` → token azzerato); alert sensori esclusi (Fase 7)
 - **expo-server-sdk pinnato a v3**: v4+ è ESM-only e il backend è CommonJS (`TS1479` in build) — non aggiornare a v4 senza migrare il modulo system
+- **Logging strutturato con Pino, log applicativo separato da audit (2026-07-31)**: `src/lib/logger.ts` (request logging via `pino-http`, console pretty in dev/JSON in prod, file `combined`/`error` con rotazione giornaliera) e `src/lib/audit.ts` (eventi auth + azioni sensibili tipizzati in `AuditEvent`, file `audit` retention 90gg) — separati perché l'audit deve sopravvivere più a lungo e non va mischiato al rumore applicativo. `ip` passato esplicitamente `route → service` (niente middleware automatico). File in `LOG_DIR` (default `./logs`), bind mount `./logs/staging:/app/logs` in `docker-compose.staging.yml` per accesso diretto da host Ubuntu senza entrare nel container
 - **Onboarding invertito (2026-07-13)**: prima auth, poi clima come step post-login (`/onboarding/climate`) gated da `onboardingDone`; gate soft (profilo null offline → entra nei tabs); `pendingClima` eliminato; utenti esistenti con `onboardingDone:false` vedono il clima una volta al login successivo
 - **Pairing vaso: credenziali MQTT condivise, non per-device** (2026-07-24): tutti i vasi usano le stesse `MQTT_USERNAME`/`MQTT_PASSWORD` del backend (HiveMQ Cloud free non ha API di gestione credenziali) — MA vengono comunque *trasmesse dinamicamente* al vaso via BLE ad ogni pairing invece di essere hardcoded nel firmware, così sono cambiabili in futuro senza reflash. `device_id` generato dal backend (UUID) al momento del pairing, non dal firmware
 - **BLE custom invece di ESP-IDF WiFi Provisioning ufficiale** (2026-07-24): il protocollo Espressif standard (protobuf, handshake sicurezza) era troppo lungo da implementare in una sera — scelto un servizio BLE semplice (libreria Arduino `BLEDevice` nativa, già nel core ESP32, zero dipendenze extra) con una sola characteristic WRITE che riceve JSON via `ArduinoJson`. Meno sicuro (nessuna cifratura sul payload BLE) ma sufficiente per MVP locale; da rivalutare se si va in produzione con utenti reali
@@ -152,6 +153,7 @@ Fatto il 2026-07-24 su questo Mac, da rifare se si lavora da un Mac diverso (SDK
 - Redis (ioredis)
 - mqtt.js per subscriber HiveMQ Cloud
 - express-validator, express-rate-limit, helmet, bcrypt, jsonwebtoken
+- Pino per logging strutturato (`src/lib/logger.ts` applicativo + `src/lib/audit.ts` audit sicurezza, dettagli in specifiche-tecniche §14.5)
 
 ### Mobile (`/mobile`)
 - Expo SDK 54 + React Native + TypeScript

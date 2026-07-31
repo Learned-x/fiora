@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { audit } from '../lib/audit';
 
 // Campi specie restituiti insieme alla pianta (sottoinsieme leggero del catalogo)
 const speciesSelect = {
@@ -177,6 +178,14 @@ export async function updatePlant(userId: string, plantId: string, input: Update
     },
     include: { species: { select: speciesSelect } },
   });
+
+  if (input.vasoId !== undefined) {
+    audit('plant.vase_link.changed', {
+      userId,
+      targetId: plantId,
+      meta: input.vasoId ? { azione: 'collegato', vasoId: input.vasoId } : { azione: 'scollegato' },
+    });
+  }
 
   if (input.stato === 'archiviato') {
     await skipPendingTasks(plantId);

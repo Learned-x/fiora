@@ -70,7 +70,7 @@ router.post(
 
     try {
       const { email, password, name } = req.body;
-      const result = await authService.register(email, password, name);
+      const result = await authService.register(email, password, name, req.ip);
       res.status(201).json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({
@@ -115,7 +115,7 @@ router.post(
 
     try {
       const { email, password } = req.body;
-      const result = await authService.login(email, password);
+      const result = await authService.login(email, password, req.ip);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({
@@ -155,7 +155,7 @@ router.post(
     if (!handleValidation(req, res)) return;
 
     try {
-      const result = await oauthService.loginWithGoogle(req.body.idToken);
+      const result = await oauthService.loginWithGoogle(req.body.idToken, req.ip);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({
@@ -195,7 +195,7 @@ router.post(
     if (!handleValidation(req, res)) return;
 
     try {
-      const result = await oauthService.loginWithApple(req.body.identityToken);
+      const result = await oauthService.loginWithApple(req.body.identityToken, req.ip);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({
@@ -234,7 +234,7 @@ router.post(
     if (!handleValidation(req, res)) return;
 
     try {
-      const result = await authService.refresh(req.body.refreshToken);
+      const result = await authService.refresh(req.body.refreshToken, req.ip);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({
@@ -272,7 +272,7 @@ router.post(
     if (!handleValidation(req, res)) return;
 
     try {
-      await authService.logout(req.body.refreshToken);
+      await authService.logout(req.body.refreshToken, req.ip);
       res.json({ success: true, data: { message: 'Logout effettuato' } });
     } catch (err: any) {
       res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
@@ -295,7 +295,7 @@ router.post(
 
 router.delete('/account', requireAuth, async (req: Request, res: Response) => {
   try {
-    const result = await authService.requestAccountDeletion(req.userId!);
+    const result = await authService.requestAccountDeletion(req.userId!, req.ip);
     res.json({ success: true, data: result });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
@@ -317,7 +317,7 @@ router.delete('/account', requireAuth, async (req: Request, res: Response) => {
 
 router.post('/account/cancel-deletion', requireAuth, async (req: Request, res: Response) => {
   try {
-    await authService.cancelAccountDeletion(req.userId!);
+    await authService.cancelAccountDeletion(req.userId!, req.ip);
     res.json({ success: true, data: { message: 'Eliminazione annullata' } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
@@ -384,7 +384,7 @@ router.post(
     if (!handleValidation(req, res)) return;
 
     try {
-      await authService.changePassword(req.userId!, req.body.currentPassword, req.body.newPassword);
+      await authService.changePassword(req.userId!, req.body.currentPassword, req.body.newPassword, req.ip);
       res.json({ success: true, data: { message: 'Password aggiornata' } });
     } catch (err: any) {
       res.status(err.status || 500).json({

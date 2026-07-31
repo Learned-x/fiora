@@ -1614,6 +1614,10 @@ fiora-photos/
 NODE_ENV=production
 PORT=3000
  
+# Logging (vedi §14.5) — LOG_DIR iniettato da docker-compose in staging/prod
+LOG_LEVEL=info
+LOG_DIR=/app/logs
+ 
 # Database
 DATABASE_URL=postgresql://user:password@db-server-ip:5432/fiora
  
@@ -1660,6 +1664,48 @@ EXPO_PUBLIC_API_URL=https://api.tangifiori.com
 EXPO_PUBLIC_MQTT_URL=mqtts://api.tangifiori.com:8883
 ```
  
+---
+
+## 14.5. Logging e audit (backend)
+
+Libreria: **Pino** (JSON strutturato). Istanze in `src/lib/logger.ts` (applicativo) e `src/lib/audit.ts` (audit sicurezza), separate perché hanno retention e scopo diversi.
+
+### Log applicativo (`logger`)
+- Un modulo importa `logger` e crea un child logger con `logger.child({ module: 'nome' })` per contestualizzare (usato in `mqtt.ts`, `redis.ts`, jobs, `notification.service.ts`).
+- Livello controllato da `LOG_LEVEL` (`trace|debug|info|warn|error|fatal`), default `debug` in dev, `info` in produzione.
+- Multistream in base ad ambiente:
+  - **Dev**: console `pino-pretty` colorata + file.
+  - **Produzione/staging**: stdout JSON puro (catturato anche da `docker logs`) + file.
+  - **Test** (`NODE_ENV=test`): tutto silenziato, nessun file scritto.
+- File generati in `LOG_DIR` (default `./logs`, in staging montato da Docker su `/app/logs`), rotazione **giornaliera** via `pino-roll`:
+  - `combined-YYYY-MM-DD.log` — tutti i livelli, 14 giorni conservati
+  - `error-YYYY-MM-DD.log` — solo `error`/`fatal`, 30 giorni conservati
+- Request logging HTTP via `pino-http` in `app.ts`: ogni richiesta logga metodo/path/status/durata/`requestId` (propagato o generato, esposto in header `x-request-id`) e `userId` se autenticato. Redatti `authorization` header e i campi password dal body.
+- `src/index.ts` intercetta anche `uncaughtException`/`unhandledRejection` (livello `fatal`).
+
+### Audit log (`audit` in `src/lib/audit.ts`)
+Traccia eventi di sicurezza e azioni sensibili, separato dal log applicativo perché va conservato più a lungo (**90 giorni**, file `audit-YYYY-MM-DD.log`) e serve a ricostruire "chi ha fatto cosa" indipendentemente dal rumore applicativo.
+
+Eventi coperti oggi (`AuditEvent` in `audit.ts`):
+- `auth.register`, `auth.login.success`, `auth.login.failure` (email/password **e** OAuth Google/Apple), `auth.logout`, `auth.refresh`
+- `auth.change_password` (logga anche il tentativo fallito per password attuale errata)
+- `auth.account_deletion.requested`, `auth.account_deletion.cancelled`
+- `vase.pairing.started`, `vase.deleted`
+- `plant.vase_link.changed` (collega/scollega vaso↔pianta da `PATCH /plants/:id`)
+
+Ogni voce include `userId`/`email` (quando noti), `ip` (da `req.ip`, passato esplicitamente dalle route ai service — non c'è middleware automatico), `targetId` (risorsa toccata) e `meta` libero per dettagli evento-specifici.
+
+Non è ancora coperto: cambio ruolo utente (nessun endpoint lo espone oggi, solo modifica manuale via Prisma Studio/seed).
+
+### Accesso ai log in staging
+```bash
+# Sul server Ubuntu, dentro il repo
+tail -f logs/staging/combined-$(date +%F).log | jq .
+tail -f logs/staging/error-$(date +%F).log | jq .
+tail -f logs/staging/audit-$(date +%F).log | jq .
+```
+Bind mount definito in `docker-compose.staging.yml` (`./logs/staging:/app/logs`), cartella esclusa da git (`.gitignore` root e `backend/.gitignore`).
+
 ---
  
 ## 15. Convenzioni di sviluppo

@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { randomUUID } from 'crypto';
+import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes';
 import plantRoutes from './routes/plant.routes';
@@ -11,6 +13,7 @@ import optionsRoutes from './routes/options.routes';
 import vaseRoutes from './routes/vase.routes';
 import { requireAuth } from './middleware/auth.middleware';
 import { swaggerSpec } from './lib/swagger';
+import { logger } from './lib/logger';
 
 const app = express();
 
@@ -18,6 +21,25 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req, res) => {
+      const existing = req.headers['x-request-id'];
+      const id = typeof existing === 'string' ? existing : randomUUID();
+      res.setHeader('x-request-id', id);
+      return id;
+    },
+    customProps: (req) => ({ userId: (req as any).userId }),
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
+    // Non loggare body/header con credenziali
+    redact: ['req.headers.authorization', 'req.body.password', 'req.body.currentPassword', 'req.body.newPassword'],
+  })
+);
 
 // ── Documentazione API ────────────────────────────────────────────────────────
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

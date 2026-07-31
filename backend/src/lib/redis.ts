@@ -1,4 +1,7 @@
 import IORedis from 'ioredis';
+import { logger } from './logger';
+
+const log = logger.child({ module: 'redis' });
 
 export const redis = new IORedis({
   host: process.env.REDIS_HOST || 'localhost',
@@ -6,5 +9,5 @@ export const redis = new IORedis({
   password: process.env.REDIS_PASSWORD,
 });
 
-redis.on('connect', () => console.log('Redis connesso'));
-redis.on('error', (err) => console.error('Redis errore:', err));
+redis.on('connect', () => log.info('Redis connesso'));
+redis.on('error', (err) => log.error({ err }, 'Redis errore'));

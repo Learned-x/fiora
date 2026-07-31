@@ -1,6 +1,9 @@
 import mqtt, { MqttClient } from 'mqtt';
 import { prisma } from './prisma';
 import * as vaseService from '../services/vase.service';
+import { logger } from './logger';
+
+const log = logger.child({ module: 'mqtt' });
 
 let client: MqttClient | null = null;
 
@@ -23,13 +26,13 @@ async function handleTelemetry(deviceId: string, payload: string) {
   try {
     data = JSON.parse(payload);
   } catch {
-    console.error(`[MQTT] Payload telemetria non valido da ${deviceId}:`, payload);
+    log.error({ deviceId, payload }, 'Payload telemetria non valido');
     return;
   }
 
   const vase = await prisma.smartVase.findUnique({ where: { deviceId } });
   if (!vase) {
-    console.warn(`[MQTT] Telemetria da vaso sconosciuto: ${deviceId}`);
+    log.warn({ deviceId }, 'Telemetria da vaso sconosciuto');
     return;
   }
 
@@ -57,22 +60,22 @@ async function handleStatus(deviceId: string, payload: string) {
   try {
     data = JSON.parse(payload);
   } catch {
-    console.error(`[MQTT] Payload status non valido da ${deviceId}:`, payload);
+    log.error({ deviceId, payload }, 'Payload status non valido');
     return;
   }
 
   const vase = await prisma.smartVase.findUnique({ where: { deviceId } });
   if (!vase) {
-    console.warn(`[MQTT] Status da vaso sconosciuto: ${deviceId}`);
+    log.warn({ deviceId }, 'Status da vaso sconosciuto');
     return;
   }
 
   if (data.status === 'online') {
     await vaseService.markVaseOnline(deviceId, data.batteria);
-    console.log(`[MQTT] Vaso ${deviceId} online (pairing completato o riconnesso)`);
+    log.info({ deviceId }, 'Vaso online (pairing completato o riconnesso)');
   } else {
     await vaseService.markVaseOffline(deviceId);
-    console.log(`[MQTT] Vaso ${deviceId} offline`);
+    log.info({ deviceId }, 'Vaso offline');
     // TODO (Fase 7): notifica push + fallback a reminder calendario
   }
 }
@@ -86,7 +89,7 @@ function routeMessage(topic: string, payload: Buffer) {
   const telemetryMatch = topic.match(/^fiora\/vaso\/([^/]+)\/telemetry$/);
   if (telemetryMatch) {
     handleTelemetry(telemetryMatch[1], message).catch((err) =>
-      console.error(`[MQTT] Errore gestione telemetria da ${telemetryMatch[1]}:`, err)
+      log.error({ err, deviceId: telemetryMatch[1] }, 'Errore gestione telemetria')
     );
     return;
   }
@@ -95,12 +98,12 @@ function routeMessage(topic: string, payload: Buffer) {
   const statusMatch = topic.match(/^fiora\/vaso\/([^/]+)\/status$/);
   if (statusMatch) {
     handleStatus(statusMatch[1], message).catch((err) =>
-      console.error(`[MQTT] Errore gestione status da ${statusMatch[1]}:`, err)
+      log.error({ err, deviceId: statusMatch[1] }, 'Errore gestione status')
     );
     return;
   }
 
-  console.warn(`[MQTT] Topic non gestito: ${topic}`);
+  log.warn({ topic }, 'Topic MQTT non gestito');
 }
 
 // ── Connessione e avvio subscriber ───────────────────────────────────────────
@@ -120,17 +123,17 @@ export function connectMqtt(): MqttClient {
   });
 
   client.on('connect', () => {
-    console.log('[MQTT] Connesso a HiveMQ Cloud');
+    log.info('Connesso a HiveMQ Cloud');
 
     // Sottoscrivi a tutti i topic dei vasi in un'unica wildcard
     client!.subscribe('fiora/vaso/+/telemetry', { qos: 1 }, (err) => {
-      if (err) console.error('[MQTT] Errore subscribe telemetry:', err);
-      else console.log('[MQTT] Subscriber attivo: fiora/vaso/+/telemetry');
+      if (err) log.error({ err }, 'Errore subscribe telemetry');
+      else log.info('Subscriber attivo: fiora/vaso/+/telemetry');
     });
 
     client!.subscribe('fiora/vaso/+/status', { qos: 1 }, (err) => {
-      if (err) console.error('[MQTT] Errore subscribe status:', err);
-      else console.log('[MQTT] Subscriber attivo: fiora/vaso/+/status');
+      if (err) log.error({ err }, 'Errore subscribe status');
+      else log.info('Subscriber attivo: fiora/vaso/+/status');
     });
   });
 
@@ -139,15 +142,15 @@ export function connectMqtt(): MqttClient {
   });
 
   client.on('error', (err) => {
-    console.error('[MQTT] Errore connessione:', err.message);
+    log.error({ err: err.message }, 'Errore connessione MQTT');
   });
 
   client.on('reconnect', () => {
-    console.warn('[MQTT] Riconnessione in corso...');
+    log.warn('Riconnessione MQTT in corso');
   });
 
   client.on('disconnect', () => {
-    console.warn('[MQTT] Disconnesso da HiveMQ Cloud');
+    log.warn('Disconnesso da HiveMQ Cloud');
   });
 
   return client;
@@ -157,7 +160,7 @@ export function connectMqtt(): MqttClient {
 
 export function publishToVase(deviceId: string, payload: object): void {
   if (!client?.connected) {
-    console.error('[MQTT] Impossibile pubblicare: client non connesso');
+    log.error({ deviceId }, 'Impossibile pubblicare: client MQTT non connesso');
     return;
   }
   const topic = `fiora/vaso/${deviceId}/config`;

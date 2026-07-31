@@ -1,7 +1,9 @@
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 import { prisma } from '../lib/prisma';
+import { logger } from '../lib/logger';
 
 const expo = new Expo();
+const log = logger.child({ module: 'notification.service' });
 
 // Mapping orarioReminder utente → ora di invio (timezone server).
 export const ORARIO_TO_HOUR: Record<string, number> = {
@@ -149,7 +151,7 @@ export async function sendDailyPushReminders(orario: string, now: Date = new Dat
         }
       }
     } catch (err) {
-      console.error('Invio chunk push fallito:', err);
+      log.error({ err }, 'Invio chunk push fallito');
     }
     indice += chunk.length;
   }

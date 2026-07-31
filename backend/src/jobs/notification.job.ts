@@ -1,6 +1,9 @@
 import { Worker } from 'bullmq';
 import { notificationQueue, redisConnection } from '../lib/bullmq';
 import { orarioFromHour, sendDailyPushReminders } from '../services/notification.service';
+import { logger } from '../lib/logger';
+
+const log = logger.child({ module: 'job:notification' });
 
 export const notificationWorker = new Worker(
   'push-reminders',
@@ -10,8 +13,9 @@ export const notificationWorker = new Worker(
       return { skipped: true };
     }
     const result = await sendDailyPushReminders(orario);
-    console.log(
-      `Push reminders (${orario}): notificati ${result.utentiNotificati}, token rimossi ${result.tokenRimossi}`
+    log.info(
+      { orario, utentiNotificati: result.utentiNotificati, tokenRimossi: result.tokenRimossi },
+      'Push reminders inviati'
     );
     return result;
   },
@@ -19,7 +23,7 @@ export const notificationWorker = new Worker(
 );
 
 notificationWorker.on('failed', (job, err) => {
-  console.error(`Job push reminders fallito: ${job?.id}`, err);
+  log.error({ jobId: job?.id, err }, 'Job push reminders fallito');
 });
 
 // Job ricorrente: alle 9, 15 e 19 (timezone server) — dopo il reminder engine

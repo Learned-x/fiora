@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import { accountDeletionQueue } from '../lib/bullmq';
+import { audit } from '../lib/audit';
 
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES_DAYS = Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS) || 30;
@@ -32,7 +33,7 @@ export async function saveRefreshToken(userId: string, token: string): Promise<v
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
-export async function register(email: string, password: string, name?: string) {
+export async function register(email: string, password: string, name?: string, ip?: string) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw { code: 'AUTH_EMAIL_ALREADY_EXISTS', status: 409, message: 'Email già registrata' };
@@ -48,6 +49,8 @@ export async function register(email: string, password: string, name?: string) {
   const refreshToken = generateRefreshToken();
   await saveRefreshToken(user.id, refreshToken);
 
+  audit('auth.register', { userId: user.id, email: user.email, ip });
+
   return { accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name } };
 }
 
@@ -62,21 +65,25 @@ function buildGracePeriod(deletedAt: Date | null) {
   return { active: true, deletedAt, giorniRimanenti };
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, ip?: string) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || !user.passwordHash) {
+    audit('auth.login.failure', { email, ip });
     throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Credenziali non valide' };
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    audit('auth.login.failure', { userId: user.id, email, ip });
     throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Credenziali non valide' };
   }
 
   const accessToken = generateAccessToken(user.id);
   const refreshToken = generateRefreshToken();
   await saveRefreshToken(user.id, refreshToken);
+
+  audit('auth.login.success', { userId: user.id, email, ip });
 
   const graceperiod = buildGracePeriod(user.deletedAt);
 
@@ -118,7 +125,7 @@ export async function getProfile(userId: string) {
 
 // ── Cambio password ───────────────────────────────────────────────────────────
 
-export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+export async function changePassword(userId: string, currentPassword: string, newPassword: string, ip?: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || !user.passwordHash) {
@@ -127,16 +134,19 @@ export async function changePassword(userId: string, currentPassword: string, ne
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) {
+    audit('auth.change_password', { userId, ip, meta: { esito: 'password_attuale_errata' } });
     throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Password attuale non corretta' };
   }
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  audit('auth.change_password', { userId, ip, meta: { esito: 'ok' } });
 }
 
 // ── Refresh token ─────────────────────────────────────────────────────────────
 
-export async function refresh(token: string) {
+export async function refresh(token: string, ip?: string) {
   const existing = await prisma.refreshToken.findUnique({ where: { token } });
 
   if (!existing || existing.expiresAt < new Date()) {
@@ -150,18 +160,22 @@ export async function refresh(token: string) {
   const newRefreshToken = generateRefreshToken();
   await saveRefreshToken(existing.userId, newRefreshToken);
 
+  audit('auth.refresh', { userId: existing.userId, ip });
+
   return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 
-export async function logout(token: string) {
+export async function logout(token: string, ip?: string) {
+  const existing = await prisma.refreshToken.findUnique({ where: { token } });
   await prisma.refreshToken.deleteMany({ where: { token } });
+  if (existing) audit('auth.logout', { userId: existing.userId, ip });
 }
 
 // ── Richiesta eliminazione account (periodo di grazia 30 giorni) ──────────────
 
-export async function requestAccountDeletion(userId: string) {
+export async function requestAccountDeletion(userId: string, ip?: string) {
   const graceUntil = new Date();
   graceUntil.setDate(graceUntil.getDate() + 30);
   const delayMs = graceUntil.getTime() - Date.now();
@@ -184,12 +198,14 @@ export async function requestAccountDeletion(userId: string) {
     { delay: delayMs, jobId: `delete-account-${userId}` }
   );
 
+  audit('auth.account_deletion.requested', { userId, ip, meta: { graceUntil } });
+
   return { graceUntil };
 }
 
 // ── Annulla eliminazione account ──────────────────────────────────────────────
 
-export async function cancelAccountDeletion(userId: string) {
+export async function cancelAccountDeletion(userId: string, ip?: string) {
   await prisma.user.update({
     where: { id: userId },
     data: { deletedAt: null },
@@ -200,4 +216,6 @@ export async function cancelAccountDeletion(userId: string) {
   // Rimuove il job schedulato per l'eliminazione definitiva, se presente
   const job = await accountDeletionQueue.getJob(`delete-account-${userId}`);
   if (job) await job.remove();
+
+  audit('auth.account_deletion.cancelled', { userId, ip });
 }
