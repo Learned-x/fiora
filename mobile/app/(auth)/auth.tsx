@@ -1,14 +1,22 @@
-import { Alert, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from 'react-native';
 import { router } from 'expo-router';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../src/theme/useTheme';
 import { SocialButton } from '../../src/components/SocialButton';
 import { useAuthStore } from '../../src/store/auth.store';
-import { GoogleSignInCancelledError } from '../../src/services/oauth';
+import { GoogleSignInCancelledError, AppleSignInCancelledError } from '../../src/services/oauth';
 
 export default function AuthScreen() {
   const theme = useTheme();
-  const { loginWithGoogle, isLoading, error } = useAuthStore();
+  const { loginWithGoogle, loginWithApple, isLoading, error } = useAuthStore();
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
+  }, []);
 
   async function handleGoogle() {
     try {
@@ -20,8 +28,14 @@ export default function AuthScreen() {
     }
   }
 
-  function handleApple() {
-    Alert.alert('Sign in with Apple', 'Disponibile a breve — credenziali Apple in attesa.');
+  async function handleApple() {
+    try {
+      await loginWithApple();
+      router.replace('/(tabs)');
+    } catch (err) {
+      if (err instanceof AppleSignInCancelledError) return;
+      Alert.alert('Login Apple fallito', useAuthStore.getState().error ?? 'Riprova più tardi');
+    }
   }
 
   return (
@@ -33,7 +47,9 @@ export default function AuthScreen() {
 
         <View style={styles.buttons}>
           <SocialButton provider="google" label="Continua con Google" onPress={handleGoogle} loading={isLoading} />
-          <SocialButton provider="apple" label="Continua con Apple" onPress={handleApple} />
+          {appleAvailable && (
+            <SocialButton provider="apple" label="Continua con Apple" onPress={handleApple} loading={isLoading} />
+          )}
         </View>
 
         <View style={styles.divider}>

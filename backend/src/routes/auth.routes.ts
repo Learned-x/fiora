@@ -190,12 +190,15 @@ router.post(
 router.post(
   '/oauth/apple',
   authLimiter,
-  [body('identityToken').notEmpty().withMessage('identityToken obbligatorio')],
+  [
+    body('identityToken').notEmpty().withMessage('identityToken obbligatorio'),
+    body('fullName').optional({ nullable: true }).isString(),
+  ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
 
     try {
-      const result = await oauthService.loginWithApple(req.body.identityToken, req.ip);
+      const result = await oauthService.loginWithApple(req.body.identityToken, req.ip, req.body.fullName);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(err.status || 500).json({

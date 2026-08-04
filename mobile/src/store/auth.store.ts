@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { AxiosError } from 'axios';
 import { api, setOnSessionExpired } from '../services/api';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../services/storage';
-import { GoogleSignInCancelledError, signInWithGoogle } from '../services/oauth';
+import { GoogleSignInCancelledError, signInWithGoogle, AppleSignInCancelledError, signInWithApple } from '../services/oauth';
 import { getMe } from '../services/user.api';
 import type { GracePeriod, UserProfile } from '../types/models';
 
@@ -34,6 +34,7 @@ interface AuthState {
   register: (email: string, password: string, name?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -107,6 +108,25 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false });
       } else {
         set({ isLoading: false, error: extractErrorMessage(err, 'Login Google fallito') });
+      }
+      throw err;
+    }
+  },
+
+  loginWithApple: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { identityToken, fullName } = await signInWithApple();
+      const response = await api.post<{ data: AuthResponse }>('/auth/oauth/apple', { identityToken, fullName });
+      const { accessToken, refreshToken, user, graceperiod } = response.data.data;
+      await saveTokens(accessToken, refreshToken);
+      set({ user, graceperiod: graceperiod ?? null, isAuthenticated: true, isLoading: false });
+      await syncProfileAfterAuth(set);
+    } catch (err) {
+      if (err instanceof AppleSignInCancelledError) {
+        set({ isLoading: false });
+      } else {
+        set({ isLoading: false, error: extractErrorMessage(err, 'Login Apple fallito') });
       }
       throw err;
     }

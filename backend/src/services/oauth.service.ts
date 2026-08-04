@@ -98,7 +98,7 @@ export async function loginWithGoogle(idToken: string, ip?: string) {
 
 // ── Login con Apple ────────────────────────────────────────────────────────────
 
-export async function loginWithApple(identityToken: string, ip?: string) {
+export async function loginWithApple(identityToken: string, ip?: string, fullName?: string | null) {
   let decoded: jwt.JwtPayload;
   try {
     const header = jwt.decode(identityToken, { complete: true })?.header;
@@ -123,8 +123,8 @@ export async function loginWithApple(identityToken: string, ip?: string) {
   // Apple fornisce l'email solo al primo login (o nel body della richiesta come fallback)
   const email = (decoded.email as string | undefined) ?? null;
 
-  // Apple non include il nome nel token: arriverà solo dal body al primo login (gestito in futuro)
-  const user = await findOrCreateOAuthUser('apple', decoded.sub, email, null);
+  // Apple non include il nome nel token: arriva solo dal body dell'app al primo login
+  const user = await findOrCreateOAuthUser('apple', decoded.sub, email, fullName ?? null);
   const tokens = await issueTokensFor(user.id);
 
   audit('auth.login.success', { userId: user.id, email: user.email ?? undefined, ip, meta: { provider: 'apple' } });
