@@ -9,13 +9,13 @@
     "scheme": "fiora",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fiora.app",
+      "bundleIdentifier": "app.fiora.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.fiora.app",
+      "package": "app.fiora.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
