@@ -30,6 +30,11 @@ export async function cancelAccountDeletion(): Promise<void> {
   await api.post('/auth/account/cancel-deletion');
 }
 
+export async function requestAccountDeletion(): Promise<{ graceUntil: string }> {
+  const res = await api.delete<{ data: { graceUntil: string } }>('/auth/account');
+  return res.data.data;
+}
+
 // ── Opzioni dinamiche ─────────────────────────────────────────────────────────
 
 export async function listOptions(categoria?: string): Promise<AppOption[]> {

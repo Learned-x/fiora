@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
-import { updateMe } from '../../src/services/user.api';
+import { updateMe, requestAccountDeletion } from '../../src/services/user.api';
 import {
   disablePushNotifications,
   registerForPushNotifications,
@@ -71,6 +71,28 @@ export default function SettingsScreen() {
       ...options,
       { text: 'Annulla', style: 'cancel' },
     ]);
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Elimina account',
+      "L'account verrà eliminato definitivamente tra 30 giorni. Potrai annullare l'operazione accedendo di nuovo entro quel periodo.",
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await requestAccountDeletion();
+              await refreshProfile();
+            } catch {
+              Alert.alert('Errore', 'Operazione non riuscita, riprova.');
+            }
+          },
+        },
+      ]
+    );
   }
 
   function handleLogout() {
@@ -180,14 +202,28 @@ export default function SettingsScreen() {
         {/* Account */}
         <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Account</Text>
         <View style={[styles.card, { backgroundColor: theme.card }]}>
+          {!!profile?.email && (
+            <Pressable
+              onPress={() => router.push('/change-email')}
+              style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
+            >
+              <Text style={[styles.rowTitle, { color: theme.t1 }]}>Cambia email</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => router.push('/change-password')}
             style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
           >
             <Text style={[styles.rowTitle, { color: theme.t1 }]}>Cambia password</Text>
           </Pressable>
-          <Pressable onPress={handleLogout} style={styles.row}>
+          <Pressable
+            onPress={handleLogout}
+            style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
+          >
             <Text style={[styles.rowTitle, { color: theme.red }]}>Esci dall'account</Text>
+          </Pressable>
+          <Pressable onPress={handleDeleteAccount} style={styles.row}>
+            <Text style={[styles.rowTitle, { color: theme.red }]}>Elimina account</Text>
           </Pressable>
         </View>
       </ScrollView>
