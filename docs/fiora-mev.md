@@ -88,9 +88,9 @@ fuori da quel momento è rumore, e il rumore porta a disattivare le notifiche.
 
 ## MEV-02 — Email transazionali e recupero password
 
-**Stato: 🚧 parziale** · Riferimento: §1.7 e §13.4 funzionali · **Priorità alta**
-**Recupero password fatto e testato end-to-end il 2026-07-31.** Cambio email e
-conferma eliminazione account restano da fare (riusano la stessa infrastruttura).
+**Stato: ✅ completa** (2026-08-04) · Riferimento: §1.7 e §13.4 funzionali · **Priorità alta**
+Recupero password fatto e testato end-to-end il 2026-07-31. Cambio email e
+conferma eliminazione account completati il 2026-08-04 (stessa infrastruttura).
 
 ### Problema
 

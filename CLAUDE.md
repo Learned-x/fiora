@@ -18,6 +18,13 @@ Le specifiche descrivono il **target**: dove il firmware è indietro, la differe
 ## Stato attuale sviluppo
 **Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro) + **Fase 6 in corso** (pairing BLE vaso smart, 2026-07-24; schermate Vasi/dettaglio vaso + sensori in dettaglio pianta, 2026-07-25).
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo (iOS) o `expo run:android --device` (Android) su device reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
+**Aggiornamento 2026-08-04**: comprato abbonamento Apple Developer Program, primo tentativo TestFlight in corso (vedi "Bundle ID" e "Sign in with Apple" sotto). Fino a qui vale ancora la decisione sopra per Android; per iOS si sta valutando anche EAS submit.
+
+### ⚠️ Bundle ID cambiato: `com.fiora.app` → `app.fiora.mobile`
+`com.fiora.app` (iOS **e** Android, `mobile/app.json`) dava "Invalid string" creando l'App ID su developer.apple.com, pur non risultando registrato né sul nostro account né altrove — residuo del vecchio setup a personal team (pre-abbonamento) mai propagato bene sul portale, non risolto nemmeno eliminando profili/certificati locali. Bundle cambiato in `app.fiora.mobile` (commit `64b12d5`), che si è creato senza problemi. Client OAuth Google (iOS e Android) aggiornati **in-place** sullo stesso bundle nuovo — nessun nuovo Client ID, nessun cambio di codice lato Google. **Ogni build EAS/locale già installata prima di questo commit ha il bundle vecchio**: va disinstallata e rifatta da zero, non aggiornabile in-place (bundle ID diverso = app diversa per iOS/Android).
+
+### Sign in with Apple — collegato lato mobile (2026-08-04)
+Backend verificava già `identityToken` Apple (da tempo), ma il bottone in app era placeholder. Ora funzionante: `expo-apple-authentication` installato, `signInWithApple()`/`loginWithApple()` (stesso pattern di Google), bottone visibile solo se `AppleAuthentication.isAvailableAsync()` (iOS 13+, nascosto su Android). `fullName` (Apple lo dà solo al primissimo consenso, mai nel token JWT) ora passato dal client e salvato al primo login — prima veniva scartato sempre. App ID `app.fiora.mobile` ha la capability "Sign In with Apple" abilitata su developer.apple.com; `APPLE_CLIENT_ID=app.fiora.mobile` impostato in `.env.development` (locale) e `.env.staging` (server Ubuntu, riavviato). **Non ancora testato su device reale** con build che riflette il bundle nuovo — nessuna build esiste ancora con `app.fiora.mobile`, prima build in corso (staging, per verificare Google+Apple prima di tentare TestFlight/production).
 **Da testare stasera/prossima sessione** (vedi dettagli in Fase 6 sotto): pairing BLE completo su device Android reale, firmware con provisioning su hardware fisico.
 
 ### ⚠️ Bug aperto: collega/scollega pianta nel dettaglio vaso
@@ -88,7 +95,11 @@ Il firmware è stato riscritto e modularizzato (commit `c146237`, 2026-07-31 cir
 - **Fase 6 mobile — sensori in dettaglio pianta** (2026-07-25): `app/plant/[id].tsx` mostra sezione "Vaso smart" (se pianta ha vaso collegato) con 3 tile umidità/luce/temperatura (colore verde/ambra da soglie specie, etichette semantiche tipo "Umido"/"Asciutto"/"Ottimale") e sparkline umidità 24h (nuovo componente `Sparkline`, SVG `Polyline`); bottone "Vaso Smart" nelle azioni rapide (griglia ora 2x2 con "Storico cure")
 - **Bug noto**: vedi nota "Bug aperto" a inizio file — collega/scollega pianta da `vase/[id].tsx` non affidabile lato client, backend verificato correttamente funzionante via curl
 - **D9 chiuso** (2026-07-31, non ancora testato su hardware): pairing BLE trasmette anche `mqtt_host`/`mqtt_port` (prima hardcoded nel firmware), pronti per migrazione a Mosquitto in prod senza reflash. Aggiunta rinomina vaso da `vase/[id].tsx` (API backend già pronta, mai collegata a UI)
-- **MEV-02 parziale — recupero password** (2026-07-31, testato end-to-end): Resend integrato (`src/lib/email.ts`), coda BullMQ `email` + worker (`src/jobs/email.job.ts`), token hash SHA-256 scadenza 30min a uso singolo, reset revoca tutti i refresh token, risposta API sempre identica anti-enumerazione; mobile `app/(auth)/forgot-password.tsx` + `app/reset-password.tsx`. Senza dominio pubblico verificato niente universal link reali: pagina fallback web su `GET /reset-password` (`app.ts`) rilancia lo schema `fiora://`, stesso pattern usato in produzione quando il sistema non intercetta il link nativamente. Mittente sandbox Resend (`onboarding@resend.dev`) consegna solo alla casella dell'account Resend, non a utenti reali — da sostituire quando c'è un dominio verificato (SPF/DKIM/DMARC). Cambio email e conferma eliminazione account (stessa MEV) restano da fare
+- **MEV-02 ✅ completa** — email transazionali e recupero password:
+  - **Recupero password** (2026-07-31, testato end-to-end): Resend integrato (`src/lib/email.ts`), coda BullMQ `email` + worker (`src/jobs/email.job.ts`), token hash SHA-256 scadenza 30min a uso singolo, reset revoca tutti i refresh token, risposta API sempre identica anti-enumerazione; mobile `app/(auth)/forgot-password.tsx` + `app/reset-password.tsx`. Pagina fallback web su `GET /reset-password` (`app.ts`) rilancia lo schema `fiora://` (niente dominio pubblico verificato per universal link reali).
+  - **Cambio email** (2026-08-04): stesso pattern token (30min, hash SHA-256, `User.pendingEmail*`, migration `20260804000000_mev02_cambio_email`); `POST /auth/change-email` (richiede password attuale) invia verifica al nuovo indirizzo + notifica al vecchio (anti-dirottamento); `POST /auth/verify-email` applica il cambio; fallback web `GET /verify-email` come per il reset password; mobile `app/change-email.tsx` + `app/verify-email.tsx`, riga in Impostazioni nascosta per utenti Google/Apple-only (senza password Fiora).
+  - **Conferma eliminazione account** (2026-08-04): `requestAccountDeletion` (esisteva già lato backend, mai notificava) ora invia email riepilogativa con data eliminazione; aggiunto anche il trigger UI mancante in Impostazioni ("Elimina account", conferma nativa) — prima esisteva solo l'annullamento di una richiesta già in corso, non il modo di avviarla dall'app.
+  - Mittente sandbox Resend (`onboarding@resend.dev`) consegna solo alla casella dell'account Resend, non a utenti reali — da sostituire quando c'è un dominio verificato (SPF/DKIM/DMARC), vale per tutte le email di questa MEV
 
 ### Prossimi passi
 - **Investigare bug collega/scollega pianta** (vedi nota bug aperto a inizio file) prima di considerare il flusso vaso↔pianta completo
@@ -97,7 +108,7 @@ Il firmware è stato riscritto e modularizzato (commit `c146237`, 2026-07-31 cir
 - Script import CSV specie in `species_import_raw` (da scrivere, dentro /backend)
 - Rimandati: Fase 5 (foto MinIO), Fase 7 (alert sensori), fiori bouquet, empty state suggerimenti
 - QA push su device reale: token iOS, ricezione notifiche, tap → deep link
-- TestFlight + Apple Sign-In: rimandati, richiedono account Apple Developer
+- **TestFlight** (2026-08-04, in corso): abbonamento Developer Program attivo, Apple Sign-In collegato lato mobile (vedi nota bundle ID sopra). Prossimo passo: build EAS `staging` sul bundle nuovo (`app.fiora.mobile`) per verificare Google+Apple Sign-In su device reale prima di tentare `production`/EAS submit. Primo tentativo build `staging` falliva su "Failed to create Apple distribution certificate" (causa non ancora isolata, riprovare in modalità interattiva e leggere il log completo)
 - ~~npm test backend rotto~~ — **risolto/non riproducibile** (verificato 2026-07-31): 153/153 test passano puliti su questa macchina (`node v20.20.2`, `jest 30.4.2`, `ts-jest 29.4.11`). Probabile causa originale un `node_modules` incompleto su un'altra macchina — se ricompare, `rm -rf node_modules && npm install` prima di indagare oltre.
 
 ### Note build iOS locale (npx expo run:ios)
@@ -114,7 +125,7 @@ Il firmware è stato riscritto e modularizzato (commit `c146237`, 2026-07-31 cir
 - **Compound unique Prisma 7**: il nome nel client è quello dell'attributo `@@unique(name:...)` (es. `uq_app_options_categoria_chiave`), NON `campo1_campo2`
 - **Riferimento scadenza task**: `completatoA ?? createdAt` dell'ultimo task annaffiatura, altrimenti `plant.createdAt`; skip se esiste già task pending (no duplicati)
 - **Google Sign-In**: client OAuth Web (ID token verificato dal backend), flusso nativo via dev build EAS — Expo Go non supporta il modulo nativo
-- **Apple Sign-In**: backend pronto, bottone mobile placeholder — mancano credenziali Apple Developer
+- **Apple Sign-In**: collegato lato mobile 2026-08-04 (`expo-apple-authentication`, flusso nativo via dev build EAS — Expo Go non lo supporta, come Google); bottone nascosto su Android/iOS<13 via `AppleAuthentication.isAvailableAsync()`
 - **Dark mode**: `userInterfaceStyle: "automatic"` in app.json (era "light", bloccava il tema scuro; richiede rebuild nativa perché finisce in Info.plist)
 - **Guard auth nelle tabs**: `app/(tabs)/_layout.tsx` fa `Redirect` a `/(auth)/climate` se non autenticato; NON esiste `app/index.tsx` (creava conflitto di route con `(tabs)/index.tsx`, entrambi risolvono `/`)
 - **SpeciesPickerModal condiviso** tra add-plant ed edit-plant, ricerca con debounce 250ms su `/species`
@@ -267,7 +278,7 @@ eas build --profile staging --platform ios
 - **Fase 7** Alert sensori (+ push per alert, esclusi da Fase 8) — rimandata
 - **Fase 8** ✅ Notifiche push Expo (2026-07-13, solo reminder calendario)
 - **Fase 9** Catalogo esteso: in dev/test import CSV manuale in `species_import_raw` (`fonte='csv'`, set ridotto — script da scrivere); in prod import massivo Trefle (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
-- **Fase 10** Apple Sign-In + rifinitura UI (fiori bouquet, empty state suggerimenti) — inversione onboarding + pagina intro ✅ fatte il 2026-07-13
+- **Fase 10** rifinitura UI (fiori bouquet, empty state suggerimenti) — inversione onboarding + pagina intro ✅ fatte il 2026-07-13; Apple Sign-In ✅ fatto 2026-08-04 (vedi sopra)
 - **Post-MVP** Email transazionali, offline SQLite, cambio email
 
 ## Note importanti
