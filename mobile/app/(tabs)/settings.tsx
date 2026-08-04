@@ -3,6 +3,11 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { elevation } from '../../src/theme/elevation';
+import { Card } from '../../src/components/Card';
+import { SectionLabel } from '../../src/components/SectionLabel';
 import { useAuthStore } from '../../src/store/auth.store';
 import { updateMe, requestAccountDeletion } from '../../src/services/user.api';
 import {
@@ -131,14 +136,14 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
+        <Text style={[styles.eyebrow, { color: theme.acc }]}>ACCOUNT</Text>
         <Text style={[styles.title, { color: theme.t1 }]}>Impostazioni</Text>
 
-        {/* Profilo */}
-        <View style={[styles.profile, { backgroundColor: theme.card }]}>
-          <View style={[styles.avatar, { backgroundColor: theme.acc }]}>
-            <Text style={{ fontSize: 22 }}>🌿</Text>
+        <Card style={styles.profile}>
+          <View style={[styles.avatar, { backgroundColor: theme.acc }, elevation.sm(theme.acc)]}>
+            <Text style={{ fontSize: 26 }}>🌿</Text>
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.profileName, { color: theme.t1 }]}>
               {profile?.name ?? user?.name ?? 'Utente Fiora'}
             </Text>
@@ -146,11 +151,10 @@ export default function SettingsScreen() {
               {profile?.email ?? user?.email ?? '—'}
             </Text>
           </View>
-        </View>
+        </Card>
 
-        {/* Preferenze */}
-        <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Preferenze</Text>
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <SectionLabel style={styles.sectionLabel}>Preferenze</SectionLabel>
+        <Card padded={false} style={styles.card}>
           <Pressable onPress={handleChangeClima} style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}>
             <View>
               <Text style={[styles.rowTitle, { color: theme.t1 }]}>Clima</Text>
@@ -176,11 +180,10 @@ export default function SettingsScreen() {
             </View>
             <Text style={[styles.rowValue, { color: theme.t2 }]}>Automatica</Text>
           </View>
-        </View>
+        </Card>
 
-        {/* Dispositivi */}
-        <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Dispositivi</Text>
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <SectionLabel style={styles.sectionLabel}>Dispositivi</SectionLabel>
+        <Card padded={false} style={styles.card}>
           <View style={[styles.row, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}>
             <Text style={[styles.rowTitle, { color: theme.t1 }]}>Vasi Smart</Text>
             <Text style={[styles.rowValue, { color: theme.t3 }]}>Prossimamente</Text>
@@ -197,11 +200,10 @@ export default function SettingsScreen() {
               trackColor={{ true: theme.acc }}
             />
           </View>
-        </View>
+        </Card>
 
-        {/* Account */}
-        <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Account</Text>
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <SectionLabel style={styles.sectionLabel}>Account</SectionLabel>
+        <Card padded={false} style={styles.card}>
           {!!profile?.email && (
             <Pressable
               onPress={() => router.push('/change-email')}
@@ -225,7 +227,7 @@ export default function SettingsScreen() {
           <Pressable onPress={handleDeleteAccount} style={styles.row}>
             <Text style={[styles.rowTitle, { color: theme.red }]}>Elimina account</Text>
           </Pressable>
-        </View>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -233,34 +235,27 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 24 },
-  title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.6, marginBottom: 20 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xl },
+  eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.8, marginBottom: spacing.xl },
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 17, fontWeight: '600', marginBottom: 1 },
+  avatar: { width: 60, height: 60, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  profileName: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
   profileEmail: { fontSize: 14 },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  card: { borderRadius: 14, overflow: 'hidden', marginBottom: 20 },
+  sectionLabel: { marginBottom: spacing.sm, paddingHorizontal: spacing.xs },
+  card: { marginBottom: spacing.xl },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    minHeight: 56,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   rowTitle: { fontSize: 16, marginBottom: 1 },
   rowSub: { fontSize: 13 },

@@ -4,6 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { elevation } from '../../src/theme/elevation';
+import { Card } from '../../src/components/Card';
 import { Button } from '../../src/components/Button';
 import { listVases } from '../../src/services/vases.api';
 import type { SmartVase } from '../../src/services/vases.api';
@@ -50,9 +54,15 @@ export default function VasiScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.t1 }]}>Vasi Smart</Text>
-        <Pressable onPress={() => router.push('/vase/pair')} style={[styles.addBtn, { backgroundColor: theme.acc }]}>
-          <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+        <View>
+          <Text style={[styles.eyebrow, { color: theme.acc }]}>DISPOSITIVI</Text>
+          <Text style={[styles.title, { color: theme.t1 }]}>Vasi Smart</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push('/vase/pair')}
+          style={[styles.addBtn, { backgroundColor: theme.acc }, elevation.md(theme.acc)]}
+        >
+          <Svg width={18} height={18} viewBox="0 0 14 14" fill="none">
             <Path d="M7 1.5v11M1.5 7h11" stroke="white" strokeWidth={2} strokeLinecap="round" />
           </Svg>
         </Pressable>
@@ -66,7 +76,9 @@ export default function VasiScreen() {
         ListEmptyComponent={
           loaded ? (
             <View style={styles.empty}>
-              <Text style={{ fontSize: 44, marginBottom: 16 }}>🪴</Text>
+              <View style={[styles.emptyIcon, { backgroundColor: theme.card2 }]}>
+                <Text style={{ fontSize: 36 }}>🪴</Text>
+              </View>
               <Text style={[styles.emptyTitle, { color: theme.t1 }]}>Nessun vaso collegato</Text>
               <Text style={[styles.emptySub, { color: theme.t2 }]}>
                 Collega il tuo vaso smart per monitorare umidità, luce e temperatura in tempo reale.
@@ -80,27 +92,26 @@ export default function VasiScreen() {
         renderItem={({ item }) => {
           const pianta = item.plants?.[0];
           return (
-            <Pressable
-              onPress={() => router.push(`/vase/${item.id}`)}
-              style={[styles.card, { backgroundColor: theme.card }]}
-            >
-              <View style={styles.cardTop}>
-                <View style={styles.cardTitleRow}>
-                  <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
-                  <Text style={[styles.cardName, { color: theme.t1 }]} numberOfLines={1}>
-                    {item.nome ?? item.deviceId}
-                  </Text>
+            <Pressable onPress={() => router.push(`/vase/${item.id}`)} style={styles.cardWrap}>
+              <Card style={styles.card}>
+                <View style={styles.cardTop}>
+                  <View style={styles.cardTitleRow}>
+                    <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
+                    <Text style={[styles.cardName, { color: theme.t1 }]} numberOfLines={1}>
+                      {item.nome ?? item.deviceId}
+                    </Text>
+                  </View>
+                  {item.batteria !== null && (
+                    <Text style={[styles.battery, { color: theme.t2 }]}>🔋 {item.batteria}%</Text>
+                  )}
                 </View>
-                {item.batteria !== null && (
-                  <Text style={[styles.battery, { color: theme.t2 }]}>🔋 {item.batteria}%</Text>
-                )}
-              </View>
-              <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]}>
-                {statoLabel(item.stato)}
-              </Text>
-              <Text style={[styles.cardPlant, { color: theme.t2 }]} numberOfLines={1}>
-                {pianta ? `Collegato a ${pianta.nome}` : 'Nessuna pianta collegata'}
-              </Text>
+                <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]}>
+                  {statoLabel(item.stato)}
+                </Text>
+                <Text style={[styles.cardPlant, { color: theme.t2 }]} numberOfLines={1}>
+                  {pianta ? `Collegato a ${pianta.nome}` : 'Nessuna pianta collegata'}
+                </Text>
+              </Card>
             </Pressable>
           );
         }}
@@ -115,23 +126,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    marginBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    marginBottom: spacing.xl,
   },
-  title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.6 },
-  addBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  list: { paddingHorizontal: 16, paddingBottom: 24, flexGrow: 1 },
-  card: { borderRadius: 16, padding: 16, marginBottom: 12 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  cardName: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.8 },
+  addBtn: { width: 48, height: 48, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, flexGrow: 1 },
+  cardWrap: { marginBottom: spacing.md },
+  card: { padding: spacing.lg },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  cardName: { fontSize: 17, fontWeight: '700', flexShrink: 1 },
   battery: { fontSize: 13 },
-  cardStato: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  cardStato: { fontSize: 12, fontWeight: '700', marginBottom: 4, letterSpacing: 0.3 },
   cardPlant: { fontSize: 13 },
-  empty: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
+  empty: { alignItems: 'center', paddingTop: spacing.xxxl + spacing.xl },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
   emptySub: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
-  emptyButton: { marginTop: 24, alignSelf: 'stretch', width: '100%', paddingHorizontal: 24 },
+  emptyButton: { marginTop: spacing.xl, alignSelf: 'stretch', width: '100%', paddingHorizontal: spacing.xl },
 });

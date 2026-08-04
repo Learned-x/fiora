@@ -14,8 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../src/theme/useTheme';
+import { spacing } from '../src/theme/spacing';
+import { radius } from '../src/theme/radius';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { Card } from '../src/components/Card';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { deletePlant, getPlant, updatePlant } from '../src/services/plants.api';
 import type { Plant, SpeciesSummary, StatoBouquet } from '../src/types/models';
@@ -128,16 +132,14 @@ export default function EditPlantScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-            <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={{ fontSize: 17, color: theme.acc }}>Annulla</Text>
-        </Pressable>
-        <Text style={[styles.navTitle, { color: theme.t1 }]}>Modifica</Text>
-        <View style={{ width: 80 }} />
-      </View>
+      <ScreenHeader
+        title="Modifica"
+        rightAction={
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.t2 }}>Annulla</Text>
+          </Pressable>
+        }
+      />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
@@ -225,8 +227,8 @@ export default function EditPlantScreen() {
           <Button label="Salva modifiche" onPress={handleSave} loading={saving} />
 
           {/* Altre azioni */}
-          <Text style={[styles.fieldLabel, { color: theme.t2, marginTop: 28 }]}>ALTRE AZIONI</Text>
-          <View style={[styles.actionsCard, { backgroundColor: theme.card }]}>
+          <Text style={[styles.fieldLabel, { color: theme.t2, marginTop: spacing.xl + spacing.xs }]}>ALTRE AZIONI</Text>
+          <Card padded={false} style={styles.actionsCard}>
             <Pressable
               onPress={() => router.push({ pathname: '/plant-history', params: { id: plant.id, nome: plant.nome } })}
               style={[styles.actionRow, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
@@ -242,7 +244,7 @@ export default function EditPlantScreen() {
               </Text>
               {archiving && <ActivityIndicator size="small" color={theme.amb} />}
             </Pressable>
-          </View>
+          </Card>
           {plant.stato === 'attivo' && (
             <Text style={[styles.hint, { color: theme.t3 }]}>
               Archiviando, i task in sospeso verranno annullati e i promemoria sospesi.
@@ -313,56 +315,51 @@ export default function EditPlantScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, width: 80 },
-  navTitle: { fontSize: 17, fontWeight: '600' },
-  form: { padding: 16, paddingTop: 8, paddingBottom: 32 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 4 },
+  form: { padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xxl },
+  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: spacing.sm, paddingHorizontal: 4 },
   speciesPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 13,
+    borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    minHeight: 50,
+    marginBottom: spacing.sm,
   },
-  stagesRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  stagesRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   stageChip: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm + 2,
+    minHeight: 40,
+    justifyContent: 'center',
   },
-  hint: { fontSize: 12, lineHeight: 17, marginBottom: 16, paddingHorizontal: 4 },
-  actionsCard: { borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
+  hint: { fontSize: 12, lineHeight: 17, marginBottom: spacing.lg, paddingHorizontal: 4 },
+  actionsCard: { marginBottom: spacing.sm },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 52,
   },
   actionText: { fontSize: 16 },
-  dangerZone: { borderRadius: 14, borderWidth: 1, marginTop: 16, overflow: 'hidden' },
-  deleteConfirmBox: { padding: 16 },
-  deleteTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
-  deleteText: { fontSize: 13, lineHeight: 19, marginBottom: 14 },
-  deleteButtons: { flexDirection: 'row', gap: 10 },
+  dangerZone: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.lg, overflow: 'hidden' },
+  deleteConfirmBox: { padding: spacing.lg },
+  deleteTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.sm },
+  deleteText: { fontSize: 13, lineHeight: 19, marginBottom: spacing.md + 2 },
+  deleteButtons: { flexDirection: 'row', gap: spacing.md },
   deleteBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
-    paddingVertical: 12,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
+    minHeight: 46,
   },
 });

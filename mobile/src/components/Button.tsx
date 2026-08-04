@@ -1,4 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { radius } from '../theme/radius';
+import { typography } from '../theme/typography';
 import { useTheme } from '../theme/useTheme';
 
 interface ButtonProps {
@@ -37,13 +39,14 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading 
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 13,
+    borderRadius: radius.md,
     paddingVertical: 15,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyMedium.fontSize,
+    fontWeight: typography.bodyMedium.fontWeight,
   },
 });

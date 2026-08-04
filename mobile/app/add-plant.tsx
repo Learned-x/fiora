@@ -13,8 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../src/theme/useTheme';
+import { spacing } from '../src/theme/spacing';
+import { radius } from '../src/theme/radius';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { Card } from '../src/components/Card';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { createPlant } from '../src/services/plants.api';
 import type { Species } from '../src/types/models';
@@ -56,29 +60,17 @@ export default function AddPlantScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable
-          onPress={() => (addType === null ? router.back() : setAddType(null))}
-          style={styles.backBtn}
-        >
-          <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-            <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={{ fontSize: 17, color: theme.acc }}>Indietro</Text>
-        </Pressable>
-        <Text style={[styles.navTitle, { color: theme.t1 }]}>{title}</Text>
-        <View style={{ width: 80 }} />
-      </View>
+      <ScreenHeader title={title} onBack={() => (addType === null ? router.back() : setAddType(null))} />
 
       {addType === null ? (
         <View style={styles.typeSelect}>
           <Text style={[styles.question, { color: theme.t2 }]}>Cosa vuoi aggiungere?</Text>
-          <View style={[styles.card, { backgroundColor: theme.card }]}>
+          <Card padded={false}>
             <Pressable
               onPress={() => setAddType('pianta')}
               style={[styles.typeRow, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
             >
-              <View style={[styles.typeIcon, { backgroundColor: 'rgba(52,199,89,0.1)' }]}>
+              <View style={[styles.typeIcon, { backgroundColor: 'rgba(21,128,61,0.12)' }]}>
                 <Text style={{ fontSize: 20 }}>🌿</Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -95,7 +87,7 @@ export default function AddPlantScreen() {
                 <Text style={[styles.typeSub, { color: theme.t2 }]}>Fiori recisi e bouquet</Text>
               </View>
             </Pressable>
-          </View>
+          </Card>
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -200,45 +192,36 @@ export default function AddPlantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, width: 80 },
-  navTitle: { fontSize: 17, fontWeight: '600' },
-  typeSelect: { padding: 16 },
-  question: { fontSize: 16, marginBottom: 20 },
-  card: { borderRadius: 14, overflow: 'hidden' },
-  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
-  typeIcon: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  typeTitle: { fontSize: 16, fontWeight: '500', marginBottom: 2 },
+  typeSelect: { padding: spacing.lg },
+  question: { fontSize: 16, marginBottom: spacing.xl },
+  typeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md + 2, padding: spacing.lg },
+  typeIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  typeTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   typeSub: { fontSize: 13 },
-  form: { padding: 16, paddingTop: 8 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 4 },
+  form: { padding: spacing.lg, paddingTop: spacing.sm },
+  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: spacing.sm, paddingHorizontal: 4 },
   speciesPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 13,
+    borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    minHeight: 50,
+    marginBottom: spacing.lg,
   },
-  hint: { fontSize: 13, lineHeight: 19, marginBottom: 8, paddingHorizontal: 4 },
+  hint: { fontSize: 13, lineHeight: 19, marginBottom: spacing.sm, paddingHorizontal: 4 },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 13,
+    gap: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    minHeight: 50,
+    marginBottom: spacing.md,
   },
   checkbox: {
     width: 22,

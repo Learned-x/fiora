@@ -3,7 +3,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
 import { AxiosError } from 'axios';
 import { useTheme } from '../src/theme/useTheme';
+import { spacing } from '../src/theme/spacing';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { changePassword } from '../src/services/user.api';
 
 export default function ChangePasswordScreen() {
@@ -46,14 +46,7 @@ export default function ChangePasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-            <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={{ fontSize: 17, color: theme.acc }}>Indietro</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
@@ -102,10 +95,8 @@ export default function ChangePasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
-  form: { padding: 16, paddingTop: 8 },
-  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5, marginBottom: 20 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 4 },
+  form: { padding: spacing.lg, paddingTop: spacing.sm },
+  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.xl },
+  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: spacing.sm, paddingHorizontal: 4 },
   mismatch: { fontSize: 13, paddingHorizontal: 4 },
 });

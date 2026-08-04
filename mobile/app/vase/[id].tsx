@@ -5,6 +5,10 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import type { ThemeColors } from '../../src/theme/colors';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { Card } from '../../src/components/Card';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { deleteVase, getVase, renameVase } from '../../src/services/vases.api';
 import type { SmartVase } from '../../src/services/vases.api';
 import { formatDay } from '../../src/lib/plantUi';
@@ -14,19 +18,6 @@ import { ActionSheet } from '../../src/components/ActionSheet';
 import { TextInput } from '../../src/components/TextInput';
 import { Button } from '../../src/components/Button';
 import type { Plant } from '../../src/types/models';
-
-function BackNav({ theme }: { theme: ThemeColors }) {
-  return (
-    <View style={styles.nav}>
-      <Pressable onPress={() => router.back()} style={styles.backBtn}>
-        <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-          <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-        <Text style={{ fontSize: 17, color: theme.acc }}>Vasi</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 function statoColor(stato: SmartVase['stato'], theme: ThemeColors) {
   if (stato === 'connesso') return theme.acc;
@@ -140,7 +131,7 @@ export default function VaseDetailScreen() {
   if (!vase) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-        <BackNav theme={theme} />
+        <ScreenHeader />
         <ActionSheet
           visible={sheet === 'notFound'}
           message="Vaso non trovato."
@@ -156,7 +147,7 @@ export default function VaseDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <BackNav theme={theme} />
+      <ScreenHeader />
       <ScrollView contentContainerStyle={styles.content}>
         <Pressable onPress={openRename} disabled={busy} style={styles.headerRow}>
           <View style={[styles.dot, { backgroundColor: statoColor(vase.stato, theme) }]} />
@@ -168,15 +159,15 @@ export default function VaseDetailScreen() {
         <Text style={[styles.stato, { color: statoColor(vase.stato, theme) }]}>{statoLabel(vase.stato)}</Text>
 
         {vase.stato !== 'connesso' && (
-          <View style={[styles.banner, { backgroundColor: theme.card }]}>
+          <Card style={[styles.banner, { borderColor: theme.amb, borderWidth: 1.5 }]}>
             <Text style={[styles.bannerText, { color: theme.t2 }]}>
               Vaso disconnesso
               {lettura ? ` — ultima lettura ${formatDay(lettura.time)}` : ''}
             </Text>
-          </View>
+          </Card>
         )}
 
-        <View style={[styles.section, { backgroundColor: theme.card }]}>
+        <Card style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.t1 }]}>Dati ambientali</Text>
           {lettura ? (
             <>
@@ -207,9 +198,9 @@ export default function VaseDetailScreen() {
               Nessuna lettura ricevuta ancora dal vaso.
             </Text>
           )}
-        </View>
+        </Card>
 
-        <View style={[styles.section, { backgroundColor: theme.card }]}>
+        <Card style={styles.section}>
           <View style={[styles.dataRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.bord }]}>
             <Text style={[styles.dataLabel, { color: theme.t2 }]}>🔋 Batteria</Text>
             <Text style={[styles.dataValue, { color: theme.t1 }]}>
@@ -227,9 +218,9 @@ export default function VaseDetailScreen() {
               </Svg>
             </View>
           </Pressable>
-        </View>
+        </Card>
 
-        <Pressable onPress={() => setSheet('confirmDelete')} disabled={busy} style={styles.deleteBtn}>
+        <Pressable onPress={() => setSheet('confirmDelete')} disabled={busy} style={[styles.deleteBtn, { borderColor: theme.red }]}>
           <Text style={[styles.deleteText, { color: theme.red }]}>Rimuovi vaso</Text>
         </Pressable>
       </ScrollView>
@@ -304,27 +295,32 @@ export default function VaseDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 4 },
-  content: { padding: 16, paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  name: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  stato: { fontSize: 14, fontWeight: '600', marginBottom: 16 },
-  banner: { borderRadius: 12, padding: 14, marginBottom: 16 },
+  name: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
+  stato: { fontSize: 14, fontWeight: '700', marginBottom: spacing.lg },
+  banner: { marginBottom: spacing.lg },
   bannerText: { fontSize: 13 },
-  section: { borderRadius: 16, padding: 16, marginBottom: 16 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
-  dataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  plantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10 },
-  plantRowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  section: { marginBottom: spacing.lg },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: spacing.md },
+  dataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm + 2 },
+  plantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm + 2, minHeight: 44 },
+  plantRowRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dataLabel: { fontSize: 14 },
   dataValue: { fontSize: 14, fontWeight: '600' },
-  timestamp: { fontSize: 12, marginTop: 8 },
+  timestamp: { fontSize: 12, marginTop: spacing.sm },
   emptyData: { fontSize: 13, fontStyle: 'italic' },
-  deleteBtn: { alignItems: 'center', paddingVertical: 12 },
-  deleteText: { fontSize: 15, fontWeight: '600' },
-  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
-  renameCard: { borderRadius: 16, padding: 20 },
-  renameActions: { flexDirection: 'row', gap: 10 },
+  deleteBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  deleteText: { fontSize: 15, fontWeight: '700' },
+  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.xl },
+  renameCard: { borderRadius: radius.lg, padding: spacing.xl },
+  renameActions: { flexDirection: 'row', gap: spacing.md },
 });

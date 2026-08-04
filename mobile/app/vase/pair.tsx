@@ -16,8 +16,11 @@ import { BleError, BleErrorCode, BleManager, Device, State } from 'react-native-
 import { isAxiosError } from 'axios';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
+import { spacing } from '../../src/theme/spacing';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
+import { Card } from '../../src/components/Card';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { startPairing, getVase, deleteVase, PairingCredentials } from '../../src/services/vases.api';
 
 // Deve combaciare con firmware/vaso/ble_provisioning.cpp
@@ -316,16 +319,7 @@ export default function VasePairScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        {backVisible && (
-          <Pressable onPress={handleExit} style={styles.backBtn}>
-            <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-              <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-            <Text style={{ fontSize: 17, color: theme.acc }}>Indietro</Text>
-          </Pressable>
-        )}
-      </View>
+      {backVisible ? <ScreenHeader onBack={handleExit} /> : <View style={styles.navPlaceholder} />}
 
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.t1 }]}>Collega vaso smart</Text>
@@ -352,15 +346,14 @@ export default function VasePairScreen() {
                   data={devices}
                   keyExtractor={(d) => d.id}
                   renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => handleSelectDevice(item)}
-                      style={[styles.deviceRow, { backgroundColor: theme.card, borderColor: theme.bord }]}
-                    >
-                      <Text style={{ fontSize: 20 }}>🪴</Text>
-                      <Text style={[styles.deviceName, { color: theme.t1 }]}>{item.name}</Text>
-                      <Svg width={8} height={13} viewBox="0 0 9 15" fill="none" style={{ marginLeft: 'auto' }}>
-                        <Path d="M1 1L7.5 7.5L1 14" stroke={theme.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
+                    <Pressable onPress={() => handleSelectDevice(item)} style={styles.deviceRowWrap}>
+                      <Card style={styles.deviceRow}>
+                        <Text style={{ fontSize: 20 }}>🪴</Text>
+                        <Text style={[styles.deviceName, { color: theme.t1 }]}>{item.name}</Text>
+                        <Svg width={8} height={13} viewBox="0 0 9 15" fill="none" style={{ marginLeft: 'auto' }}>
+                          <Path d="M1 1L7.5 7.5L1 14" stroke={theme.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      </Card>
                     </Pressable>
                   )}
                   ListFooterComponent={
@@ -383,10 +376,10 @@ export default function VasePairScreen() {
 
         {step === 'wifi-form' && (
           <View style={styles.form}>
-            <View style={[styles.selectedBox, { backgroundColor: theme.card, borderColor: theme.bord }]}>
+            <Card style={styles.selectedBox}>
               <Text style={{ fontSize: 20 }}>🪴</Text>
               <Text style={[styles.deviceName, { color: theme.t1 }]}>{selectedDevice?.name}</Text>
-            </View>
+            </Card>
             <Text style={[styles.label, { color: theme.t2 }]}>
               Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete a
               2.4 GHz (il vaso non supporta le reti 5 GHz).
@@ -485,35 +478,28 @@ export default function VasePairScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { paddingHorizontal: 16, paddingTop: 4, height: 32, justifyContent: 'center' },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
-  content: { flex: 1, padding: 16 },
-  title: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, marginBottom: 20 },
-  form: { gap: 12, flex: 1 },
+  navPlaceholder: { height: 44 },
+  content: { flex: 1, padding: spacing.lg },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.xl },
+  form: { gap: spacing.md, flex: 1 },
   label: { fontSize: 14, lineHeight: 20 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 8 },
-  status: { alignItems: 'stretch', gap: 16, paddingTop: 40, paddingHorizontal: 8 },
-  statusCenter: { alignItems: 'center', gap: 8 },
-  statusTitle: { fontSize: 18, fontWeight: '600' },
+  sectionLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: spacing.sm },
+  status: { alignItems: 'stretch', gap: spacing.lg, paddingTop: spacing.xxl + spacing.xs, paddingHorizontal: spacing.sm },
+  statusCenter: { alignItems: 'center', gap: spacing.sm },
+  statusTitle: { fontSize: 18, fontWeight: '700' },
   statusText: { fontSize: 15, textAlign: 'center', lineHeight: 21 },
-  inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+  inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.xl },
   footerText: { fontSize: 13, textAlign: 'center' },
   selectedBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 13,
-    borderWidth: 1,
+    gap: spacing.md,
   },
+  deviceRowWrap: { marginBottom: spacing.sm },
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 13,
-    borderWidth: 1,
-    marginBottom: 10,
+    gap: spacing.md,
   },
-  deviceName: { fontSize: 16, fontWeight: '500' },
+  deviceName: { fontSize: 16, fontWeight: '600' },
 });

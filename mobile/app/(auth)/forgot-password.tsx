@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
+import { spacing } from '../../src/theme/spacing';
 import { TextInput } from '../../src/components/TextInput';
 import { Button } from '../../src/components/Button';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { forgotPassword } from '../../src/services/auth.api';
 
 export default function ForgotPasswordScreen() {
@@ -26,6 +28,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScreenHeader />
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.t1 }]}>Password dimenticata</Text>
 
@@ -64,9 +67,9 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: 16, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 15, marginBottom: 32, lineHeight: 21 },
-  form: { gap: 12, marginBottom: 24 },
-  actions: { marginBottom: 16 },
+  content: { flex: 1, padding: spacing.xl, justifyContent: 'center' },
+  title: { fontSize: 32, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.sm },
+  subtitle: { fontSize: 16, marginBottom: spacing.xxl, lineHeight: 22 },
+  form: { gap: spacing.md, marginBottom: spacing.xl },
+  actions: { marginBottom: spacing.lg },
 });

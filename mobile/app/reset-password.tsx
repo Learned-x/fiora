@@ -6,6 +6,7 @@ import { AxiosError } from 'axios';
 import { useTheme } from '../src/theme/useTheme';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { resetPassword } from '../src/services/auth.api';
 
 export default function ResetPasswordScreen() {
@@ -37,6 +38,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+      <ScreenHeader onBack={() => router.replace('/(auth)/login')} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: theme.t1 }]}>Nuova password</Text>

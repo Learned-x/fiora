@@ -2,13 +2,17 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
-import type { ThemeColors } from '../../src/theme/colors';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { elevation } from '../../src/theme/elevation';
 import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
 import { getVase, getVaseReadings24h } from '../../src/services/vases.api';
 import type { SensorReading, SmartVase } from '../../src/services/vases.api';
 import { Sparkline } from '../../src/components/Sparkline';
+import { Card } from '../../src/components/Card';
+import { SectionLabel } from '../../src/components/SectionLabel';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import {
   annaffiaturaLabel,
@@ -32,22 +36,6 @@ const BOUQUET_STAGES: { key: StatoBouquet; label: string }[] = [
   { key: 'appassendo', label: 'Appassendo' },
   { key: 'concluso', label: 'Concluso' },
 ];
-
-function BackNav({ theme, onEdit }: { theme: ThemeColors; onEdit: () => void }) {
-  return (
-    <View style={styles.nav}>
-      <Pressable onPress={() => router.back()} style={styles.backBtn}>
-        <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-          <Path d="M8 1L1.5 7.5L8 14" stroke={theme.acc} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-        <Text style={{ fontSize: 17, color: theme.acc }}>Piante</Text>
-      </Pressable>
-      <Pressable onPress={onEdit}>
-        <Text style={{ fontSize: 15, color: theme.acc }}>Modifica</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 export default function PlantDetailScreen() {
   const theme = useTheme();
@@ -125,8 +113,14 @@ export default function PlantDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <BackNav theme={theme} onEdit={handleEdit} />
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        <ScreenHeader
+          rightAction={
+            <Pressable onPress={handleEdit} hitSlop={8}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: theme.acc }}>Modifica</Text>
+            </Pressable>
+          }
+        />
 
         {/* Header */}
         <View style={styles.header}>
@@ -155,7 +149,7 @@ export default function PlantDetailScreen() {
         {vase && vase.ultimaLettura && (
           <View style={styles.section}>
             <View style={styles.sensorHeader}>
-              <Text style={[styles.sectionLabel, { marginBottom: 0, color: theme.t2 }]}>Vaso smart</Text>
+              <SectionLabel style={{ marginBottom: 0 }}>Vaso smart</SectionLabel>
               <View style={styles.sensorHeaderRight}>
                 <View
                   style={[
@@ -171,7 +165,7 @@ export default function PlantDetailScreen() {
 
             <View style={styles.sensorTiles}>
               {vase.ultimaLettura.umidita !== null && (
-                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                <Card style={styles.sensorTile}>
                   <Text
                     style={[
                       styles.sensorValue,
@@ -189,10 +183,10 @@ export default function PlantDetailScreen() {
                   >
                     {umiditaLabel(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita)}
                   </Text>
-                </View>
+                </Card>
               )}
               {vase.ultimaLettura.luce !== null && (
-                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                <Card style={styles.sensorTile}>
                   <Text
                     style={[
                       styles.sensorValue,
@@ -210,10 +204,10 @@ export default function PlantDetailScreen() {
                   >
                     {luceSensoreLabel(vase.ultimaLettura.luce)}
                   </Text>
-                </View>
+                </Card>
               )}
               {vase.ultimaLettura.temperatura !== null && (
-                <View style={[styles.sensorTile, { backgroundColor: theme.card }]}>
+                <Card style={styles.sensorTile}>
                   <Text
                     style={[
                       styles.sensorValue,
@@ -241,7 +235,7 @@ export default function PlantDetailScreen() {
                   >
                     {temperaturaLabel(Number(vase.ultimaLettura.temperatura), plant.species?.tempMin ?? null, plant.species?.tempMax ?? null)}
                   </Text>
-                </View>
+                </Card>
               )}
             </View>
 
@@ -260,8 +254,8 @@ export default function PlantDetailScreen() {
         {/* Ciclo di vita bouquet */}
         {isBouquet && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Ciclo di vita</Text>
-            <View style={[styles.cardPadded, { backgroundColor: theme.card }]}>
+            <SectionLabel style={styles.sectionLabel}>Ciclo di vita</SectionLabel>
+            <Card>
               <View style={styles.stagesRow}>
                 {BOUQUET_STAGES.map((stage, i) => {
                   const active = i <= stageIdx;
@@ -286,15 +280,15 @@ export default function PlantDetailScreen() {
                   ]}
                 />
               </View>
-            </View>
+            </Card>
           </View>
         )}
 
         {/* Guida alla cura */}
         {plant.species && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Guida alla cura</Text>
-            <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <SectionLabel style={styles.sectionLabel}>Guida alla cura</SectionLabel>
+            <Card padded={false}>
               <View style={[styles.careRow, { borderBottomColor: theme.bord }]}>
                 <Text style={styles.careEmoji}>☀️</Text>
                 <Text style={[styles.careKey, { color: theme.t2 }]}>Luce</Text>
@@ -321,15 +315,15 @@ export default function PlantDetailScreen() {
                   </Text>
                 </View>
               </View>
-            </View>
+            </Card>
           </View>
         )}
 
         {/* Task attivi */}
         {pendingTasks.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: theme.t2 }]}>Task attivi</Text>
-            <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <SectionLabel style={styles.sectionLabel}>Task attivi</SectionLabel>
+            <Card padded={false}>
               {pendingTasks.map((task, i) => (
                 <View
                   key={task.id}
@@ -344,42 +338,52 @@ export default function PlantDetailScreen() {
                       await completeTask(task.id);
                       await load();
                     }}
+                    hitSlop={8}
                     style={[styles.taskDoneBtn, { backgroundColor: theme.acc }]}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>Completa</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: 'white' }}>Completa</Text>
                   </Pressable>
                 </View>
               ))}
-            </View>
+            </Card>
           </View>
         )}
 
         {/* Note */}
         {plant.note ? (
           <View style={styles.section}>
-            <View style={[styles.cardPadded, { backgroundColor: theme.card }]}>
+            <Card>
               <Text style={{ fontSize: 13, color: theme.t2, lineHeight: 21 }}>{plant.note}</Text>
-            </View>
+            </Card>
           </View>
         ) : null}
 
         {/* Azioni rapide */}
         <View style={styles.actionsGrid}>
-          <Pressable onPress={() => quickAction('annaffiatura')} style={[styles.actionCard, { backgroundColor: theme.acc }]}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: 'white' }}>💧 Annaffia</Text>
+          <Pressable
+            onPress={() => quickAction('annaffiatura')}
+            style={[styles.actionCard, { backgroundColor: theme.acc }, elevation.sm(theme.acc)]}
+          >
+            <Text style={styles.actionLabelPrimary}>💧 Annaffia</Text>
           </Pressable>
-          <Pressable onPress={() => quickAction('concimazione')} style={[styles.actionCard, { backgroundColor: theme.card }]}>
-            <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>🌿 Concima</Text>
+          <Pressable onPress={() => quickAction('concimazione')} style={styles.actionCardWrap}>
+            <Card style={styles.actionCard}>
+              <Text style={[styles.actionLabel, { color: theme.t1 }]}>🌿 Concima</Text>
+            </Card>
           </Pressable>
           <Pressable
             onPress={() => router.push({ pathname: '/plant-history', params: { id: plant.id, nome: plant.nome } })}
-            style={[styles.actionCard, { backgroundColor: theme.card }]}
+            style={styles.actionCardWrap}
           >
-            <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>Storico cure</Text>
+            <Card style={styles.actionCard}>
+              <Text style={[styles.actionLabel, { color: theme.t1 }]}>Storico cure</Text>
+            </Card>
           </Pressable>
           {plant.vasoId && (
-            <Pressable onPress={() => router.push(`/vase/${plant.vasoId}`)} style={[styles.actionCard, { backgroundColor: theme.card }]}>
-              <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>🪴 Vaso Smart</Text>
+            <Pressable onPress={() => router.push(`/vase/${plant.vasoId}`)} style={styles.actionCardWrap}>
+              <Card style={styles.actionCard}>
+                <Text style={[styles.actionLabel, { color: theme.t1 }]}>🪴 Vaso Smart</Text>
+              </Card>
             </Pressable>
           )}
         </View>
@@ -391,64 +395,50 @@ export default function PlantDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, alignItems: 'center' },
-  name: { fontSize: 24, fontWeight: '700', letterSpacing: -0.4, marginBottom: 3 },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl, alignItems: 'center' },
+  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 },
   common: { fontSize: 14, marginBottom: 2 },
   sci: { fontSize: 13, fontStyle: 'italic' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
   meta: { fontSize: 13 },
-  section: { paddingHorizontal: 16, marginBottom: 20 },
-  sensorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  sensorHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  section: { paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+  sensorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  sensorHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statusDot: { width: 7, height: 7, borderRadius: 3.5 },
   sensorStatusText: { fontSize: 12, fontWeight: '600' },
-  sensorTiles: { flexDirection: 'row', gap: 10 },
-  sensorTile: { flex: 1, borderRadius: 14, padding: 12, alignItems: 'center' },
-  sensorValue: { fontSize: 20, fontWeight: '700' },
+  sensorTiles: { flexDirection: 'row', gap: spacing.md },
+  sensorTile: { flex: 1, alignItems: 'center' },
+  sensorValue: { fontSize: 22, fontWeight: '800' },
   sensorUnit: { fontSize: 11, marginTop: 2 },
-  sensorTag: { fontSize: 12, fontWeight: '600', marginTop: 6 },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  card: { borderRadius: 14, overflow: 'hidden' },
-  cardPadded: { borderRadius: 14, padding: 16 },
-  stagesRow: { flexDirection: 'row', marginBottom: 12 },
+  sensorTag: { fontSize: 12, fontWeight: '600', marginTop: spacing.sm },
+  sectionLabel: { marginBottom: spacing.md },
+  stagesRow: { flexDirection: 'row', marginBottom: spacing.md },
   stage: { flex: 1, alignItems: 'center' },
-  stageDot: { width: 10, height: 10, borderRadius: 5, marginBottom: 6 },
+  stageDot: { width: 10, height: 10, borderRadius: 5, marginBottom: spacing.sm },
   stageLabel: { fontSize: 11 },
   progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: 4, borderRadius: 2 },
   careRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
   },
   careEmoji: { fontSize: 15, width: 28 },
   careKey: { fontSize: 14, width: 90 },
   careVal: { fontSize: 14, flex: 1 },
-  toxBadge: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7 },
+  toxBadge: { paddingVertical: 3, paddingHorizontal: spacing.sm + 1, borderRadius: radius.sm },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  taskDoneBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
-  actionCard: { flexBasis: '48%', flexGrow: 1, borderRadius: 13, padding: 14, alignItems: 'center' },
+  taskDoneBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.sm, minHeight: 36, justifyContent: 'center' },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingHorizontal: spacing.lg },
+  actionCardWrap: { flexBasis: '48%', flexGrow: 1 },
+  actionCard: { flexBasis: '48%', flexGrow: 1, borderRadius: radius.md, padding: spacing.md + 2, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 14, fontWeight: '600' },
+  actionLabelPrimary: { fontSize: 14, fontWeight: '700', color: 'white' },
 });

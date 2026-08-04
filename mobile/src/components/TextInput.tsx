@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput as RNTextInput, TextInputProps as RNTextInputProps } from 'react-native';
+import { radius } from '../theme/radius';
+import { typography } from '../theme/typography';
 import { useTheme } from '../theme/useTheme';
 
 type TextInputProps = RNTextInputProps;
@@ -35,10 +37,11 @@ export function TextInput(props: TextInputProps) {
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 13,
+    borderRadius: radius.md,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    minHeight: 50,
+    fontSize: typography.body.fontSize,
   },
 });

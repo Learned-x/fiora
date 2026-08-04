@@ -4,6 +4,8 @@ import { Pressable } from 'react-native';
 import { router } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../src/theme/useTheme';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
 import { SocialButton } from '../../src/components/SocialButton';
 import { useAuthStore } from '../../src/store/auth.store';
 import { GoogleSignInCancelledError, AppleSignInCancelledError } from '../../src/services/oauth';
@@ -41,7 +43,7 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.content}>
-        <Text style={[styles.progress, { color: theme.t2 }]}>1 di 2</Text>
+        <Text style={[styles.progress, { color: theme.acc }]}>1 DI 2</Text>
         <Text style={[styles.title, { color: theme.t1 }]}>Crea account</Text>
         <Text style={[styles.subtitle, { color: theme.t2 }]}>I tuoi dati sincronizzati ovunque.</Text>
 
@@ -77,22 +79,24 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: 16, justifyContent: 'center' },
-  progress: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 15, marginBottom: 32 },
-  buttons: { gap: 12 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
+  content: { flex: 1, padding: spacing.xl, justifyContent: 'center' },
+  progress: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm },
+  title: { fontSize: 32, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.sm },
+  subtitle: { fontSize: 16, marginBottom: spacing.xxl },
+  buttons: { gap: spacing.md },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.xl },
   line: { flex: 1, height: StyleSheet.hairlineWidth },
   dividerText: { fontSize: 13 },
   emailButton: {
-    borderRadius: 13,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     paddingVertical: 15,
+    minHeight: 50,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emailButtonText: { fontSize: 16, fontWeight: '600' },
-  error: { marginTop: 16, fontSize: 13, textAlign: 'center' },
-  skip: { marginTop: 24, alignItems: 'center' },
+  error: { marginTop: spacing.lg, fontSize: 13, textAlign: 'center' },
+  skip: { marginTop: spacing.xl, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
   skipText: { fontSize: 15 },
 });

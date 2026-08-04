@@ -5,6 +5,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeColors } from '../theme/colors';
+import { elevation } from '../theme/elevation';
 
 interface TabIconProps {
   color: string;
@@ -67,7 +68,7 @@ const TAB_META: Record<string, { label: string; Icon: (props: TabIconProps) => R
 function AddButton({ theme }: { theme: ThemeColors }) {
   return (
     <Pressable onPress={() => router.push('/add-plant')} style={styles.tab}>
-      <View style={[styles.addCircle, { backgroundColor: theme.acc }]}>
+      <View style={[styles.addCircle, { backgroundColor: theme.acc }, elevation.md(theme.acc)]}>
         <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
           <Path d="M11 4v14M4 11h14" stroke="white" strokeWidth={2.2} strokeLinecap="round" />
         </Svg>
@@ -139,10 +140,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -20,
-    shadowColor: '#34C759',
-    shadowOpacity: 0.35,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
   },
 });
