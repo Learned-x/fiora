@@ -217,6 +217,91 @@ export async function resetPassword(token: string, newPassword: string, ip?: str
   audit('auth.password_reset.completed', { userId: user.id, ip, meta: { esito: 'ok' } });
 }
 
+// ── Cambio email ──────────────────────────────────────────────────────────────
+
+const PENDING_EMAIL_EXPIRES_MINUTES = 30;
+
+export async function requestEmailChange(userId: string, newEmail: string, currentPassword: string, ip?: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || !user.passwordHash) {
+    throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Credenziali non valide' };
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    audit('auth.email_change.requested', { userId, ip, meta: { esito: 'password_attuale_errata' } });
+    throw { code: 'AUTH_INVALID_CREDENTIALS', status: 401, message: 'Password attuale non corretta' };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: newEmail } });
+  if (existing) {
+    throw { code: 'AUTH_EMAIL_ALREADY_EXISTS', status: 409, message: 'Email già registrata' };
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const pendingEmailTokenHash = hashResetToken(token);
+  const pendingEmailExpiresAt = new Date(Date.now() + PENDING_EMAIL_EXPIRES_MINUTES * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { pendingEmail: newEmail, pendingEmailTokenHash, pendingEmailExpiresAt },
+  });
+
+  const verifyUrl = `${process.env.APP_WEB_BASE_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info({ token, verifyUrl }, 'Token verifica cambio email (solo dev/test)');
+  }
+
+  await emailQueue.add('email-change-verify', {
+    to: newEmail,
+    subject: 'Conferma il tuo nuovo indirizzo email Fiora',
+    html: `<p>Hai chiesto di collegare questo indirizzo al tuo account Fiora.</p><p><a href="${verifyUrl}">Conferma il nuovo indirizzo</a></p><p>Il link scade tra 30 minuti. Se non hai richiesto tu questa modifica, ignora l'email.</p>`,
+    text: `Hai chiesto di collegare questo indirizzo al tuo account Fiora.\n\nApri questo link per confermare: ${verifyUrl}\n\nIl link scade tra 30 minuti. Se non hai richiesto tu questa modifica, ignora l'email.`,
+  });
+
+  if (user.email) {
+    await emailQueue.add('email-change-notice', {
+      to: user.email,
+      subject: 'Richiesta di cambio email sul tuo account Fiora',
+      html: `<p>È stata richiesta la modifica dell'indirizzo email del tuo account Fiora in <strong>${newEmail}</strong>.</p><p>Se non sei stato tu, cambia subito la password del tuo account.</p>`,
+      text: `È stata richiesta la modifica dell'indirizzo email del tuo account Fiora in ${newEmail}.\n\nSe non sei stato tu, cambia subito la password del tuo account.`,
+    });
+  }
+
+  audit('auth.email_change.requested', { userId, ip, meta: { esito: 'accodata', newEmail } });
+}
+
+export async function verifyEmailChange(token: string, ip?: string): Promise<void> {
+  const pendingEmailTokenHash = hashResetToken(token);
+
+  const user = await prisma.user.findFirst({ where: { pendingEmailTokenHash } });
+
+  if (!user || !user.pendingEmailExpiresAt || user.pendingEmailExpiresAt < new Date() || !user.pendingEmail) {
+    audit('auth.email_change.completed', { ip, meta: { esito: 'token_non_valido' } });
+    throw { code: 'AUTH_TOKEN_INVALID', status: 401, message: 'Link di verifica non valido o scaduto' };
+  }
+
+  const alreadyTaken = await prisma.user.findUnique({ where: { email: user.pendingEmail } });
+  if (alreadyTaken && alreadyTaken.id !== user.id) {
+    audit('auth.email_change.completed', { userId: user.id, ip, meta: { esito: 'email_gia_in_uso' } });
+    throw { code: 'AUTH_EMAIL_ALREADY_EXISTS', status: 409, message: 'Email già registrata' };
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      email: user.pendingEmail,
+      pendingEmail: null,
+      pendingEmailTokenHash: null,
+      pendingEmailExpiresAt: null,
+    },
+  });
+
+  audit('auth.email_change.completed', { userId: user.id, ip, meta: { esito: 'ok' } });
+}
+
 // ── Refresh token ─────────────────────────────────────────────────────────────
 
 export async function refresh(token: string, ip?: string) {
@@ -249,6 +334,8 @@ export async function logout(token: string, ip?: string) {
 // ── Richiesta eliminazione account (periodo di grazia 30 giorni) ──────────────
 
 export async function requestAccountDeletion(userId: string, ip?: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
   const graceUntil = new Date();
   graceUntil.setDate(graceUntil.getDate() + 30);
   const delayMs = graceUntil.getTime() - Date.now();
@@ -270,6 +357,16 @@ export async function requestAccountDeletion(userId: string, ip?: string) {
     { userId },
     { delay: delayMs, jobId: `delete-account-${userId}` }
   );
+
+  if (user?.email) {
+    const dataFormattata = graceUntil.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+    await emailQueue.add('account-deletion-requested', {
+      to: user.email,
+      subject: 'Il tuo account Fiora verrà eliminato',
+      html: `<p>Abbiamo ricevuto una richiesta di eliminazione del tuo account Fiora.</p><p>Verrà eliminato definitivamente il <strong>${dataFormattata}</strong>. Fino ad allora puoi annullare l'operazione accedendo di nuovo all'app.</p><p>Se non sei stato tu a richiederlo, accedi subito e annulla l'eliminazione dalle Impostazioni.</p>`,
+      text: `Abbiamo ricevuto una richiesta di eliminazione del tuo account Fiora.\n\nVerrà eliminato definitivamente il ${dataFormattata}. Fino ad allora puoi annullare l'operazione accedendo di nuovo all'app.\n\nSe non sei stato tu a richiederlo, accedi subito e annulla l'eliminazione dalle Impostazioni.`,
+    });
+  }
 
   audit('auth.account_deletion.requested', { userId, ip, meta: { graceUntil } });
 

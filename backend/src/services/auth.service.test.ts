@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import * as authService from './auth.service';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
-import { accountDeletionQueue } from '../lib/bullmq';
+import { accountDeletionQueue, emailQueue } from '../lib/bullmq';
 
 const mockUser = {
   id: 'user-1',
@@ -195,7 +195,8 @@ describe('auth.service', () => {
   });
 
   describe('requestAccountDeletion', () => {
-    it('imposta deletedAt, invalida token e schedula il job', async () => {
+    it('imposta deletedAt, invalida token, schedula il job e accoda email', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser });
       (prisma.user.update as jest.Mock).mockResolvedValue({});
       (prisma.refreshToken.deleteMany as jest.Mock).mockResolvedValue({ count: 2 });
 
@@ -208,6 +209,101 @@ describe('auth.service', () => {
         { userId: 'user-1' },
         expect.objectContaining({ jobId: 'delete-account-user-1' })
       );
+      expect(emailQueue.add).toHaveBeenCalledWith(
+        'account-deletion-requested',
+        expect.objectContaining({ to: mockUser.email })
+      );
+    });
+
+    it('non accoda email se utente non ha indirizzo', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser, email: null });
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+      (prisma.refreshToken.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+      await authService.requestAccountDeletion('user-1');
+
+      expect(emailQueue.add).not.toHaveBeenCalledWith('account-deletion-requested', expect.anything());
+    });
+  });
+
+  describe('requestEmailChange', () => {
+    it('salva pendingEmail e accoda email di verifica e notifica', async () => {
+      const passwordHash = await bcrypt.hash('password123', 4);
+      (prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce({ ...mockUser, passwordHash }) // utente autenticato
+        .mockResolvedValueOnce(null); // nuova email libera
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+      await authService.requestEmailChange('user-1', 'nuova@fiora.app', 'password123');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({ pendingEmail: 'nuova@fiora.app' }),
+        })
+      );
+      expect(emailQueue.add).toHaveBeenCalledWith(
+        'email-change-verify',
+        expect.objectContaining({ to: 'nuova@fiora.app' })
+      );
+      expect(emailQueue.add).toHaveBeenCalledWith(
+        'email-change-notice',
+        expect.objectContaining({ to: mockUser.email })
+      );
+    });
+
+    it('rifiuta se la password attuale è errata', async () => {
+      const passwordHash = await bcrypt.hash('password123', 4);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...mockUser, passwordHash });
+
+      await expect(
+        authService.requestEmailChange('user-1', 'nuova@fiora.app', 'sbagliata')
+      ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta se la nuova email è già registrata', async () => {
+      const passwordHash = await bcrypt.hash('password123', 4);
+      (prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce({ ...mockUser, passwordHash })
+        .mockResolvedValueOnce({ id: 'altro-utente' });
+
+      await expect(
+        authService.requestEmailChange('user-1', 'nuova@fiora.app', 'password123')
+      ).rejects.toMatchObject({ code: 'AUTH_EMAIL_ALREADY_EXISTS' });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyEmailChange', () => {
+    it('applica il nuovo indirizzo se il token è valido', async () => {
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue({
+        id: 'user-1',
+        pendingEmail: 'nuova@fiora.app',
+        pendingEmailExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null); // email non presa da altri
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+      await authService.verifyEmailChange('token-valido');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          email: 'nuova@fiora.app',
+          pendingEmail: null,
+          pendingEmailTokenHash: null,
+          pendingEmailExpiresAt: null,
+        },
+      });
+    });
+
+    it('rifiuta token scaduto o inesistente', async () => {
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(authService.verifyEmailChange('token-ghost')).rejects.toMatchObject({
+        code: 'AUTH_TOKEN_INVALID',
+      });
     });
   });
 

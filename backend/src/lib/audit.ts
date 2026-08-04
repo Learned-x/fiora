@@ -38,6 +38,8 @@ export type AuditEvent =
   | 'auth.password_reset.completed'
   | 'auth.account_deletion.requested'
   | 'auth.account_deletion.cancelled'
+  | 'auth.email_change.requested'
+  | 'auth.email_change.completed'
   | 'vase.pairing.started'
   | 'vase.deleted'
   | 'plant.vase_link.changed'

@@ -30,6 +30,9 @@ model User {
   pushToken             String?  @map("push_token") @db.VarChar(255)
   passwordResetTokenHash String? @map("password_reset_token_hash") @db.VarChar(255)
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamptz()
+  pendingEmail            String?   @map("pending_email") @db.VarChar(255)
+  pendingEmailTokenHash   String?   @map("pending_email_token_hash") @db.VarChar(255)
+  pendingEmailExpiresAt   DateTime? @map("pending_email_expires_at") @db.Timestamptz()
 
   plants              Plant[]
   tasks               Task[]

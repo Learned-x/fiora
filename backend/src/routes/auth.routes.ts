@@ -478,4 +478,91 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/change-email:
+ *   post:
+ *     summary: Richiede il cambio email (invia link di verifica al nuovo indirizzo)
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [newEmail, currentPassword]
+ *             properties:
+ *               newEmail: { type: string, format: email }
+ *               currentPassword: { type: string }
+ *     responses:
+ *       200: { description: Email di verifica inviata }
+ *       401: { description: Password attuale non corretta }
+ *       409: { description: Email già registrata }
+ */
+// ── POST /auth/change-email ───────────────────────────────────────────────────
+
+router.post(
+  '/change-email',
+  requireAuth,
+  authLimiter,
+  [
+    body('newEmail').isEmail().normalizeEmail({ gmail_remove_dots: false }).withMessage('Email non valida'),
+    body('currentPassword').notEmpty().withMessage('Password attuale obbligatoria'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      await authService.requestEmailChange(req.userId!, req.body.newEmail, req.body.currentPassword, req.ip);
+      res.json({ success: true, data: { message: 'Email di verifica inviata al nuovo indirizzo' } });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /auth/verify-email:
+ *   post:
+ *     summary: Conferma il cambio email tramite il token ricevuto via email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string }
+ *     responses:
+ *       200: { description: Email aggiornata }
+ *       401: { description: Token non valido o scaduto }
+ */
+// ── POST /auth/verify-email ───────────────────────────────────────────────────
+
+router.post(
+  '/verify-email',
+  authLimiter,
+  [body('token').notEmpty().withMessage('Token obbligatorio')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+
+    try {
+      await authService.verifyEmailChange(req.body.token, req.ip);
+      res.json({ success: true, data: { message: 'Email aggiornata' } });
+    } catch (err: any) {
+      res.status(err.status || 500).json({
+        success: false,
+        error: { code: err.code || 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+);
+
 export default router;
