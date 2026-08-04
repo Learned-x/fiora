@@ -34,6 +34,7 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:local": "expo prebuild -p ios --no-install && node scripts/patch-ios-local-build.js && expo run:ios",
     "web": "expo start --web",
     "postinstall": "patch-package"
   },
