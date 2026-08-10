@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
+import { radius } from '../theme/radius';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 import { TextInput } from './TextInput';
 import { listSpecies } from '../services/plants.api';
 import type { Species } from '../types/models';
@@ -31,39 +34,41 @@ export function SpeciesPickerModal({ visible, onClose, onSelect }: SpeciesPicker
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
         <View style={styles.nav}>
-          <Pressable onPress={onClose}>
-            <Text style={{ fontSize: 17, color: theme.acc }}>Chiudi</Text>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={4}>
+            <Text style={{ fontSize: typography.bodyLarge.fontSize, color: theme.primary }}>Chiudi</Text>
           </Pressable>
-          <Text style={[styles.navTitle, { color: theme.t1 }]}>Catalogo specie</Text>
+          <Text style={[styles.navTitle, { color: theme.onSurface }]}>Catalogo specie</Text>
           <View style={{ width: 50 }} />
         </View>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+        <View style={{ paddingHorizontal: spacing.md16, paddingVertical: spacing.xs8 }}>
           <TextInput value={search} onChangeText={setSearch} placeholder="Cerca per nome…" autoFocus />
         </View>
         <FlatList
           data={speciesList}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.md16, paddingBottom: spacing.lg24 }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => onSelect(item)}
-              style={[styles.speciesRow, { backgroundColor: theme.card, borderColor: theme.bord }]}
+              accessibilityRole="button"
+              accessibilityLabel={item.nomeComune}
+              style={[styles.speciesRow, { backgroundColor: theme.surface, borderColor: theme.outlineVariant }]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, color: theme.t1, marginBottom: 1 }}>{item.nomeComune}</Text>
+                <Text style={{ fontSize: typography.bodyMedium.fontSize, color: theme.onSurface, marginBottom: 1 }}>{item.nomeComune}</Text>
                 {item.nomeScientifico && (
-                  <Text style={{ fontSize: 12, color: theme.t2, fontStyle: 'italic' }}>{item.nomeScientifico}</Text>
+                  <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.onSurfaceVariant, fontStyle: 'italic' }}>{item.nomeScientifico}</Text>
                 )}
               </View>
               {item.categoria && (
-                <View style={[styles.catBadge, { backgroundColor: theme.card2 }]}>
-                  <Text style={{ fontSize: 11, color: theme.t2 }}>{item.categoria}</Text>
+                <View style={[styles.catBadge, { backgroundColor: theme.surfaceHigh }]}>
+                  <Text style={{ fontSize: typography.labelSmall.fontSize, color: theme.onSurfaceVariant }}>{item.categoria}</Text>
                 </View>
               )}
             </Pressable>
           )}
           ListEmptyComponent={
-            <Text style={{ textAlign: 'center', color: theme.t2, paddingTop: 40 }}>Nessuna specie trovata.</Text>
+            <Text style={{ textAlign: 'center', color: theme.onSurfaceVariant, paddingTop: spacing.xl40 }}>Nessuna specie trovata.</Text>
           }
         />
       </SafeAreaView>
@@ -77,19 +82,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.md16,
+    paddingTop: spacing.sm12 + 2,
+    paddingBottom: spacing.xs8,
+    minHeight: 44,
   },
-  navTitle: { fontSize: 17, fontWeight: '600' },
+  navTitle: { fontSize: typography.bodyLarge.fontSize, fontWeight: '600' },
   speciesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 13,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    padding: spacing.sm12 + 1,
+    paddingHorizontal: spacing.md16,
+    borderRadius: radius.md,
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: spacing.xs8,
+    minHeight: 44,
   },
-  catBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, marginLeft: 10 },
+  catBadge: { paddingVertical: 3, paddingHorizontal: spacing.xs8, borderRadius: radius.xs + 2, marginLeft: spacing.sm12 - 2 },
 });

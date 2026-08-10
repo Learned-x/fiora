@@ -7,6 +7,8 @@ import { useAuthStore } from '../../src/store/auth.store';
 import { updateMe } from '../../src/services/user.api';
 import { registerForPushNotifications } from '../../src/hooks/usePushNotifications';
 import type { Clima } from '../../src/types/models';
+import { spacing } from '../../src/theme/spacing';
+import { typography } from '../../src/theme/typography';
 
 const CLIMATES: { id: Clima; label: string; desc: string }[] = [
   { id: 'temperato', label: 'Temperato', desc: 'Nord Italia, Europa centrale' },
@@ -41,9 +43,9 @@ export default function OnboardingClimateScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.progress, { color: theme.t2 }]}>Ultimo passaggio</Text>
-        <Text style={[styles.title, { color: theme.t1 }]}>Dove vivi?</Text>
-        <Text style={[styles.subtitle, { color: theme.t2 }]}>Adattiamo la cura al tuo clima.</Text>
+        <Text style={[styles.progress, { color: theme.onSurfaceVariant }]}>Ultimo passaggio</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Dove vivi?</Text>
+        <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>Adattiamo la cura al tuo clima.</Text>
 
         <View style={styles.list}>
           {CLIMATES.map((climate) => {
@@ -52,19 +54,36 @@ export default function OnboardingClimateScreen() {
               <Pressable
                 key={climate.id}
                 onPress={() => setSelected(climate.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${climate.label}, ${climate.desc}`}
+                accessibilityState={{ selected: isSelected }}
                 style={[
                   styles.card,
-                  { backgroundColor: theme.card, borderColor: isSelected ? theme.acc : 'transparent' },
+                  isSelected
+                    ? { backgroundColor: theme.primaryContainer, borderColor: 'transparent' }
+                    : { backgroundColor: theme.surface, borderColor: theme.outlineVariant },
                 ]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardLabel, { color: theme.t1 }]}>{climate.label}</Text>
-                  <Text style={[styles.cardDesc, { color: theme.t2 }]}>{climate.desc}</Text>
+                  <Text style={[styles.cardLabel, { color: isSelected ? theme.onPrimaryContainer : theme.onSurface }]}>
+                    {climate.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardDesc,
+                      { color: isSelected ? theme.onPrimaryContainer : theme.onSurfaceVariant },
+                    ]}
+                  >
+                    {climate.desc}
+                  </Text>
                 </View>
                 <View
                   style={[
                     styles.checkCircle,
-                    { borderColor: isSelected ? theme.acc : theme.bord, backgroundColor: isSelected ? theme.acc : 'transparent' },
+                    {
+                      borderColor: isSelected ? theme.primary : theme.outline,
+                      backgroundColor: isSelected ? theme.primary : 'transparent',
+                    },
                   ]}
                 />
               </Pressable>
@@ -82,20 +101,21 @@ export default function OnboardingClimateScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: 16 },
-  progress: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 15, marginBottom: 24 },
-  list: { gap: 10 },
+  scroll: { padding: spacing.md16 },
+  progress: { ...typography.labelLarge, marginBottom: spacing.xs8 },
+  title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
+  subtitle: { ...typography.bodyLarge, marginBottom: spacing.lg24 },
+  list: { gap: spacing.sm12 - 2 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 13,
+    borderRadius: 14,
     borderWidth: 1.5,
-    padding: 16,
+    padding: spacing.md16,
+    minHeight: 44,
   },
-  cardLabel: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
-  cardDesc: { fontSize: 13 },
+  cardLabel: { ...typography.titleMedium, marginBottom: 2 },
+  cardDesc: { ...typography.bodySmall },
   checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
-  footer: { padding: 16 },
+  footer: { padding: spacing.md16 },
 });

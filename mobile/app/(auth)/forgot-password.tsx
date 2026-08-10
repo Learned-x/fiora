@@ -5,6 +5,8 @@ import { useTheme } from '../../src/theme/useTheme';
 import { TextInput } from '../../src/components/TextInput';
 import { Button } from '../../src/components/Button';
 import { forgotPassword } from '../../src/services/auth.api';
+import { spacing } from '../../src/theme/spacing';
+import { typography } from '../../src/theme/typography';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
@@ -27,11 +29,11 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.t1 }]}>Password dimenticata</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Password dimenticata</Text>
 
         {sent ? (
           <>
-            <Text style={[styles.subtitle, { color: theme.t2 }]}>
+            <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
               Se l'indirizzo è registrato, riceverai un'email con le istruzioni per reimpostare la password.
             </Text>
             <View style={styles.actions}>
@@ -40,7 +42,7 @@ export default function ForgotPasswordScreen() {
           </>
         ) : (
           <>
-            <Text style={[styles.subtitle, { color: theme.t2 }]}>
+            <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
               Inserisci l'email con cui ti sei registrato: ti manderemo un link per reimpostare la password.
             </Text>
             <View style={styles.form}>
@@ -50,6 +52,7 @@ export default function ForgotPasswordScreen() {
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
+                accessibilityLabel="Email"
               />
             </View>
             <View style={styles.actions}>
@@ -64,9 +67,9 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: 16, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 15, marginBottom: 32, lineHeight: 21 },
-  form: { gap: 12, marginBottom: 24 },
-  actions: { marginBottom: 16 },
+  content: { flex: 1, padding: spacing.md16, justifyContent: 'center' },
+  title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
+  subtitle: { ...typography.bodyLarge, marginBottom: spacing.xl32 },
+  form: { gap: spacing.sm12, marginBottom: spacing.lg24 },
+  actions: { marginBottom: spacing.md16 },
 });

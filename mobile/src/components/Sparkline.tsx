@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useTheme } from '../theme/useTheme';
+import { radius } from '../theme/radius';
+import { typography } from '../theme/typography';
 
 interface SparklineProps {
   label: string;
@@ -34,31 +36,31 @@ export function Sparkline({ label, values, unit = '' }: SparklineProps) {
   const lastY = HEIGHT - ((values[values.length - 1] - min) / range) * HEIGHT;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card }]}>
+    <View style={[styles.card, { backgroundColor: theme.surfaceHigh }]}>
       <View style={styles.header}>
-        <Text style={[styles.label, { color: theme.t2 }]}>{label} · 24h</Text>
-        <Text style={[styles.value, { color: theme.acc }]}>
+        <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>{label} · 24h</Text>
+        <Text style={[styles.value, { color: theme.primary }]}>
           {values[values.length - 1]}
           {unit}
         </Text>
       </View>
       <Svg width="100%" height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none">
-        <Polyline points={points} fill="none" stroke={theme.acc} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        <Circle cx={lastX - 2} cy={lastY} r={3} fill={theme.acc} />
+        <Polyline points={points} fill="none" stroke={theme.primary} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+        <Circle cx={lastX - 2} cy={lastY} r={3} fill={theme.primary} />
       </Svg>
       <View style={styles.axisRow}>
-        <Text style={[styles.axisLabel, { color: theme.t3 }]}>ieri</Text>
-        <Text style={[styles.axisLabel, { color: theme.t3 }]}>ora</Text>
+        <Text style={[styles.axisLabel, { color: theme.onSurfaceVariant }]}>ieri</Text>
+        <Text style={[styles.axisLabel, { color: theme.onSurfaceVariant }]}>ora</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 14, padding: 16 },
+  card: { borderRadius: radius.lg, padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  label: { fontSize: 13 },
-  value: { fontSize: 15, fontWeight: '600' },
+  label: { fontSize: typography.bodyMedium.fontSize },
+  value: { fontSize: typography.titleMedium.fontSize, fontWeight: typography.titleMedium.fontWeight },
   axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  axisLabel: { fontSize: 11 },
+  axisLabel: { fontSize: 10 },
 });

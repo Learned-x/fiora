@@ -5,6 +5,10 @@ import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import type { ThemeColors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { Card } from '../../src/components/Card';
 import { completeTask, listTasks, postponeTask, skipTask } from '../../src/services/plants.api';
 import { cancelAccountDeletion } from '../../src/services/user.api';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -32,35 +36,56 @@ interface TaskCardProps {
 
 function TaskGroup({ tasks, dotColor, theme, onAction }: TaskCardProps) {
   return (
-    <View style={[styles.card, { backgroundColor: theme.card }]}>
+    <Card variant="elevated" style={styles.card}>
       {tasks.map((task, i) => (
-        <View key={task.id} style={[styles.taskRow, i < tasks.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.bord }]}>
+        <View
+          key={task.id}
+          style={[styles.taskRow, i < tasks.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.outlineVariant }]}
+        >
           <View style={styles.taskHeader}>
-            <View style={[styles.dot, { backgroundColor: task.inRitardo ? theme.amb : dotColor }]} />
+            <View style={[styles.dot, { backgroundColor: task.inRitardo ? theme.warning : dotColor }]} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.taskLabel, { color: theme.t1 }]}>
+              <Text style={[styles.taskLabel, { color: theme.onSurface }]}>
                 {TASK_LABELS[task.tipo]} {task.plant.nome}
               </Text>
-              <Text style={[styles.taskDetail, { color: task.inRitardo ? theme.amb : theme.t2 }]}>
+              <Text style={[styles.taskDetail, { color: task.inRitardo ? theme.warning : theme.onSurfaceVariant }]}>
                 {task.inRitardo ? 'In ritardo · ' : ''}Scadenza {formatDay(task.scadenza)}
                 {task.nota ? ` · ${task.nota}` : ''}
               </Text>
             </View>
           </View>
           <View style={styles.taskActions}>
-            <Pressable onPress={() => onAction(task, 'completa')} style={[styles.actionBtn, { backgroundColor: theme.acc }]}>
-              <Text style={styles.actionBtnPrimaryText}>Completa</Text>
+            <Pressable
+              onPress={() => onAction(task, 'completa')}
+              style={[styles.actionBtn, { backgroundColor: theme.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Completa ${TASK_LABELS[task.tipo]} ${task.plant.nome}`}
+              hitSlop={4}
+            >
+              <Text style={[styles.actionBtnText, { color: theme.onPrimary }]}>Completa</Text>
             </Pressable>
-            <Pressable onPress={() => onAction(task, 'rimanda')} style={[styles.actionBtn, { backgroundColor: theme.card2 }]}>
-              <Text style={[styles.actionBtnText, { color: theme.t1 }]}>Rimanda</Text>
+            <Pressable
+              onPress={() => onAction(task, 'rimanda')}
+              style={[styles.actionBtn, { backgroundColor: theme.surfaceHigh }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Rimanda ${TASK_LABELS[task.tipo]} ${task.plant.nome}`}
+              hitSlop={4}
+            >
+              <Text style={[styles.actionBtnText, { color: theme.onSurface }]}>Rimanda</Text>
             </Pressable>
-            <Pressable onPress={() => onAction(task, 'salta')} style={[styles.actionBtn, { backgroundColor: theme.card2 }]}>
-              <Text style={[styles.actionBtnText, { color: theme.t2 }]}>Salta</Text>
+            <Pressable
+              onPress={() => onAction(task, 'salta')}
+              style={[styles.actionBtn, { backgroundColor: theme.surfaceHigh }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Salta ${TASK_LABELS[task.tipo]} ${task.plant.nome}`}
+              hitSlop={4}
+            >
+              <Text style={[styles.actionBtnText, { color: theme.onSurfaceVariant }]}>Salta</Text>
             </Pressable>
           </View>
         </View>
       ))}
-    </View>
+    </Card>
   );
 }
 
@@ -155,69 +180,75 @@ export default function OggiScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.t2} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.onSurfaceVariant} />}
       >
-        <Text style={[styles.date, { color: theme.t2 }]}>{formatTodayLong()}</Text>
-        <Text style={[styles.title, { color: theme.t1 }]}>Oggi</Text>
+        <Text style={[styles.date, { color: theme.onSurfaceVariant }]}>{formatTodayLong()}</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Oggi</Text>
 
         {graceperiod && (
-          <View style={[styles.graceBanner, { backgroundColor: theme.card, borderColor: theme.red }]}>
-            <Text style={[styles.graceTitle, { color: theme.red }]}>Account in eliminazione</Text>
-            <Text style={[styles.graceText, { color: theme.t2 }]}>
+          <View style={[styles.graceBanner, { backgroundColor: theme.errorContainer, borderColor: theme.error }]}>
+            <Text style={[styles.graceTitle, { color: theme.onErrorContainer }]}>Account in eliminazione</Text>
+            <Text style={[styles.graceText, { color: theme.onErrorContainer }]}>
               Il tuo account verrà eliminato tra {graceperiod.giorniRimanenti} giorni.
             </Text>
-            <Pressable onPress={handleCancelDeletion} style={[styles.graceBtn, { backgroundColor: theme.red }]}>
-              <Text style={styles.graceBtnText}>Annulla eliminazione</Text>
+            <Pressable
+              onPress={handleCancelDeletion}
+              style={[styles.graceBtn, { backgroundColor: theme.error }]}
+              accessibilityRole="button"
+              accessibilityLabel="Annulla eliminazione account"
+              hitSlop={4}
+            >
+              <Text style={[styles.graceBtnText, { color: theme.onError }]}>Annulla eliminazione</Text>
             </Pressable>
           </View>
         )}
 
         {sensorTasks.length > 0 && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.red }]}>Da sensore</Text>
-            <TaskGroup tasks={sensorTasks} dotColor={theme.red} theme={theme} onAction={handleAction} />
+            <Text style={[styles.sectionLabel, { color: theme.error }]}>Allerta sensore</Text>
+            <TaskGroup tasks={sensorTasks} dotColor={theme.error} theme={theme} onAction={handleAction} />
           </>
         )}
 
         {calTasks.length > 0 && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.t2 }]}>In calendario</Text>
-            <TaskGroup tasks={calTasks} dotColor={theme.acc} theme={theme} onAction={handleAction} />
+            <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>In scadenza oggi</Text>
+            <TaskGroup tasks={calTasks} dotColor={theme.primary} theme={theme} onAction={handleAction} />
           </>
         )}
 
         {doneToday.length > 0 && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.t3 }]}>Completati</Text>
-            <View style={[styles.card, { backgroundColor: theme.card, opacity: 0.5 }]}>
+            <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Completati</Text>
+            <Card variant="elevated" style={[styles.card, { opacity: 0.6 }]}>
               {doneToday.map((task, i) => (
                 <View
                   key={task.id}
-                  style={[styles.doneRow, i < doneToday.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
+                  style={[styles.doneRow, i < doneToday.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.outlineVariant }]}
                 >
-                  <View style={[styles.doneCheck, { backgroundColor: theme.acc }]}>
+                  <View style={[styles.doneCheck, { backgroundColor: theme.primary }]}>
                     <Svg width={11} height={8} viewBox="0 0 11 8" fill="none">
-                      <Path d="M1 4L4 7L10 1" stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M1 4L4 7L10 1" stroke={theme.onPrimary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </View>
-                  <Text style={[styles.doneLabel, { color: theme.t2 }]}>
+                  <Text style={[styles.doneLabel, { color: theme.onSurfaceVariant }]}>
                     {TASK_LABELS[task.tipo]} {task.plant.nome}
                   </Text>
                 </View>
               ))}
-            </View>
+            </Card>
           </>
         )}
 
         {allDone && (
           <View style={styles.allDone}>
-            <View style={[styles.allDoneCircle, { backgroundColor: theme.acc }]}>
+            <View style={[styles.allDoneCircle, { backgroundColor: theme.primary }]}>
               <Svg width={28} height={20} viewBox="0 0 28 20" fill="none">
-                <Path d="M2 10L10 18L26 2" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M2 10L10 18L26 2" stroke={theme.onPrimary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
-            <Text style={[styles.allDoneTitle, { color: theme.t1 }]}>Tutto a posto</Text>
-            <Text style={[styles.allDoneSub, { color: theme.t2 }]}>Nessun task in sospeso oggi.</Text>
+            <Text style={[styles.allDoneTitle, { color: theme.onSurface }]}>Tutto a posto</Text>
+            <Text style={[styles.allDoneSub, { color: theme.onSurfaceVariant }]}>Nessun task in sospeso oggi.</Text>
           </View>
         )}
       </ScrollView>
@@ -227,37 +258,35 @@ export default function OggiScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 24 },
-  date: { fontSize: 13, fontWeight: '500', marginBottom: 2 },
-  title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.6, marginBottom: 16 },
+  content: { padding: spacing.md16, paddingBottom: spacing.lg24 },
+  date: { ...typography.labelMedium, marginBottom: spacing.xs4 / 2 },
+  title: { ...typography.headlineLarge, letterSpacing: -0.6, marginBottom: spacing.md16 },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.labelMedium,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: spacing.xs8,
+    paddingHorizontal: spacing.xs4,
   },
-  card: { borderRadius: 14, overflow: 'hidden', marginBottom: 20 },
-  taskRow: { padding: 14, paddingHorizontal: 16 },
-  taskHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
-  taskLabel: { fontSize: 16, fontWeight: '500', marginBottom: 2 },
-  taskDetail: { fontSize: 13 },
-  taskActions: { flexDirection: 'row', gap: 8, paddingLeft: 18 },
-  actionBtn: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 9 },
-  actionBtnPrimaryText: { fontSize: 13, fontWeight: '600', color: 'white' },
-  actionBtnText: { fontSize: 13, fontWeight: '500' },
-  doneRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, paddingHorizontal: 16 },
-  doneCheck: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  doneLabel: { fontSize: 15, textDecorationLine: 'line-through' },
-  graceBanner: { borderRadius: 14, borderWidth: 1.5, padding: 16, marginBottom: 20 },
-  graceTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  graceText: { fontSize: 13, marginBottom: 12 },
-  graceBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 9 },
-  graceBtnText: { fontSize: 13, fontWeight: '600', color: 'white' },
-  allDone: { alignItems: 'center', paddingVertical: 48 },
-  allDoneCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  allDoneTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
-  allDoneSub: { fontSize: 14 },
+  card: { overflow: 'hidden', marginBottom: spacing.md20 },
+  taskRow: { padding: spacing.sm12 + 2, paddingHorizontal: spacing.md16 },
+  taskHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs8 + 2, marginBottom: spacing.sm12 },
+  dot: { width: 8, height: 8, borderRadius: radius.xs, marginTop: 5 },
+  taskLabel: { ...typography.bodyLarge, fontWeight: '500', marginBottom: 2 },
+  taskDetail: { ...typography.bodySmall },
+  taskActions: { flexDirection: 'row', gap: spacing.xs8, paddingLeft: spacing.md16 + 2 },
+  actionBtn: { paddingVertical: spacing.xs8 - 1, paddingHorizontal: spacing.sm12 + 2, borderRadius: radius.sm + 1, minHeight: 32, justifyContent: 'center' },
+  actionBtnText: { ...typography.labelMedium, fontWeight: '600' },
+  doneRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs8 + 2, padding: spacing.sm12 + 2, paddingHorizontal: spacing.md16 },
+  doneCheck: { width: 20, height: 20, borderRadius: radius.sm + 2, alignItems: 'center', justifyContent: 'center' },
+  doneLabel: { ...typography.bodyMedium, textDecorationLine: 'line-through' },
+  graceBanner: { borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.md16, marginBottom: spacing.md20 },
+  graceTitle: { ...typography.titleSmall, marginBottom: spacing.xs4 },
+  graceText: { ...typography.bodySmall, marginBottom: spacing.sm12 },
+  graceBtn: { alignSelf: 'flex-start', paddingVertical: spacing.xs8, paddingHorizontal: spacing.sm12 + 2, borderRadius: radius.sm + 1, minHeight: 36, justifyContent: 'center' },
+  graceBtnText: { ...typography.labelMedium, fontWeight: '600' },
+  allDone: { alignItems: 'center', paddingVertical: spacing.xxl48 },
+  allDoneCircle: { width: 56, height: 56, borderRadius: radius.xl, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md16 },
+  allDoneTitle: { ...typography.titleMedium, marginBottom: spacing.xs4 },
+  allDoneSub: { ...typography.bodyMedium },
 });

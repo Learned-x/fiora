@@ -18,7 +18,7 @@ export default function RootLayout() {
   if (isRestoring) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.acc} />
+        <ActivityIndicator color={theme.primary} />
       </View>
     );
   }

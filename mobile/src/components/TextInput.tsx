@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput as RNTextInput, TextInputProps as RNTextInputProps } from 'react-native';
 import { useTheme } from '../theme/useTheme';
+import { radius } from '../theme/radius';
+import { typography } from '../theme/typography';
 
-type TextInputProps = RNTextInputProps;
+interface TextInputProps extends RNTextInputProps {
+  error?: boolean;
+}
 
-export function TextInput(props: TextInputProps) {
+export function TextInput({ error, ...props }: TextInputProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
+
+  const borderColor = error ? theme.error : focused ? theme.primary : theme.outline;
+  const borderWidth = error || focused ? 1.5 : 1;
 
   return (
     <RNTextInput
@@ -19,13 +26,16 @@ export function TextInput(props: TextInputProps) {
         setFocused(false);
         props.onBlur?.(e);
       }}
-      placeholderTextColor={theme.t3}
+      placeholderTextColor={theme.onSurfaceVariant}
+      accessibilityState={{ disabled: !!props.editable === false }}
       style={[
         styles.base,
         {
-          backgroundColor: theme.card,
-          color: theme.t1,
-          borderColor: focused ? theme.acc : theme.bord,
+          backgroundColor: props.editable === false ? theme.surfaceHigh : theme.surface,
+          color: theme.onSurface,
+          borderColor,
+          borderWidth,
+          opacity: props.editable === false ? 0.7 : 1,
         },
         props.style,
       ]}
@@ -35,10 +45,10 @@ export function TextInput(props: TextInputProps) {
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 13,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: typography.bodyLarge.fontSize,
+    minHeight: 44,
   },
 });

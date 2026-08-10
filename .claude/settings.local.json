@@ -33,7 +33,9 @@
       "Bash(git reset *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(awk -F'\\(' '{print $1}')"
     ]
   }
 }

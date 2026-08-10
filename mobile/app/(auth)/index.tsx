@@ -13,6 +13,8 @@ import {
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { Button } from '../../src/components/Button';
+import { spacing } from '../../src/theme/spacing';
+import { typography } from '../../src/theme/typography';
 
 const SLIDES = [
   {
@@ -55,8 +57,13 @@ export default function IntroScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.skipRow}>
-        <Pressable onPress={() => router.push('/(auth)/auth')} hitSlop={12}>
-          <Text style={[styles.skipText, { color: theme.t2 }]}>Salta</Text>
+        <Pressable
+          onPress={() => router.push('/(auth)/auth')}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Salta introduzione"
+        >
+          <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Salta</Text>
         </Pressable>
       </View>
 
@@ -69,9 +76,11 @@ export default function IntroScreen() {
       >
         {SLIDES.map((slide) => (
           <View key={slide.title} style={[styles.slide, { width }]}>
-            <Text style={styles.emoji}>{slide.emoji}</Text>
-            <Text style={[styles.title, { color: theme.t1 }]}>{slide.title}</Text>
-            <Text style={[styles.desc, { color: theme.t2 }]}>{slide.desc}</Text>
+            <View style={[styles.emojiCircle, { backgroundColor: theme.primaryContainer }]}>
+              <Text style={styles.emoji}>{slide.emoji}</Text>
+            </View>
+            <Text style={[styles.title, { color: theme.onSurface }]}>{slide.title}</Text>
+            <Text style={[styles.desc, { color: theme.onSurfaceVariant }]}>{slide.desc}</Text>
           </View>
         ))}
       </ScrollView>
@@ -82,7 +91,7 @@ export default function IntroScreen() {
             key={slide.title}
             style={[
               styles.dot,
-              { backgroundColor: i === page ? theme.acc : theme.bord },
+              { backgroundColor: i === page ? theme.primary : theme.outlineVariant },
             ]}
           />
         ))}
@@ -97,13 +106,21 @@ export default function IntroScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  skipRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8 },
-  skipText: { fontSize: 15, fontWeight: '500' },
-  slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  emoji: { fontSize: 64, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 12, textAlign: 'center' },
-  desc: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  footer: { padding: 16 },
+  skipRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: spacing.md16, paddingTop: spacing.xs8 },
+  skipText: { ...typography.bodyLarge, fontWeight: '500' },
+  slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl32, gap: spacing.md16 },
+  emojiCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs8,
+  },
+  emoji: { fontSize: 42 },
+  title: { ...typography.headlineMedium, textAlign: 'center' },
+  desc: { ...typography.bodyLarge, textAlign: 'center' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: spacing.md16 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  footer: { padding: spacing.md16 },
 });

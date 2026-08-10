@@ -7,6 +7,9 @@ import { useTheme } from '../../src/theme/useTheme';
 import { SocialButton } from '../../src/components/SocialButton';
 import { useAuthStore } from '../../src/store/auth.store';
 import { GoogleSignInCancelledError, AppleSignInCancelledError } from '../../src/services/oauth';
+import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { typography } from '../../src/theme/typography';
 
 export default function AuthScreen() {
   const theme = useTheme();
@@ -41,9 +44,9 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.content}>
-        <Text style={[styles.progress, { color: theme.t2 }]}>1 di 2</Text>
-        <Text style={[styles.title, { color: theme.t1 }]}>Crea account</Text>
-        <Text style={[styles.subtitle, { color: theme.t2 }]}>I tuoi dati sincronizzati ovunque.</Text>
+        <Text style={[styles.progress, { color: theme.onSurfaceVariant }]}>1 di 2</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Crea account</Text>
+        <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>I tuoi dati sincronizzati ovunque.</Text>
 
         <View style={styles.buttons}>
           <SocialButton provider="google" label="Continua con Google" onPress={handleGoogle} loading={isLoading} />
@@ -53,22 +56,29 @@ export default function AuthScreen() {
         </View>
 
         <View style={styles.divider}>
-          <View style={[styles.line, { backgroundColor: theme.bord }]} />
-          <Text style={[styles.dividerText, { color: theme.t2 }]}>oppure</Text>
-          <View style={[styles.line, { backgroundColor: theme.bord }]} />
+          <View style={[styles.line, { backgroundColor: theme.outlineVariant }]} />
+          <Text style={[styles.dividerText, { color: theme.onSurfaceVariant }]}>oppure</Text>
+          <View style={[styles.line, { backgroundColor: theme.outlineVariant }]} />
         </View>
 
         <Pressable
-          style={[styles.emailButton, { borderColor: theme.acc }]}
+          style={[styles.emailButton, { borderColor: theme.primary }]}
           onPress={() => router.push('/(auth)/login')}
+          accessibilityRole="button"
+          accessibilityLabel="Continua con email"
         >
-          <Text style={[styles.emailButtonText, { color: theme.acc }]}>Continua con email</Text>
+          <Text style={[styles.emailButtonText, { color: theme.primary }]}>Continua con email</Text>
         </Pressable>
 
-        {error && <Text style={[styles.error, { color: theme.red }]}>{error}</Text>}
+        {error && <Text style={[styles.error, { color: theme.error }]}>{error}</Text>}
 
-        <Pressable style={styles.skip} onPress={() => router.push('/(auth)/login')}>
-          <Text style={[styles.skipText, { color: theme.t2 }]}>Salta per ora</Text>
+        <Pressable
+          style={styles.skip}
+          onPress={() => router.push('/(auth)/login')}
+          accessibilityRole="button"
+          accessibilityLabel="Salta per ora"
+        >
+          <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Salta per ora</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -77,22 +87,24 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: 16, justifyContent: 'center' },
-  progress: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 15, marginBottom: 32 },
-  buttons: { gap: 12 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
+  content: { flex: 1, padding: spacing.md16, justifyContent: 'center' },
+  progress: { ...typography.labelLarge, marginBottom: spacing.xs8 },
+  title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
+  subtitle: { ...typography.bodyLarge, marginBottom: spacing.xl32 },
+  buttons: { gap: spacing.sm12 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm12, marginVertical: spacing.lg24 },
   line: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerText: { fontSize: 13 },
+  dividerText: { ...typography.bodySmall },
   emailButton: {
-    borderRadius: 13,
+    borderRadius: radius.lg,
     borderWidth: 1.5,
     paddingVertical: 15,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  emailButtonText: { fontSize: 16, fontWeight: '600' },
-  error: { marginTop: 16, fontSize: 13, textAlign: 'center' },
-  skip: { marginTop: 24, alignItems: 'center' },
-  skipText: { fontSize: 15 },
+  emailButtonText: { ...typography.titleMedium },
+  error: { marginTop: spacing.md16, ...typography.bodySmall, textAlign: 'center' },
+  skip: { marginTop: spacing.lg24, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  skipText: { ...typography.bodyLarge },
 });
