@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{margin:0}
+  a{color:inherit;text-decoration:none}
+  a:hover{opacity:0.75}
+  @keyframes fspin{to{transform:rotate(360deg)}}
+  @keyframes pageInFwd{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes pageInBack{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}
+</style>
+</helmet>
+<div style="{{ S.pageBg }}">
+
+  <div style="{{ headerBarStyle }}">
+    <div>
+      <div style="{{ kickerStyle }}">Fiora</div>
+      <div style="font-size:28px;font-weight:700">Design System</div>
+      <div style="font-size:14px;margin-top:2px"><span style="{{ mutedTextInline }}">Material Design 3 × iOS Human Interface Guidelines — per React Native (iOS/Android)</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:13px;font-weight:600">{{ modeLabel }}</span>
+      <div onClick="{{ toggleMode }}" style="{{ toggleTrackStyle }}">
+        <div style="{{ toggleThumbStyle }}"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="{{ navPillsRowStyle }}">
+    <a href="#colori" style="{{ pillLinkStyle }}">Colori</a>
+    <a href="#tipografia" style="{{ pillLinkStyle }}">Tipografia</a>
+    <a href="#spaziatura" style="{{ pillLinkStyle }}">Spaziatura</a>
+    <a href="#radius" style="{{ pillLinkStyle }}">Raggio</a>
+    <a href="#elevazione" style="{{ pillLinkStyle }}">Elevazione</a>
+    <a href="#bottoni" style="{{ pillLinkStyle }}">Bottoni</a>
+    <a href="#input" style="{{ pillLinkStyle }}">Input</a>
+    <a href="#card" style="{{ pillLinkStyle }}">Card</a>
+    <a href="#navigazione" style="{{ pillLinkStyle }}">Navigazione</a>
+    <a href="#animazioni" style="{{ pillLinkStyle }}">Animazioni</a>
+    <a href="#accessibilita" style="{{ pillLinkStyle }}">Accessibilità</a>
+    <a href="#schermate" style="{{ pillLinkStyle }}">Schermate</a>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;padding:32px 32px 96px">
+
+    <div style="{{ noteBox }}">
+      <div style="font-weight:600;margin-bottom:8px;font-size:15px">Note di progetto</div>
+      <div style="{{ mutedTextInline }}">
+        Il verde di sistema già usato in app (#34C759) resta il seme del sistema: da lì è stata generata una vera palette tonale MD3 (13 toni, ruoli semantici, container) via OKLCH, invece di un singolo valore fisso identico su ogni schermata. Sopra la base MD3 si applica un'inflessione iOS su tre fronti — gerarchia tipografica guidata più dal peso che dalla sola dimensione, superfici raggruppate in stile liste iOS con ombre morbide invece del ripple, font di sistema (SF Pro su iOS, Roboto su Android, entrambi automatici in React Native). È stato aggiunto un colore semantico esteso, "Warning", per il terzo stato dei sensori (ok/attenzione/critico) accanto a Primary ed Error — un'estensione che MD3 prevede esplicitamente. Le schermate applicate sono tratte dalle specifiche funzionali di Fiora (Oggi, Collezione, Dettaglio pianta con vaso smart, Aggiunta pianta, Onboarding, Pairing BLE).
+      </div>
+    </div>
+
+    <div id="colori" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Colori</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Palette tonale generata dal verde di brand (H 147°) con OKLCH — 13 toni per famiglia, più i ruoli semantici usati nell'interfaccia.</span></div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:32px">
+        <sc-for list="{{ tonalRamps }}" as="pal" hint-placeholder-count="6">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px"><span style="{{ mutedTextInline }}">{{ pal.name }}</span></div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <sc-for list="{{ pal.items }}" as="sw" hint-placeholder-count="14">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                  <div style="{{ sw.style }}"></div>
+                  <div style="font-size:8px;font-family:ui-monospace,monospace"><span style="{{ mutedTextInline }}">{{ sw.tone }}</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:16px;font-weight:600;margin-bottom:14px">Ruoli semantici</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+        <sc-for list="{{ roleCards }}" as="role" hint-placeholder-count="6">
+          <div style="{{ roleCardStyle }}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:14px;font-weight:600">{{ role.name }}</div>
+              <sc-if value="{{ showRatios }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ ratioBadgeStyle }}">{{ role.ratio }} AA</div>
+              </sc-if>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ role.items }}" as="it" hint-placeholder-count="4">
+                <div style="{{ it.style }}">
+                  <span style="{{ it.textStyle }}">{{ it.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="tipografia" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Tipografia</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Scala tipografica MD3 standard (15 livelli). I pesi dei livelli Display/Headline/Title sono stati portati da 400 a 600–700: su iOS la gerarchia si legge più dal peso che dalla dimensione, e questo evita titoli "sottili" fuori posto accanto ai large title nativi.</span></div>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ typeScale }}" as="row" hint-placeholder-count="15">
+          <div style="{{ typeRowWrap }}">
+            <div style="width:150px;flex-shrink:0;font-size:12px"><span style="{{ mutedTextInline }}">{{ row.tier }}</span></div>
+            <div style="{{ row.style }}">{{ row.sample }}</div>
+            <div style="width:130px;flex-shrink:0;text-align:right;font-size:11px;font-family:ui-monospace,monospace"><span style="{{ mutedTextInline }}">{{ row.size }}/{{ row.lh }} · {{ row.weight }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="spaziatura" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Spaziatura</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Griglia a 4px. Il padding interno di card e schermate usa 16 o 24; il gap fra elementi di una lista usa 8–12.</span></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ spacingScale }}" as="sp" hint-placeholder-count="10">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:36px;font-size:12px;font-family:ui-monospace,monospace"><span style="{{ mutedTextInline }}">{{ sp.px }}px</span></div>
+            <div style="{{ sp.style }}"></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="radius" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Raggio degli angoli</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Scala di forma MD3. "Large" (16px) è il default di Fiora per card, bottoni e input — l'arrotondamento continuo già in uso nell'app.</span></div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <sc-for list="{{ radiusScale }}" as="r" hint-placeholder-count="7">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="{{ r.style }}"></div>
+            <div style="font-size:11px;text-align:center;max-width:80px"><span style="{{ mutedTextInline }}">{{ r.label }}<br>{{ r.px }}px</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="elevazione" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Elevazione</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">6 livelli MD3. In chiaro si esprimono con ombre morbide (coerenti con lo stile iOS già in uso); in scuro l'ombra è quasi assente e l'elevazione si legge invece dal tono della superficie, che si schiarisce salendo di livello — l'approccio nativo di MD3 al buio.</span></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <sc-for list="{{ elevationScale }}" as="el" hint-placeholder-count="6">
+          <div style="{{ el.style }}">{{ el.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="bottoni" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Bottoni</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">5 tipi MD3. Nessun ripple: il feedback alla pressione è un leggero calo di opacità/scala, come su iOS — prova a premerli.</span></div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px">
+        <sc-for list="{{ buttonRows }}" as="btn" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+            <div style="width:110px;font-size:13px;font-weight:600;flex-shrink:0">{{ btn.name }}</div>
+            <button style="{{ btn.style }}" style-active="{{ btn.press }}" style-hover="{{ btn.press }}">Salva</button>
+            <button style="{{ btn.disabled }}" disabled="{{ true }}">Salva</button>
+            <span style="font-size:11px"><span style="{{ mutedTextInline }}">predefinito · disattivo</span></span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="{{ fabStyle }}">＋</div>
+        <div style="font-size:13px;max-width:520px"><span style="{{ mutedTextInline }}">FAB — disponibile nel sistema, ma Fiora preferisce l'azione "Aggiungi" integrata nella tab bar (già così nell'app): un solo punto di ingresso, coerente con la navigazione a schede di iOS.</span></div>
+      </div>
+    </div>
+
+    <div id="input" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Input</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Campo unico stile "outlined" arrotondato — clicca per vedere lo stato attivo reale.</span></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:11px"><span style="{{ mutedTextInline }}">Predefinito / attivo</span></span>
+          <input placeholder="Nome della pianta" style="{{ S.input }}" style-focus="{{ S.inputFocus }}"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:11px"><span style="{{ mutedTextInline }}">Errore</span></span>
+          <input placeholder="Nome della pianta" style="{{ S.inputError }}"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:11px"><span style="{{ mutedTextInline }}">Disattivo</span></span>
+          <input placeholder="Nome della pianta" style="{{ S.inputDisabled }}" disabled="{{ true }}"/>
+        </div>
+      </div>
+    </div>
+
+    <div id="card" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Card</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">3 varianti MD3 sullo stesso contenuto.</span></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="{{ cardDemo1 }}">
+          <div style="font-size:11px;font-weight:600;margin-bottom:10px"><span style="{{ mutedTextInline }}">Elevata</span></div>
+          <div style="font-size:28px;margin-bottom:8px">🌿</div>
+          <div style="font-size:14px;font-weight:600">La mia Monstera</div>
+          <div style="font-size:12px"><span style="{{ mutedTextInline }}">Annaffia tra 2 giorni</span></div>
+        </div>
+        <div style="{{ cardDemo2 }}">
+          <div style="font-size:11px;font-weight:600;margin-bottom:10px"><span style="{{ mutedTextInline }}">Filled</span></div>
+          <div style="font-size:28px;margin-bottom:8px">🌿</div>
+          <div style="font-size:14px;font-weight:600">La mia Monstera</div>
+          <div style="font-size:12px"><span style="{{ mutedTextInline }}">Annaffia tra 2 giorni</span></div>
+        </div>
+        <div style="{{ cardDemo3 }}">
+          <div style="font-size:11px;font-weight:600;margin-bottom:10px"><span style="{{ mutedTextInline }}">Outlined</span></div>
+          <div style="font-size:28px;margin-bottom:8px">🌿</div>
+          <div style="font-size:14px;font-weight:600">La mia Monstera</div>
+          <div style="font-size:12px"><span style="{{ mutedTextInline }}">Annaffia tra 2 giorni</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="navigazione" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Navigazione</div>
+      <div style="font-size:14px;margin-bottom:24px"><span style="{{ mutedTextInline }}">Tab bar in basso con indicatore a pillola MD3 dietro l'icona attiva (dietro Oggi, qui sotto). Titolo grande in testa alle schermate — concetto condiviso fra MD3 (Large Top App Bar) e iOS (large title): non serve scegliere fra i due sistemi.</span></div>
+<div style="{{ S.navWrap }}">
+        <sc-for list="{{ navTabsLeft }}" as="tab" hint-placeholder-count="2">
+          <div style="{{ tab.iconWrapStyle }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <sc-if value="{{ tab.circleR }}" hint-placeholder-val="{{ false }}">
+                <circle cx="12" cy="12" r="{{ tab.circleR }}" stroke="{{ tab.color }}" stroke-width="1.8"></circle>
+              </sc-if>
+              <path d="{{ tab.iconPath }}" stroke="{{ tab.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </div>
+        </sc-for>
+        <div style="{{ addCircleStyle }}">
+          <svg width="18" height="18" viewBox="0 0 22 22" fill="none"><path d="M11 4v14M4 11h14" stroke="white" stroke-width="2.2" stroke-linecap="round"></path></svg>
+        </div>
+        <sc-for list="{{ navTabsRight }}" as="tab" hint-placeholder-count="2">
+          <div style="{{ tab.iconWrapStyle }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <sc-if value="{{ tab.circleR }}" hint-placeholder-val="{{ false }}">
+                <circle cx="12" cy="12" r="{{ tab.circleR }}" stroke="{{ tab.color }}" stroke-width="1.8"></circle>
+              </sc-if>
+              <path d="{{ tab.iconPath }}" stroke="{{ tab.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:13px;margin-top:14px"><span style="{{ mutedTextInline }}">Il bottone "Aggiungi" al centro apre la scelta Pianta/Bouquet (§4.1) — vedi in basso nel frame "Collezione" qui sotto per come appare in una schermata reale.</span></div>
+    </div>
+
+    <div id="animazioni" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Animazioni</div>
+      <div style="font-size:14px;margin-bottom:16px;max-width:640px"><span style="{{ mutedTextInline }}">Cambio pagina in stile Apple: la nuova schermata entra con un leggero scorrimento laterale + dissolvenza, non un semplice cut. Provalo con le freccette ‹ › sopra i frame Onboarding, Dettaglio pianta, Aggiungi pianta e Pairing BLE.</span></div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px">
+        <div><b>Durata —</b> <span style="{{ mutedTextInline }}">380ms</span></div>
+        <div><b>Curva —</b> <span style="{{ mutedTextInline }}">cubic-bezier(0.32, 0.72, 0, 1) — la stessa easing "decelerate" di UIKit per sheet e push</span></div>
+        <div><b>Movimento —</b> <span style="{{ mutedTextInline }}">avanti: entra da destra (+18px→0) · indietro: entra da sinistra (−18px→0), sempre con fade-in</span></div>
+      </div>
+    </div>
+
+    <div id="accessibilita" style="margin-bottom:56px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Accessibilità</div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-size:14px;max-width:760px">
+        <div><b>Contrasto —</b> <span style="{{ mutedTextInline }}">ogni coppia colore/on-colore supera 5.5:1 (soglia AA per testo normale: 4.5:1). In modalità {{ modeLabel }}: Primary {{ R.primary }}, Secondary {{ R.secondary }}, Tertiary {{ R.tertiary }}, Error {{ R.error }}, Warning {{ R.warning }}, testo principale su sfondo {{ R.onSurface }}.</span></div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="position:relative;width:44px;height:44px;flex-shrink:0">
+            <div style="{{ touchTargetOutline }}"></div>
+            <div style="{{ touchTargetFill }}">＋</div>
+          </div>
+          <div><b>Target di tocco —</b> <span style="{{ mutedTextInline }}">44×44pt minimo su ogni elemento interattivo, tab bar incluso — riquadro tratteggiato di esempio sopra.</span></div>
+        </div>
+        <div><b>Dynamic Type —</b> <span style="{{ mutedTextInline }}">la scala tipografica usa unità relative al font di sistema: cresce con le impostazioni di accessibilità del telefono senza rompere il layout (line-height sempre proporzionale, mai fisso).</span></div>
+        <div><b>Lettori di schermo —</b> <span style="{{ mutedTextInline }}">ogni stato dei sensori (ok/attenzione/critico) e ogni azione rapida ha una label testuale esplicita per VoiceOver/TalkBack — mai solo un colore o un'icona.</span></div>
+        <div><b>Daltonismo —</b> <span style="{{ mutedTextInline }}">gli stati dei sensori nelle card "Dettaglio pianta" combinano sempre colore + etichetta testuale ("Terreno umido", non solo verde), leggibili anche senza percepire il colore.</span></div>
+      </div>
+    </div>
+
+    <div id="schermate" style="margin-bottom:24px">
+      <div style="font-size:24px;font-weight:700;margin-bottom:6px">Schermate applicate</div>
+      <div style="font-size:14px;margin-bottom:32px"><span style="{{ mutedTextInline }}">Il sistema applicato a 6 schermate reali di Fiora, dalle specifiche funzionali. Frame iPhone; le note di adattamento Android sono in fondo alla sezione.</span></div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:40px">
+
+        <div>
+          <div style="{{ stepBarStyle }}">
+            <button onClick="{{ onbPrev }}" disabled="{{ !onbCanPrev }}" style="{{ stepBtnStyle }}">‹</button>
+            <span style="font-size:12px;font-weight:600">Onboarding — <sc-if value="{{ isOnb0 }}" hint-placeholder-val="{{ true }}">Intro</sc-if><sc-if value="{{ isOnb1 }}" hint-placeholder-val="{{ false }}">Clima</sc-if> ({{ onboardingStepLabel }}/2)</span>
+            <button onClick="{{ onbNext }}" disabled="{{ !onbCanNext }}" style="{{ stepBtnStyle }}">›</button>
+          </div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadCol }}">
+              <sc-if value="{{ isOnb0 }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 28px;gap:16px">
+                  <div style="{{ emojiCircleIntro }}">🌿</div>
+                  <div style="font-size:32px;font-weight:700">Fiora</div>
+                  <div style="font-size:15px;line-height:1.4"><span style="{{ mutedTextInline }}">Cura delle tue piante, senza pensieri.</span></div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <div style="{{ dotActive }}"></div>
+                    <div style="{{ dotInactive }}"></div>
+                    <div style="{{ dotInactive }}"></div>
+                  </div>
+                </div>
+                <button style="{{ ctaButtonFirst }}">Inizia</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isOnb1 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;flex:1;overflow:auto">
+                  <div style="font-size:22px;font-weight:600;margin-bottom:6px">Che clima hai in casa?</div>
+                  <div style="font-size:13px;margin-bottom:18px"><span style="{{ mutedTextInline }}">Serve a calibrare i promemoria di cura.</span></div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <div onClick="{{ setClimaTemperato }}" style="{{ climaStyleTemperato }}">
+                      <div style="font-size:15px;font-weight:600">Temperato</div>
+                      <div style="font-size:12px;opacity:0.75">Italia centro-nord</div>
+                    </div>
+                    <div onClick="{{ setClimaMediterraneo }}" style="{{ climaStyleMediterraneo }}">
+                      <div style="font-size:15px;font-weight:600">Mediterraneo</div>
+                      <div style="font-size:12px;opacity:0.75">Costa, Italia del sud</div>
+                    </div>
+                    <div onClick="{{ setClimaTropicale }}" style="{{ climaStyleTropicale }}">
+                      <div style="font-size:15px;font-weight:600">Tropicale</div>
+                      <div style="font-size:12px;opacity:0.75">Riscaldamento costante, alta umidità</div>
+                    </div>
+                    <div onClick="{{ setClimaFreddo }}" style="{{ climaStyleFreddo }}">
+                      <div style="font-size:15px;font-weight:600">Freddo</div>
+                      <div style="font-size:12px;opacity:0.75">Montagna, inverni rigidi</div>
+                    </div>
+                    <div onClick="{{ setClimaAppartamento }}" style="{{ climaStyleAppartamento }}">
+                      <div style="font-size:15px;font-weight:600">Appartamento</div>
+                      <div style="font-size:12px;opacity:0.75">Riscaldato tutto l'anno</div>
+                    </div>
+                  </div>
+                </div>
+                <button style="{{ ctaButton }}">Continua</button>
+                </div>
+              </sc-if>
+            </div>
+          </x-import>
+        </div>
+
+        <div>
+          <div style="{{ staticLabelStyle }}">Oggi</div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadScroll }}">
+              <div style="padding:0 20px 8px">
+                <div style="font-size:30px;font-weight:700">Oggi</div>
+                <div style="font-size:13px"><span style="{{ mutedTextInline }}">Martedì 5 agosto</span></div>
+              </div>
+              <div style="{{ labelError }}">ALLERTA SENSORE</div>
+              <div style="{{ taskGroupCard }}">
+                <div style="{{ taskRowLast }}">
+                  <div style="{{ errorDotStyle }}"></div>
+                  <div style="flex:1;font-size:14px">Pothos — terreno troppo asciutto</div>
+                </div>
+              </div>
+              <div style="{{ labelMuted }}">IN SCADENZA OGGI</div>
+              <div style="{{ taskGroupCard }}">
+                <div style="{{ taskRowStyle }}">
+                  <div style="flex:1"><div style="font-size:14px;font-weight:600">Monstera</div><div style="font-size:12px"><span style="{{ mutedTextInline }}">Annaffia</span></div></div>
+                  <div style="display:flex;gap:6px">
+                    <div style="{{ quickActionStyle }}">✓</div>
+                    <div style="{{ quickActionStyle }}">⏱</div>
+                    <div style="{{ quickActionStyle }}">✕</div>
+                  </div>
+                </div>
+                <div style="{{ taskRowLast }}">
+                  <div style="flex:1"><div style="font-size:14px;font-weight:600">Bouquet compleanno</div><div style="font-size:12px"><span style="{{ mutedTextInline }}">Cambia acqua</span></div></div>
+                  <div style="display:flex;gap:6px">
+                    <div style="{{ quickActionStyle }}">✓</div>
+                    <div style="{{ quickActionStyle }}">⏱</div>
+                    <div style="{{ quickActionStyle }}">✕</div>
+                  </div>
+                </div>
+              </div>
+              <div style="{{ labelMuted }}">RIMANDATI</div>
+              <div style="{{ taskGroupCard }}">
+                <div style="{{ taskRowLast }}">
+                  <div style="flex:1"><div style="font-size:14px;font-weight:600">Ficus</div><div style="{{ warningTextStyle }}">Concima · in ritardo di 4 giorni</div></div>
+                  <div style="display:flex;gap:6px">
+                    <div style="{{ quickActionStyle }}">✓</div>
+                    <div style="{{ quickActionStyle }}">⏱</div>
+                    <div style="{{ quickActionStyle }}">✕</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <div>
+          <div style="{{ staticLabelStyle }}">Collezione</div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadCol }}">
+              <div style="padding:0 20px 12px;font-size:30px;font-weight:700">Collezione</div>
+              <div style="display:flex;gap:8px;padding:0 20px 16px;overflow:auto">
+                <div onClick="{{ setFilterTutti }}" style="{{ chipStyleTutti }}">Tutti</div>
+                <div onClick="{{ setFilterPiante }}" style="{{ chipStylePiante }}">Piante</div>
+                <div onClick="{{ setFilterBouquet }}" style="{{ chipStyleBouquet }}">Bouquet</div>
+                <div onClick="{{ setFilterVaso }}" style="{{ chipStyleVaso }}">Con vaso</div>
+              </div>
+              <div style="padding:0 20px;flex:1;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start">
+                <sc-for list="{{ collectionCards }}" as="card" hint-placeholder-count="4">
+                  <sc-if value="{{ card.visible }}" hint-placeholder-val="{{ true }}">
+                    <div style="{{ collectionCardStyle }}">
+                      <div style="{{ collectionEmojiTile }}">{{ card.emoji }}</div>
+                      <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ card.name }}</div>
+                      <div style="font-size:11px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="{{ mutedTextInline }}">{{ card.species }}</span></div>
+                      <div style="{{ card.taskStyle }}">{{ card.task }}</div>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </div>
+              <div style="{{ bottomBarStyle }}">
+                <sc-for list="{{ navTabsLeft }}" as="tab" hint-placeholder-count="2">
+                  <div style="{{ tab.iconWrapStyle }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <sc-if value="{{ tab.circleR }}" hint-placeholder-val="{{ false }}">
+                        <circle cx="12" cy="12" r="{{ tab.circleR }}" stroke="{{ tab.color }}" stroke-width="1.8"></circle>
+                      </sc-if>
+                      <path d="{{ tab.iconPath }}" stroke="{{ tab.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                  </div>
+                </sc-for>
+                <div style="{{ addCircleStyle }}">
+                  <svg width="18" height="18" viewBox="0 0 22 22" fill="none"><path d="M11 4v14M4 11h14" stroke="white" stroke-width="2.2" stroke-linecap="round"></path></svg>
+                </div>
+                <sc-for list="{{ navTabsRight }}" as="tab" hint-placeholder-count="2">
+                  <div style="{{ tab.iconWrapStyle }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <sc-if value="{{ tab.circleR }}" hint-placeholder-val="{{ false }}">
+                        <circle cx="12" cy="12" r="{{ tab.circleR }}" stroke="{{ tab.color }}" stroke-width="1.8"></circle>
+                      </sc-if>
+                      <path d="{{ tab.iconPath }}" stroke="{{ tab.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <div>
+          <div style="{{ stepBarStyle }}">
+            <button onClick="{{ detailPrev }}" disabled="{{ !detailCanPrev }}" style="{{ stepBtnStyle }}">‹</button>
+            <span style="font-size:12px;font-weight:600">Dettaglio pianta — {{ detailStepLabel }}</span>
+            <button onClick="{{ detailNext }}" disabled="{{ !detailCanNext }}" style="{{ stepBtnStyle }}">›</button>
+          </div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadScroll }}">
+              <div style="padding:0 20px;display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                <div style="{{ plantAvatarStyle }}">🌿</div>
+                <div>
+                  <div style="font-size:18px;font-weight:600">La mia Monstera</div>
+                  <div style="font-size:12px;font-style:italic"><span style="{{ mutedTextInline }}">Monstera deliciosa</span></div>
+                </div>
+              </div>
+              <sc-if value="{{ isDetail0 }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div style="{{ sensorTileWarn }}">
+                    <div style="font-size:16px;font-weight:700">22%</div>
+                    <div style="font-size:10px;margin-top:2px">Terreno asciutto</div>
+                  </div>
+                  <div style="{{ sensorTileStyle }}">
+                    <div style="font-size:16px;font-weight:700">850 lx</div>
+                    <div style="font-size:10px;margin-top:2px">Luce sufficiente</div>
+                  </div>
+                  <div style="{{ sensorTileCrit }}">
+                    <div style="font-size:16px;font-weight:700">9°</div>
+                    <div style="font-size:10px;margin-top:2px">Troppo freddo</div>
+                  </div>
+                </div>
+                <div style="padding:0 20px 16px;font-size:11px"><span style="{{ mutedTextInline }}">Batteria vaso 87% · ultima lettura 12 minuti fa · esempi con i 3 stati ok/attenzione/critico</span></div>
+                <div style="{{ labelMuted }}">GUIDA SPECIE</div>
+                <div style="{{ guideCardStyle }}">
+                  <div style="{{ guideRow }}"><span style="{{ mutedTextInline }}">Luce</span><span>Media, evita sole diretto</span></div>
+                  <div style="{{ guideRow }}"><span style="{{ mutedTextInline }}">Annaffiatura</span><span>Media, regolare</span></div>
+                  <div style="{{ guideRowLast }}"><span style="{{ mutedTextInline }}">Tossicità</span><span>Tossica per animali</span></div>
+                </div>
+                <div style="padding:0 20px 6px;font-size:13px;font-weight:600">Andamento sensori</div>
+                <div style="{{ S.segTrack }}">
+                  <div style="{{ segIndicatorStyle }}"></div>
+                  <div onClick="{{ setWindow24h }}" style="{{ segStyle24h }}">24H</div>
+                  <div onClick="{{ setWindow7d }}" style="{{ segStyle7d }}">7 GG</div>
+                  <div onClick="{{ setWindow30d }}" style="{{ segStyle30d }}">30 GG</div>
+                </div>
+                <div style="padding:10px 20px 16px;display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ sensorCharts }}" as="m" hint-placeholder-count="3">
+                    <div style="{{ sensorChartCardStyle }}">
+                      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                        <span style="font-size:12px"><span style="{{ mutedTextInline }}">{{ m.label }}</span></span>
+                        <span style="font-size:15px;font-weight:700">{{ m.value }}</span>
+                      </div>
+                      <svg width="100%" height="40" viewBox="0 0 148 40" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="{{ m.key }}-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="{{ m.color }}" stop-opacity="0.35"></stop>
+                            <stop offset="100%" stop-color="{{ m.color }}" stop-opacity="0"></stop>
+                          </linearGradient>
+                        </defs>
+                        <path d="{{ m.areaPoints }}" fill="url(#{{ m.key }}-grad)" stroke="none"></path>
+                        <path d="{{ m.points }}" stroke="{{ m.color }}" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </svg>
+                      <div style="display:flex;justify-content:space-between;margin-top:5px"><span style="font-size:10px"><span style="{{ mutedTextInline }}">{{ rangeLabels.from }}</span></span><span style="font-size:10px"><span style="{{ mutedTextInline }}">{{ rangeLabels.to }}</span></span></div>
+                    </div>
+                  </sc-for>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isDetail1 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="{{ noVaseCard }}">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:6px">Vaso smart</div>
+                  <div style="font-size:13px;margin-bottom:14px"><span style="{{ mutedTextInline }}">Nessun vaso collegato a questa pianta. I promemoria seguono il calendario.</span></div>
+                  <button style="{{ associateBtnStyle }}">Associa vaso smart</button>
+                </div>
+                <div style="{{ labelMuted }}">GUIDA SPECIE</div>
+                <div style="{{ guideCardStyle }}">
+                  <div style="{{ guideRow }}"><span style="{{ mutedTextInline }}">Luce</span><span>Media, evita sole diretto</span></div>
+                  <div style="{{ guideRow }}"><span style="{{ mutedTextInline }}">Annaffiatura</span><span>Media, regolare</span></div>
+                  <div style="{{ guideRowLast }}"><span style="{{ mutedTextInline }}">Tossicità</span><span>Tossica per animali</span></div>
+                </div>
+                </div>
+              </sc-if>
+            </div>
+          </x-import>
+        </div>
+
+        <div>
+          <div style="{{ stepBarStyle }}">
+            <button onClick="{{ addPrev }}" disabled="{{ !addCanPrev }}" style="{{ stepBtnStyle }}">‹</button>
+            <span style="font-size:12px;font-weight:600">Aggiungi pianta — {{ addPlantStepLabel }} ({{ addPlantStepNum }}/3)</span>
+            <button onClick="{{ addNext }}" disabled="{{ !addCanNext }}" style="{{ stepBtnStyle }}">›</button>
+          </div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadCol }}">
+              <div style="padding:0 20px 16px;font-size:22px;font-weight:600">Aggiungi pianta</div>
+              <sc-if value="{{ isAdd0 }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;flex:1">
+                  <div style="{{ S.segTrack }}">
+                    <div style="{{ addTypeIndicatorStyle }}"></div>
+                    <div onClick="{{ setAddTypePianta }}" style="{{ addTypeStylePianta }}">🪴 Pianta</div>
+                    <div onClick="{{ setAddTypeBouquet }}" style="{{ addTypeStyleBouquet }}">💐 Bouquet</div>
+                  </div>
+                  <div style="{{ addTypePreviewCard }}">
+                    <div style="font-size:40px;margin-bottom:10px">{{ addTypeEmoji }}</div>
+                    <div style="font-size:14px"><span style="{{ mutedTextInline }}">{{ addTypeHint }}</span></div>
+                  </div>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isAdd1 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;flex:1;overflow:auto">
+                  <input placeholder="Cerca specie…" style="{{ S.input }}" style-focus="{{ S.inputFocus }}" type="text"/>
+                  <div style="{{ specieResultsCard }}">
+                    <div style="{{ specieRowBordered }}"><div style="font-size:14px;font-weight:600">Monstera deliciosa</div><div style="font-size:11px;font-style:italic"><span style="{{ mutedTextInline }}">Monstera deliciosa · Tropicale</span></div></div>
+                    <div style="{{ specieRowBordered }}"><div style="font-size:14px;font-weight:600">Pothos</div><div style="font-size:11px;font-style:italic"><span style="{{ mutedTextInline }}">Epipremnum aureum · Interno</span></div></div>
+                    <div style="{{ specieRowLast }}"><div style="font-size:14px;font-weight:600">Aloe vera</div><div style="font-size:11px;font-style:italic"><span style="{{ mutedTextInline }}">Aloe vera · Succulenta</span></div></div>
+                  </div>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isAdd2 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;flex:1;display:flex;flex-direction:column;gap:14px">
+                  <input placeholder="Nome (es. La mia Monstera)" style="{{ S.input }}" style-focus="{{ S.inputFocus }}" type="text"/>
+                  <div style="{{ posizioneRowStyle }}"><span>Posizione</span><span style="{{ mutedTextInline }}">Soggiorno ›</span></div>
+                  <div style="font-size:12px"><span style="{{ mutedTextInline }}">Foto opzionale — puoi aggiungerla anche in seguito.</span></div>
+                </div>
+                </div>
+              </sc-if>
+              <button style="{{ ctaButton }}">{{ addPlantCta }}</button>
+            </div>
+          </x-import>
+        </div>
+
+        <div>
+          <div style="{{ stepBarStyle }}">
+            <button onClick="{{ pairPrev }}" disabled="{{ !pairCanPrev }}" style="{{ stepBtnStyle }}">‹</button>
+            <span style="font-size:12px;font-weight:600">Pairing vaso BLE — {{ pairStepLabel }} ({{ pairStepNum }}/4)</span>
+            <button onClick="{{ pairNext }}" disabled="{{ !pairCanNext }}" style="{{ stepBtnStyle }}">›</button>
+          </div>
+          <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ frameW }}" height="{{ frameH }}" dark="{{ isDark }}" hint-size="{{ frameW }},{{ frameH }}">
+            <div style="{{ S.screenPadCol }}">
+              <div style="padding:0 20px 16px;font-size:22px;font-weight:600">Aggiungi vaso smart</div>
+              <sc-if value="{{ isPair0 }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 24px;text-align:center">
+                  <div style="{{ spinnerStyle }}"></div>
+                  <div style="font-size:14px">Ricerca vasi Fiora nelle vicinanze…</div>
+                  <div style="{{ deviceFoundCard }}">
+                    <div style="{{ deviceIconTile }}">🪴</div>
+                    <div style="font-size:14px;font-weight:600">Fiora-3F2A</div>
+                  </div>
+                  <div style="font-size:12px"><span style="{{ mutedTextInline }}">Assicurati che il vaso sia acceso e vicino.</span></div>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isPair1 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="padding:0 20px;flex:1;overflow:auto">
+                  <div style="font-size:13px;font-weight:600;margin-bottom:8px"><span style="{{ mutedTextInline }}">Scegli la rete WiFi</span></div>
+                  <div style="{{ wifiListCard }}">
+                    <div style="{{ wifiRowTop }}"><span>CasaMia_5G <span style="font-size:11px"><span style="{{ mutedTextInline }}">· rete attuale</span></span></span><span>✓</span></div>
+                    <div style="{{ wifiRowBordered }}">CasaMia_2.4G 🔒</div>
+                    <div style="{{ wifiRowLast }}">Vicino_Wifi 🔒</div>
+                  </div>
+                  <input placeholder="Password WiFi" type="password" style="{{ S.input }}" style-focus="{{ S.inputFocus }}"/>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isPair2 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 30px;text-align:center">
+                  <div style="{{ spinnerStyle }}"></div>
+                  <div style="font-size:14px;font-weight:600">Verifica in corso…</div>
+                  <div style="font-size:12px"><span style="{{ mutedTextInline }}">Può richiedere fino a 45 secondi.</span></div>
+                </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isPair3 }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ stepAnimStyle }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:0 30px;text-align:center">
+                  <div style="{{ successCircleStyle }}">✓</div>
+                  <div style="font-size:20px;font-weight:700">Vaso connesso!</div>
+                  <input placeholder="Nome del vaso" style="{{ inputCentered }}" value="Vaso 1" readonly="{{ true }}"/>
+                </div>
+                </div>
+              </sc-if>
+              <button style="{{ ctaButton }}">{{ pairCta }}</button>
+            </div>
+          </x-import>
+        </div>
+
+      </div>
+
+      <div style="{{ androidNoteBox }}">
+        <div style="font-weight:600;margin-bottom:8px;font-size:14px">Adattamento ad Android</div>
+        <div style="{{ mutedTextInline }}">
+          Tipografia e icone restano identiche — Roboto e i pesi qui definiti sono di sistema su Android come SF Pro lo è su iOS. La tab bar mantiene la stessa struttura e l'indicatore a pillola (già nativo MD3); cade solo il sottile bordo superiore in stile iOS, sostituito da un'ombra leggera. I bottoni ricevono il ripple Android nativo al tocco al posto del calo di opacità. Le liste "raggruppate" (dettaglio pianta, cure) restano identiche nella struttura ma perdono l'inset laterale tipico iOS. La status bar e l'safe area cambiano con il dispositivo, gestite dai margini di sistema invece che dalla Dynamic Island. Il pairing BLE richiede in aggiunta il permesso di localizzazione precisa per l'elenco delle reti WiFi (§10.1.1 delle specifiche) — su iOS quel campo resta di testo libero.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;defaultMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;section&quot;:&quot;Comportamento&quot;}, &quot;showContrastBadges&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Comportamento&quot;}}">
+const RAMP_DATA = {
+  primary: {0:"#000000",10:"#001300",20:"#003500",30:"#005700",40:"#007a01",50:"#009c28",60:"#37ba55",70:"#73d482",80:"#a7e9af",90:"#d7f7d9",95:"#eafaeb",98:"#f5fcf6",99:"#f9fdf9",100:"#ffffff"},
+  secondary: {0:"#000000",10:"#0a0e07",20:"#232a1d",30:"#3d4835",40:"#58664d",50:"#758569",60:"#94a389",70:"#b3bfaa",80:"#d0d9ca",90:"#eaefe7",95:"#f4f6f2",98:"#f9faf9",99:"#fbfcfb",100:"#ffffff"},
+  tertiary: {0:"#000000",10:"#000a27",20:"#00245a",30:"#003f8d",40:"#005bc2",50:"#247bed",60:"#529cff",70:"#7fbcff",80:"#add8ff",90:"#d9efff",95:"#ebf6ff",98:"#f5fbff",99:"#f9fcff",100:"#ffffff"},
+  error: {0:"#000000",10:"#220000",20:"#520000",30:"#830605",40:"#b4110e",50:"#df382d",60:"#fa6656",70:"#ff9281",80:"#ffbbae",90:"#ffe0d9",95:"#ffefeb",98:"#fff7f5",99:"#fffaf9",100:"#ffffff"},
+  warning: {0:"#000000",10:"#1c0500",20:"#461800",30:"#702e00",40:"#9c4300",50:"#c36100",60:"#de8418",70:"#f4a860",80:"#ffca99",90:"#ffe7cf",95:"#fff2e6",98:"#fff9f3",99:"#fefbf8",100:"#ffffff"},
+  neutral: {0:"#000000",10:"#0c0c0c",20:"#272827",30:"#424442",40:"#5e615f",50:"#7c807d",60:"#9b9e9b",70:"#b9bbb9",80:"#d4d6d5",90:"#ecedec",95:"#f5f5f5",98:"#fafafa",99:"#fcfcfc",100:"#ffffff"},
+};
+const TONES = [0,10,20,30,40,50,60,70,80,90,95,98,99,100];
+
+const LIGHT = {
+  bg:'#f5f5f5', surface:'#ffffff', surfaceHigh:'#ecedec',
+  onSurface:'#0c0c0c', onSurfaceVariant:'#5b635c',
+  outline:'#798179', outlineVariant:'#ebedeb',
+  primary:'#007a01', onPrimary:'#ffffff', primaryContainer:'#d7f7d9', onPrimaryContainer:'#001300',
+  secondary:'#58664d', onSecondary:'#ffffff', secondaryContainer:'#eaefe7', onSecondaryContainer:'#0a0e07',
+  tertiary:'#005bc2', onTertiary:'#ffffff', tertiaryContainer:'#d9efff', onTertiaryContainer:'#000a27',
+  error:'#b4110e', onError:'#ffffff', errorContainer:'#ffe0d9', onErrorContainer:'#220000',
+  warning:'#9c4300', onWarning:'#ffffff', warningContainer:'#ffe7cf', onWarningContainer:'#1c0500',
+  shadow0:'none', shadow1:'0 1px 2px rgba(0,0,0,0.06)', shadow2:'0 2px 6px rgba(0,0,0,0.07)',
+  shadow3:'0 4px 10px rgba(0,0,0,0.08)', shadow4:'0 6px 14px rgba(0,0,0,0.10)', shadow5:'0 10px 24px rgba(0,0,0,0.12)',
+};
+const DARK = {
+  bg:'#000000', surface:'#272827', surfaceHigh:'#424442',
+  onSurface:'#f5f5f5', onSurfaceVariant:'#979f98',
+  outline:'#5b635c', outlineVariant:'#404640',
+  primary:'#a7e9af', onPrimary:'#003500', primaryContainer:'#005700', onPrimaryContainer:'#d7f7d9',
+  secondary:'#d0d9ca', onSecondary:'#232a1d', secondaryContainer:'#3d4835', onSecondaryContainer:'#eaefe7',
+  tertiary:'#add8ff', onTertiary:'#00245a', tertiaryContainer:'#003f8d', onTertiaryContainer:'#d9efff',
+  error:'#ffbbae', onError:'#520000', errorContainer:'#830605', onErrorContainer:'#ffe0d9',
+  warning:'#ffca99', onWarning:'#461800', warningContainer:'#702e00', onWarningContainer:'#ffe7cf',
+  shadow0:'none', shadow1:'none', shadow2:'0 1px 3px rgba(0,0,0,0.5)', shadow3:'0 2px 8px rgba(0,0,0,0.55)',
+  shadow4:'0 4px 12px rgba(0,0,0,0.6)', shadow5:'0 8px 20px rgba(0,0,0,0.65)',
+};
+const RATIOS = {
+  light:{ primary:'5.6:1', secondary:'6.1:1', tertiary:'6.4:1', error:'6.9:1', warning:'6.5:1', onSurface:'17.9:1', onSurfaceVariant:'5.7:1' },
+  dark:{ primary:'9.9:1', secondary:'10.2:1', tertiary:'10.0:1', error:'9.6:1', warning:'10.2:1', onSurface:'19.3:1', onSurfaceVariant:'7.7:1' },
+};
+
+function buildStyles(T){
+  const fontStack = "-apple-system, BlinkMacSystemFont, Roboto, 'Segoe UI', sans-serif";
+  return {
+    pageBg:{ background:T.bg, color:T.onSurface, fontFamily:fontStack, minHeight:'100vh' },
+    screenPadCol:{ background:T.bg, color:T.onSurface, fontFamily:fontStack, paddingTop:58, paddingBottom:24, height:'100%', boxSizing:'border-box', display:'flex', flexDirection:'column' },
+    screenPadScroll:{ background:T.bg, color:T.onSurface, fontFamily:fontStack, paddingTop:58, paddingBottom:24, height:'100%', boxSizing:'border-box', overflow:'auto' },
+    card:{ background:T.surface, borderRadius:16, boxShadow:T.shadow2 },
+    cardFlat:{ background:T.surfaceHigh, borderRadius:16 },
+    cardOutline:{ background:T.surface, borderRadius:16, border:'1px solid '+T.outlineVariant },
+    primaryBtn:{ background:T.primary, color:T.onPrimary, borderRadius:16, border:'none', cursor:'pointer' },
+    primaryBtnPress:{ background:T.primary, color:T.onPrimary, borderRadius:16, border:'none', opacity:0.82 },
+    tonalBtn:{ background:T.primaryContainer, color:T.onPrimaryContainer, borderRadius:16, border:'none' },
+    tonalBtnPress:{ background:T.primaryContainer, color:T.onPrimaryContainer, borderRadius:16, border:'none', opacity:0.82 },
+    outlineBtn:{ background:'transparent', color:T.primary, border:'1.5px solid '+T.primary, borderRadius:16, cursor:'pointer' },
+    outlineBtnPress:{ background:T.primaryContainer, color:T.primary, border:'1.5px solid '+T.primary, borderRadius:16 },
+    textBtn:{ background:'transparent', color:T.primary, border:'none', cursor:'pointer' },
+    textBtnPress:{ background:T.primaryContainer, color:T.primary, border:'none' },
+    elevatedBtn:{ background:T.surface, color:T.primary, borderRadius:16, border:'none', boxShadow:T.shadow2, cursor:'pointer' },
+    elevatedBtnPress:{ background:T.surface, color:T.primary, borderRadius:16, border:'none', boxShadow:T.shadow1, opacity:0.9 },
+    disabledBtn:{ background:T.outlineVariant, color:T.onSurfaceVariant, borderRadius:16, border:'none', opacity:0.7 },
+    chipOn:{ background:T.secondaryContainer, color:T.onSecondaryContainer, border:'1px solid transparent', padding:'8px 14px', borderRadius:999, fontSize:13, fontWeight:600, flexShrink:0, cursor:'pointer' },
+    chipOff:{ background:'transparent', color:T.onSurfaceVariant, border:'1px solid '+T.outline, padding:'8px 14px', borderRadius:999, fontSize:13, fontWeight:600, flexShrink:0, cursor:'pointer' },
+    segTrack:{ background:T.surfaceHigh, borderRadius:12, display:'flex', padding:3, margin:'0 20px 12px', position:'relative' },
+    segIndicatorBase:{ position:'absolute', top:3, bottom:3, left:3, width:'calc((100% - 6px)/3)', borderRadius:10, background:T.surface, boxShadow: T.shadow1==='none' ? '0 1px 3px rgba(0,0,0,0.35)' : T.shadow1, transition:'transform 320ms cubic-bezier(0.32,0.72,0,1)', zIndex:0 },
+    segOptionOn:{ background:'transparent', color:T.onSurface, borderRadius:10, flex:1, textAlign:'center', padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer', position:'relative', zIndex:1, transition:'color 200ms' },
+    segOptionOff:{ background:'transparent', color:T.onSurfaceVariant, borderRadius:10, flex:1, textAlign:'center', padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer', position:'relative', zIndex:1, transition:'color 200ms' },
+    segIndicatorBase2:{ position:'absolute', top:3, bottom:3, left:3, width:'calc((100% - 6px)/2)', borderRadius:10, background:T.surface, boxShadow: T.shadow1==='none' ? '0 1px 3px rgba(0,0,0,0.35)' : T.shadow1, transition:'transform 320ms cubic-bezier(0.32,0.72,0,1)', zIndex:0 },
+    segOn:{ background:T.surface, color:T.onSurface, borderRadius:10, boxShadow: T.shadow1==='none' ? '0 1px 3px rgba(0,0,0,0.35)' : T.shadow1, flex:1, textAlign:'center', padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer' },
+    segOff:{ background:'transparent', color:T.onSurfaceVariant, borderRadius:10, flex:1, textAlign:'center', padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer' },
+    tileOk:{ background:T.primaryContainer, color:T.onPrimaryContainer, borderRadius:16 },
+    tileWarn:{ background:T.warningContainer, color:T.onWarningContainer, borderRadius:16 },
+    tileCrit:{ background:T.errorContainer, color:T.onErrorContainer, borderRadius:16 },
+    input:{ background:T.surface, color:T.onSurface, border:'1px solid '+T.outline, borderRadius:16, padding:'13px 14px', fontSize:15, boxSizing:'border-box', width:'100%' },
+    inputFocus:{ background:T.surface, color:T.onSurface, border:'1.5px solid '+T.primary, borderRadius:16, padding:'13px 14px', fontSize:15, boxSizing:'border-box', width:'100%' },
+    inputError:{ background:T.surface, color:T.onSurface, border:'1.5px solid '+T.error, borderRadius:16, padding:'13px 14px', fontSize:15, boxSizing:'border-box', width:'100%' },
+    inputDisabled:{ background:T.surfaceHigh, color:T.onSurfaceVariant, border:'1px solid '+T.outlineVariant, borderRadius:16, opacity:0.7, padding:'13px 14px', fontSize:15, boxSizing:'border-box', width:'100%' },
+    navWrap:{ background:T.surface, borderRadius:999, boxShadow:T.shadow2, maxWidth:420, margin:'0 auto', padding:'10px 18px', display:'flex', justifyContent:'space-around', alignItems:'center' },
+  };
+}
+
+class Component extends DCLogic {
+  state = { mode:'light', collectionFilter:'tutti', sensorWindow:'24h', pairingStep:0, onboardingStep:0, addPlantStep:0, clima:'temperato', addType:'pianta', detailStep:0, navDir:'fwd' };
+
+  componentDidMount(){
+    if (this.props.defaultMode === 'dark') this.setState({ mode:'dark' });
+  }
+
+  renderVals(){
+    const dark = this.state.mode === 'dark';
+    const T = dark ? DARK : LIGHT;
+    const R = dark ? RATIOS.dark : RATIOS.light;
+    const S = buildStyles(T);
+    const showRatios = this.props.showContrastBadges ?? true;
+
+    const swItem = (hex) => ({ hex, style:{ width:26, height:26, borderRadius:6, background:hex, flexShrink:0 } });
+    const tonalRamps = ['primary','secondary','tertiary','error','warning','neutral'].map(key => ({
+      name: key.charAt(0).toUpperCase()+key.slice(1),
+      items: TONES.map(t => ({ tone:t, ...swItem(RAMP_DATA[key][t]) })),
+    }));
+
+    const roleSw = (label, hex) => ({ label, hex,
+      style:{ background:hex, borderRadius:12, padding:'10px 8px', minHeight:44, display:'flex', alignItems:'flex-end', boxSizing:'border-box' },
+      textStyle:{ fontSize:10, fontWeight:600, color:hex, mixBlendMode:'difference', filter:'invert(1) grayscale(1) contrast(2)' },
+    });
+    const roleCards = [
+      { name:'Primary', ratio:R.primary, items:[roleSw('Primary',T.primary), roleSw('On Primary',T.onPrimary), roleSw('Primary Container',T.primaryContainer), roleSw('On Primary Container',T.onPrimaryContainer)] },
+      { name:'Secondary', ratio:R.secondary, items:[roleSw('Secondary',T.secondary), roleSw('On Secondary',T.onSecondary), roleSw('Secondary Container',T.secondaryContainer), roleSw('On Secondary Container',T.onSecondaryContainer)] },
+      { name:'Tertiary', ratio:R.tertiary, items:[roleSw('Tertiary',T.tertiary), roleSw('On Tertiary',T.onTertiary), roleSw('Tertiary Container',T.tertiaryContainer), roleSw('On Tertiary Container',T.onTertiaryContainer)] },
+      { name:'Error', ratio:R.error, items:[roleSw('Error',T.error), roleSw('On Error',T.onError), roleSw('Error Container',T.errorContainer), roleSw('On Error Container',T.onErrorContainer)] },
+      { name:'Warning (esteso)', ratio:R.warning, items:[roleSw('Warning',T.warning), roleSw('On Warning',T.onWarning), roleSw('Warning Container',T.warningContainer), roleSw('On Warning Container',T.onWarningContainer)] },
+      { name:'Superficie', ratio:R.onSurface, items:[roleSw('Background',T.bg), roleSw('Surface',T.surface), roleSw('Outline',T.outline), roleSw('Outline Variant',T.outlineVariant)] },
+    ];
+
+    const typeScale = [
+      {tier:'Display Large', size:57, lh:64, weight:700, sample:'Fiora'},
+      {tier:'Display Medium', size:45, lh:52, weight:700, sample:'Le tue piante'},
+      {tier:'Display Small', size:36, lh:44, weight:700, sample:'Buongiorno'},
+      {tier:'Headline Large', size:32, lh:40, weight:700, sample:'Oggi'},
+      {tier:'Headline Medium', size:28, lh:36, weight:700, sample:'Collezione'},
+      {tier:'Headline Small', size:24, lh:32, weight:600, sample:'Dettaglio pianta'},
+      {tier:'Title Large', size:22, lh:28, weight:600, sample:'Che clima hai in casa?'},
+      {tier:'Title Medium', size:16, lh:24, weight:600, sample:'La mia Monstera'},
+      {tier:'Title Small', size:14, lh:20, weight:600, sample:'Dati ambientali'},
+      {tier:'Body Large', size:16, lh:24, weight:400, sample:'Annaffia tra 2 giorni'},
+      {tier:'Body Medium', size:14, lh:20, weight:400, sample:'Monstera deliciosa'},
+      {tier:'Body Small', size:12, lh:16, weight:400, sample:'Ultima lettura: 12 minuti fa'},
+      {tier:'Label Large', size:14, lh:20, weight:500, sample:'Salva'},
+      {tier:'Label Medium', size:12, lh:16, weight:500, sample:'Vaso smart'},
+      {tier:'Label Small', size:11, lh:16, weight:500, sample:'24H'},
+    ].map(r => ({ ...r, style:{ fontSize:r.size, lineHeight:r.lh+'px', fontWeight:r.weight, flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }));
+
+    const spacingScale = [4,8,12,16,20,24,32,40,48,64].map(px => ({ px, style:{ width:px, height:8, background:T.primary, borderRadius:4 } }));
+    const radiusScale = [
+      {label:'none', px:0}, {label:'xs', px:4}, {label:'sm', px:8}, {label:'md', px:12},
+      {label:'lg — default Fiora', px:16}, {label:'xl', px:28}, {label:'full', px:999},
+    ].map(r => ({ ...r, style:{ width:64, height:64, borderRadius: Math.min(r.px,32), background:T.surfaceHigh, border:'1px solid '+T.outlineVariant } }));
+    const darkElevationBg = [RAMP_DATA.neutral[10], RAMP_DATA.neutral[20], RAMP_DATA.neutral[30], RAMP_DATA.neutral[40], RAMP_DATA.neutral[50], RAMP_DATA.neutral[60]];
+    const elevationScale = [0,1,2,3,4,5].map(l => ({ label:'Livello '+l, style:{ width:130, height:84, borderRadius:16, background: dark ? darkElevationBg[l] : T.surface, boxShadow:T['shadow'+l], color: dark && l>=4 ? T.bg : T.onSurface, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600 } }));
+    const buttonRows = [
+      { name:'Filled', style:S.primaryBtn, press:S.primaryBtnPress, disabled:S.disabledBtn },
+      { name:'Filled Tonal', style:S.tonalBtn, press:S.tonalBtnPress, disabled:S.disabledBtn },
+      { name:'Outlined', style:S.outlineBtn, press:S.outlineBtnPress, disabled:S.disabledBtn },
+      { name:'Testo', style:S.textBtn, press:S.textBtnPress, disabled:S.disabledBtn },
+      { name:'Elevato', style:S.elevatedBtn, press:S.elevatedBtnPress, disabled:S.disabledBtn },
+    ].map(b => ({ ...b, style:{...b.style, padding:'11px 22px', fontSize:14, fontWeight:600}, press:{...b.press, padding:'11px 22px', fontSize:14, fontWeight:600}, disabled:{...b.disabled, padding:'11px 22px', fontSize:14, fontWeight:600} }));
+
+    const navTabs = [
+      { label:'Oggi', active:true, circleR:9, iconPath:'M8 12.5L10.8 15L16 9.5' },
+      { label:'Piante', active:false, iconPath:'M12 21V11M12 11C12 7 9.5 4.5 5 4C5.5 8.5 8 11 12 11ZM12 13C12 9.7 14.2 7.5 19 7C18.5 11 16 13 12 13Z' },
+      { label:'Vasi', active:false, iconPath:'M4 8H20L18.5 12H5.5L4 8Z M6.5 12L8 20H16L17.5 12 M12 8V4' },
+      { label:'Impostazioni', active:false, circleR:3, iconPath:'M12 3.5V6M12 18V20.5M20.5 12H18M6 12H3.5M18 6L16.2 7.8M7.8 16.2L6 18M18 18L16.2 16.2M7.8 7.8L6 6' },
+    ].map(t => ({
+      ...t,
+      color: t.active ? T.onPrimary : T.onSurfaceVariant,
+      iconWrapStyle: { width:38, height:38, borderRadius:19, display:'flex', alignItems:'center', justifyContent:'center', background: t.active ? T.primary : 'transparent' },
+    }));
+    const navTabsLeft = navTabs.slice(0,2);
+    const navTabsRight = navTabs.slice(2);
+    const addCircleStyle = { width:38, height:38, borderRadius:19, background:T.primary, display:'flex', alignItems:'center', justifyContent:'center' };
+    const bottomBarStyle = { background:T.surface, borderRadius:999, boxShadow:T.shadow2, display:'flex', justifyContent:'space-around', alignItems:'center', padding:'10px 14px', margin:'0 14px 14px', flexShrink:0 };
+
+    const rangeLabelsByWindow = {
+      '24h': { from:'00:00', to:'Ora' },
+      '7d': { from:'7 giorni fa', to:'Oggi' },
+      '30d': { from:'30 giorni fa', to:'Oggi' },
+    };
+    const rangeLabels = rangeLabelsByWindow[this.state.sensorWindow];
+    const sw = this.state.sensorWindow;
+    const sensorChartCardStyle = {...S.cardFlat, padding:'12px 14px'};
+    const sensorChartsBase = [
+      { key:'humidity', label:'Umidità terreno', value:'22%', color:T.warning, pointsByWindow:{
+        '24h':'M4,10 L24,14 L44,20 L64,28 L84,32 L104,36 L124,40 L144,42',
+        '7d':'M4,6 L24,12 L44,10 L64,18 L84,22 L104,30 L124,34 L144,40',
+        '30d':'M4,4 L24,10 L44,16 L64,14 L84,24 L104,30 L124,36 L144,42',
+      } },
+      { key:'light', label:'Luce', value:'850 lx', color:T.primary, pointsByWindow:{
+        '24h':'M4,32 L24,26 L44,30 L64,14 L84,18 L104,8 L124,14 L144,6',
+        '7d':'M4,24 L24,30 L44,16 L64,22 L84,10 L104,18 L124,8 L144,12',
+        '30d':'M4,28 L24,20 L44,26 L64,12 L84,18 L104,22 L124,10 L144,8',
+      } },
+      { key:'temp', label:'Temperatura', value:'9°', color:T.error, pointsByWindow:{
+        '24h':'M4,8 L24,12 L44,10 L64,18 L84,22 L104,28 L124,34 L144,38',
+        '7d':'M4,6 L24,10 L44,16 L64,14 L84,24 L104,20 L124,30 L144,34',
+        '30d':'M4,10 L24,8 L44,18 L64,24 L84,16 L104,26 L124,32 L144,36',
+      } },
+    ];
+    const sensorCharts = sensorChartsBase.map(m => ({ ...m, points: m.pointsByWindow[sw], areaPoints: m.pointsByWindow[sw]+' L144,40 L4,40 Z' }));
+
+    const collectionCardsBase = [
+      {name:'La mia Monstera', species:'Monstera deliciosa', emoji:'🌿', type:'pianta', hasVaso:true, task:'Annaffia tra 2 giorni', taskColor:T.onSurfaceVariant},
+      {name:'Sansevieria camera', species:'Sansevieria trifasciata', emoji:'🪴', type:'pianta', hasVaso:false, task:'Annaffia tra 6 giorni', taskColor:T.onSurfaceVariant},
+      {name:'Bouquet compleanno', species:'—', emoji:'💐', type:'bouquet', hasVaso:false, task:'Cambia acqua oggi', taskColor:T.tertiary},
+      {name:'Ficus soggiorno', species:'Ficus benjamina', emoji:'🌿', type:'pianta', hasVaso:true, task:'In ritardo di 3 giorni', taskColor:T.warning},
+    ];
+    const f = this.state.collectionFilter;
+    const collectionCards = collectionCardsBase.map(c => ({
+      ...c,
+      visible: f==='tutti' || (f==='piante'&&c.type==='pianta') || (f==='bouquet'&&c.type==='bouquet') || (f==='vaso'&&c.hasVaso),
+      taskStyle: { fontSize:11, marginTop:6, color:c.taskColor },
+    }));
+
+    const climaStyleFor = (name) => this.state.clima===name
+      ? {...S.tonalBtn, borderRadius:14, padding:'13px 14px', cursor:'pointer'}
+      : {...S.cardOutline, borderRadius:14, padding:'13px 14px', cursor:'pointer'};
+    const addLabels = ['Tipo','Specie','Dettagli'];
+    const pairLabels = ['Scansione','Rete WiFi','Verifica','Fatto'];
+
+    const noteBox = {...S.cardOutline, padding:'20px 24px', marginBottom:48, fontSize:14, lineHeight:1.6};
+    const androidNoteBox = {...S.cardOutline, padding:'20px 24px', marginTop:40, fontSize:13, lineHeight:1.6, maxWidth:900};
+    const roleCardStyle = {...S.card, padding:16};
+    const cardDemo1 = {...S.card, padding:16, width:200};
+    const cardDemo2 = {...S.cardFlat, padding:16, width:200};
+    const cardDemo3 = {...S.cardOutline, padding:16, width:200};
+    const emojiCircleIntro = {...S.tonalBtn, width:88, height:88, borderRadius:44, display:'flex', alignItems:'center', justifyContent:'center', fontSize:42};
+    const ctaButtonFirst = {...S.primaryBtn, margin:'0 20px 20px', padding:15, fontSize:16, fontWeight:600};
+    const ctaButton = {...S.primaryBtn, margin:'16px 20px 20px', padding:15, fontSize:16, fontWeight:600};
+    const taskGroupCard = {...S.card, margin:'0 20px 16px'};
+    const errorDotStyle = {width:7, height:7, borderRadius:4, background:T.error, flexShrink:0};
+    const labelError = {padding:'16px 20px 4px', fontSize:11, fontWeight:700, letterSpacing:0.5, color:T.error};
+    const labelMuted = {padding:'0 20px 4px', fontSize:11, fontWeight:700, letterSpacing:0.5, color:T.onSurfaceVariant};
+    const collectionEmojiTile = {...S.cardFlat, display:'flex', alignItems:'center', justifyContent:'center', height:56, fontSize:26, marginBottom:8};
+    const plantAvatarStyle = {...S.tonalBtn, width:56, height:56, borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, flexShrink:0};
+    const sensorTileStyle = {...S.tileOk, padding:'10px 8px', textAlign:'center'};
+    const sensorTileWarn = {...S.tileWarn, padding:'10px 8px', textAlign:'center'};
+    const sensorTileCrit = {...S.tileCrit, padding:'10px 8px', textAlign:'center'};
+    const noVaseCard = {...S.card, margin:'0 20px 16px', padding:16};
+    const associateBtnStyle = {...S.outlineBtn, padding:'11px 16px', fontSize:14, fontWeight:600, width:'100%', boxSizing:'border-box'};
+    const addTypePreviewCard = {...S.cardOutline, padding:20, textAlign:'center', margin:'4px 0'};
+    const guideCardStyle = {...S.card, margin:'0 20px'};
+    const guideRow = {display:'flex', justifyContent:'space-between', padding:'11px 14px', borderBottom:'1px solid '+T.outlineVariant, fontSize:13};
+    const guideRowLast = {display:'flex', justifyContent:'space-between', padding:'11px 14px', fontSize:13};
+    const planCardStyle = {...S.tonalBtn, flex:1, borderRadius:16, padding:'24px 0', textAlign:'center'};
+    const bouquetCardStyle = {...S.cardOutline, flex:1, padding:'24px 0', textAlign:'center'};
+    const specieResultsCard = {...S.card, marginTop:14};
+    const posizioneRowStyle = {...S.card, padding:'13px 14px', display:'flex', justifyContent:'space-between', fontSize:14};
+    const deviceFoundCard = {...S.card, width:'100%', padding:14, display:'flex', alignItems:'center', gap:12, textAlign:'left', boxSizing:'border-box'};
+    const deviceIconTile = {...S.tonalBtn, width:40, height:40, borderRadius:12, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18};
+    const wifiListCard = {...S.card, marginBottom:14};
+    const successCircleStyle = {...S.tonalBtn, width:72, height:72, borderRadius:36, display:'flex', alignItems:'center', justifyContent:'center', fontSize:32};
+    const inputCentered = {...S.input, textAlign:'center'};
+    const dotActive = {width:7, height:7, borderRadius:4, background:T.primary};
+    const dotInactive = {width:7, height:7, borderRadius:4, background:T.outlineVariant};
+    const warningTextStyle = {fontSize:12, color:T.warning};
+    const taskRowStyle = {display:'flex', alignItems:'center', gap:10, padding:'13px 14px', borderBottom:'1px solid '+T.outlineVariant};
+    const taskRowLast = {display:'flex', alignItems:'center', gap:10, padding:'13px 14px'};
+    const wifiRowTop = {padding:'12px 14px', borderBottom:'1px solid '+T.outlineVariant, display:'flex', justifyContent:'space-between', fontSize:14};
+    const wifiRowBordered = {padding:'12px 14px', borderBottom:'1px solid '+T.outlineVariant, fontSize:14};
+    const wifiRowLast = {padding:'12px 14px', fontSize:14};
+    const specieRowBordered = {padding:'12px 14px', borderBottom:'1px solid '+T.outlineVariant};
+    const specieRowLast = {padding:'12px 14px'};
+    const headerBarStyle = {display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, padding:'28px 32px', flexWrap:'wrap', borderBottom:'1px solid '+T.outlineVariant};
+    const navPillsRowStyle = {display:'flex', gap:8, padding:'14px 32px', flexWrap:'wrap', borderBottom:'1px solid '+T.outlineVariant};
+    const typeRowWrap = {display:'flex', alignItems:'baseline', gap:20, padding:'14px 0', borderBottom:'1px solid '+T.outlineVariant};
+    const touchTargetOutline = {position:'absolute', inset:0, border:'1.5px dashed '+T.outline, borderRadius:10};
+    const touchTargetFill = {...S.tonalBtn, position:'absolute', inset:8, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14};
+    const kickerStyle = {fontSize:13, fontWeight:600, letterSpacing:1, textTransform:'uppercase', color:T.onSurfaceVariant};
+    const collectionCardStyle = {...S.card, padding:12};
+
+    return {
+      isDark: dark, modeLabel: dark ? 'Scuro' : 'Chiaro',
+      toggleMode: () => this.setState(s => ({ mode: s.mode==='light'?'dark':'light' })),
+      T, S, R, showRatios,
+      mutedTextInline: { color:T.onSurfaceVariant },
+      pillLinkStyle: { fontSize:13, fontWeight:600, padding:'6px 12px', borderRadius:999, background:T.surfaceHigh, color:T.onSurface },
+      toggleTrackStyle: { width:48, height:28, borderRadius:14, background: dark ? T.primary : T.outlineVariant, position:'relative', cursor:'pointer' },
+      toggleThumbStyle: { width:22, height:22, borderRadius:11, background:'#fff', position:'absolute', top:3, left: dark ? 23 : 3, boxShadow:'0 1px 3px rgba(0,0,0,0.3)', transition:'left .15s' },
+      ratioBadgeStyle: { fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:6, background:T.surfaceHigh, color:T.onSurfaceVariant },
+      fabStyle: { width:56, height:56, borderRadius:28, background:T.primaryContainer, color:T.onPrimaryContainer, boxShadow:T.shadow3, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 },
+      quickActionStyle: { width:30, height:30, borderRadius:15, background:T.surfaceHigh, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 },
+      spinnerStyle: { width:48, height:48, borderRadius:24, border:'3px solid '+T.outlineVariant, borderTopColor:T.primary, animation:'fspin 1s linear infinite' },
+      stepBarStyle: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:10, padding:'0 4px' },
+      stepBtnStyle: { width:28, height:28, borderRadius:14, border:'1px solid '+T.outline, background:'transparent', color:T.onSurface, fontSize:15, cursor:'pointer' },
+      staticLabelStyle: { fontSize:12, fontWeight:600, marginBottom:10, padding:'0 4px', color:T.onSurfaceVariant },
+      frameW: 336, frameH: 726,
+
+      tonalRamps, roleCards, typeScale, spacingScale, radiusScale, elevationScale, buttonRows, navTabs, collectionCards,
+      sensorCharts, sensorChartCardStyle, rangeLabels,
+
+      noteBox, androidNoteBox, roleCardStyle, cardDemo1, cardDemo2, cardDemo3, emojiCircleIntro, ctaButtonFirst, ctaButton,
+      taskGroupCard, errorDotStyle, labelError, labelMuted, collectionEmojiTile, plantAvatarStyle, sensorTileStyle,
+      guideCardStyle, guideRow, guideRowLast, planCardStyle, bouquetCardStyle, specieResultsCard, posizioneRowStyle,
+      deviceFoundCard, deviceIconTile, wifiListCard, successCircleStyle, inputCentered,
+      dotActive, dotInactive, warningTextStyle, taskRowStyle, taskRowLast, wifiRowTop, wifiRowBordered, wifiRowLast,
+      specieRowBordered, specieRowLast, headerBarStyle, navPillsRowStyle, typeRowWrap, touchTargetOutline,
+      touchTargetFill, kickerStyle, collectionCardStyle,
+
+      setFilterTutti: () => this.setState({collectionFilter:'tutti'}),
+      setFilterPiante: () => this.setState({collectionFilter:'piante'}),
+      setFilterBouquet: () => this.setState({collectionFilter:'bouquet'}),
+      setFilterVaso: () => this.setState({collectionFilter:'vaso'}),
+      chipStyleTutti: f==='tutti' ? S.chipOn : S.chipOff,
+      chipStylePiante: f==='piante' ? S.chipOn : S.chipOff,
+      chipStyleBouquet: f==='bouquet' ? S.chipOn : S.chipOff,
+      chipStyleVaso: f==='vaso' ? S.chipOn : S.chipOff,
+
+      setWindow24h: () => this.setState({sensorWindow:'24h'}),
+      setWindow7d: () => this.setState({sensorWindow:'7d'}),
+      setWindow30d: () => this.setState({sensorWindow:'30d'}),
+      segStyle24h: this.state.sensorWindow==='24h' ? S.segOptionOn : S.segOptionOff,
+      segStyle7d: this.state.sensorWindow==='7d' ? S.segOptionOn : S.segOptionOff,
+      segStyle30d: this.state.sensorWindow==='30d' ? S.segOptionOn : S.segOptionOff,
+      segIndicatorStyle: { ...S.segIndicatorBase, transform:'translateX('+({'24h':0,'7d':1,'30d':2}[this.state.sensorWindow]*100)+'%)' },
+
+      pairingStep: this.state.pairingStep,
+      pairNext: () => this.setState(s => ({ pairingStep: Math.min(3, s.pairingStep+1), navDir:'fwd' })),
+      pairPrev: () => this.setState(s => ({ pairingStep: Math.max(0, s.pairingStep-1), navDir:'back' })),
+      pairCanPrev: this.state.pairingStep>0, pairCanNext: this.state.pairingStep<3,
+      isPair0: this.state.pairingStep===0, isPair1: this.state.pairingStep===1, isPair2: this.state.pairingStep===2, isPair3: this.state.pairingStep===3,
+      pairStepLabel: pairLabels[this.state.pairingStep], pairStepNum: this.state.pairingStep+1,
+      pairCta: this.state.pairingStep===1 ? 'Configura il vaso' : this.state.pairingStep===3 ? 'Fatto' : 'Attendere…',
+
+      onboardingStep: this.state.onboardingStep,
+      onbNext: () => this.setState(s => ({ onboardingStep: Math.min(1, s.onboardingStep+1), navDir:'fwd' })),
+      onbPrev: () => this.setState(s => ({ onboardingStep: Math.max(0, s.onboardingStep-1), navDir:'back' })),
+      onbCanPrev: this.state.onboardingStep>0, onbCanNext: this.state.onboardingStep<1,
+      isOnb0: this.state.onboardingStep===0, isOnb1: this.state.onboardingStep===1,
+      onboardingStepLabel: this.state.onboardingStep+1,
+
+      addPlantStep: this.state.addPlantStep,
+      addNext: () => this.setState(s => ({ addPlantStep: Math.min(2, s.addPlantStep+1), navDir:'fwd' })),
+      addPrev: () => this.setState(s => ({ addPlantStep: Math.max(0, s.addPlantStep-1), navDir:'back' })),
+      addCanPrev: this.state.addPlantStep>0, addCanNext: this.state.addPlantStep<2,
+      isAdd0: this.state.addPlantStep===0, isAdd1: this.state.addPlantStep===1, isAdd2: this.state.addPlantStep===2,
+      addPlantStepLabel: addLabels[this.state.addPlantStep], addPlantStepNum: this.state.addPlantStep+1,
+      addPlantCta: this.state.addPlantStep===2 ? 'Salva' : 'Continua',
+
+      clima: this.state.clima,
+      setClimaTemperato: () => this.setState({clima:'temperato'}),
+      setClimaMediterraneo: () => this.setState({clima:'mediterraneo'}),
+      setClimaTropicale: () => this.setState({clima:'tropicale'}),
+      setClimaFreddo: () => this.setState({clima:'freddo'}),
+      setClimaAppartamento: () => this.setState({clima:'appartamento'}),
+      climaStyleTemperato: climaStyleFor('temperato'),
+      climaStyleMediterraneo: climaStyleFor('mediterraneo'),
+      climaStyleTropicale: climaStyleFor('tropicale'),
+      climaStyleFreddo: climaStyleFor('freddo'),
+      climaStyleAppartamento: climaStyleFor('appartamento'),
+
+      navTabsLeft, navTabsRight, addCircleStyle, bottomBarStyle,
+      sensorTileWarn, sensorTileCrit, noVaseCard, associateBtnStyle, addTypePreviewCard,
+
+      addType: this.state.addType,
+      setAddTypePianta: () => this.setState({addType:'pianta'}),
+      setAddTypeBouquet: () => this.setState({addType:'bouquet'}),
+      addTypeStylePianta: this.state.addType==='pianta' ? S.segOptionOn : S.segOptionOff,
+      addTypeStyleBouquet: this.state.addType==='bouquet' ? S.segOptionOn : S.segOptionOff,
+      addTypeIndicatorStyle: { ...S.segIndicatorBase2, transform:'translateX('+(this.state.addType==='bouquet'?100:0)+'%)' },
+      addTypeEmoji: this.state.addType==='pianta' ? '\u{1FAB4}' : '\u{1F490}',
+      addTypeHint: this.state.addType==='pianta' ? 'Una pianta singola, con specie e cura nel tempo.' : 'Un bouquet ricevuto: reminder cambio acqua e checklist iniziale.',
+
+      detailStep: this.state.detailStep,
+      stepAnimStyle: { flex:1, minWidth:0, display:'flex', flexDirection:'column', animation: (this.state.navDir==='back'?'pageInBack':'pageInFwd')+' 380ms cubic-bezier(0.32,0.72,0,1) both' },
+      detailNext: () => this.setState(s => ({ detailStep: Math.min(1, s.detailStep+1), navDir:'fwd' })),
+      detailPrev: () => this.setState(s => ({ detailStep: Math.max(0, s.detailStep-1), navDir:'back' })),
+      detailCanPrev: this.state.detailStep>0, detailCanNext: this.state.detailStep<1,
+      isDetail0: this.state.detailStep===0, isDetail1: this.state.detailStep===1,
+      detailStepLabel: this.state.detailStep===0 ? 'Con vaso smart' : 'Senza vaso smart',
+    };
+  }
+}
+</script>
+</body>
+</html>
