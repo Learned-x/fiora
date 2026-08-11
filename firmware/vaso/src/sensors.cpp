@@ -9,7 +9,7 @@
 // (vedi git history di questo file) quando arrivano i sensori.
 
 void initSensors() {
-  randomSeed(analogRead(0) + micros());
+  randomSeed(micros());
 }
 
 void executeSensorCycle() {

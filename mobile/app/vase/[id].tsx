@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -17,7 +17,7 @@ import { SensorTile } from '../../src/components/SensorTile';
 import type { SensorStatus as TileStatus } from '../../src/components/SensorTile';
 import { SensorChart } from '../../src/components/SensorChart';
 import { Collapsible } from '../../src/components/Collapsible';
-import { deleteVase, getVase, getVaseReadings24h, renameVase } from '../../src/services/vases.api';
+import { deleteVase, getVase, getVaseReadings24h, refreshVase, renameVase } from '../../src/services/vases.api';
 import type { SmartVase, SensorReading } from '../../src/services/vases.api';
 import { formatDay, luceSensoreLabel, luceSensoreStatus, temperaturaLabel, temperaturaStatus, umiditaLabel, umiditaStatus } from '../../src/lib/plantUi';
 import { updatePlant } from '../../src/services/plants.api';
@@ -41,7 +41,14 @@ function statoLabel(stato: SmartVase['stato']) {
   return 'Disconnesso';
 }
 
-type Sheet = 'none' | 'notFound' | 'linkError' | 'unlinkError' | 'deleteError' | 'renameError' | 'plantActions' | 'confirmDelete';
+type Sheet = 'none' | 'notFound' | 'linkError' | 'unlinkError' | 'deleteError' | 'renameError' | 'refreshError' | 'plantActions' | 'confirmDelete';
+
+// Dopo la richiesta di lettura immediata il dato arriva via MQTT in modo
+// asincrono: si ripolla il vaso per un po' sperando di vedere una lettura
+// più recente di quella di partenza, poi si smette (nessuna garanzia che
+// il vaso risponda: offline reale ma non ancora rilevato, WiFi assente, ecc.).
+const REFRESH_POLL_INTERVAL_MS = 3000;
+const REFRESH_POLL_TIMEOUT_MS = 30000;
 
 export default function VaseDetailScreen() {
   const theme = useTheme();
@@ -54,6 +61,8 @@ export default function VaseDetailScreen() {
   const [sheet, setSheet] = useState<Sheet>('none');
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -71,8 +80,41 @@ export default function VaseDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      return () => {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+      };
     }, [load])
   );
+
+  async function handleRefresh() {
+    if (!vase) return;
+    if (pollTimer.current) clearInterval(pollTimer.current);
+    setRefreshing(true);
+    try {
+      await refreshVase(vase.id);
+    } catch {
+      setRefreshing(false);
+      setSheet('refreshError');
+      return;
+    }
+
+    const startedAt = vase.ultimaLettura?.time;
+    const deadline = Date.now() + REFRESH_POLL_TIMEOUT_MS;
+    pollTimer.current = setInterval(async () => {
+      if (Date.now() >= deadline) {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        setRefreshing(false);
+        return;
+      }
+      const fresh = await getVase(id).catch(() => null);
+      if (fresh?.ultimaLettura?.time && fresh.ultimaLettura.time !== startedAt) {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        setRefreshing(false);
+        setVase(fresh);
+        getVaseReadings24h(id).then(setReadings24h).catch(() => {});
+      }
+    }, REFRESH_POLL_INTERVAL_MS);
+  }
 
   async function handleLinkPlant(plant: Plant) {
     if (!vase) return;
@@ -170,8 +212,20 @@ export default function VaseDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScreenHeader back={{ label: 'Vasi' }} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenHeader
+        back={{ label: 'Vasi' }}
+        right={{
+          label: 'Aggiorna',
+          onPress: handleRefresh,
+          disabled: refreshing || vase.stato !== 'connesso',
+        }}
+      />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} enabled={vase.stato === 'connesso'} />
+        }
+      >
         <Pressable
           onPress={openRename}
           disabled={busy}
@@ -349,7 +403,9 @@ export default function VaseDetailScreen() {
                     ? 'Rimozione non riuscita, riprova.'
                     : sheet === 'renameError'
                       ? 'Rinomina non riuscita, riprova.'
-                      : undefined
+                      : sheet === 'refreshError'
+                        ? 'Richiesta di aggiornamento non riuscita, riprova.'
+                        : undefined
         }
         actions={
           sheet === 'plantActions'

@@ -42,6 +42,7 @@ export type AuditEvent =
   | 'auth.email_change.completed'
   | 'vase.pairing.started'
   | 'vase.deleted'
+  | 'vase.refresh.requested'
   | 'plant.vase_link.changed'
   | 'email.sent'
   | 'email.failed';

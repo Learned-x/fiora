@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { audit } from '../lib/audit';
+import { requestVaseRefresh } from '../lib/mqtt';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,18 @@ export async function listVases(userId: string) {
 export async function renameVase(userId: string, vaseId: string, nome: string) {
   await findOwnedVase(userId, vaseId);
   return prisma.smartVase.update({ where: { id: vaseId }, data: { nome } });
+}
+
+// Chiede al vaso una lettura immediata (fuori dal normale ciclo di
+// campionamento). Fire-and-forget: il dato aggiornato arriva poi via MQTT
+// telemetry come una lettura normale, non in risposta a questa chiamata.
+export async function refreshVase(userId: string, vaseId: string) {
+  const vase = await findOwnedVase(userId, vaseId);
+  if (vase.stato !== 'connesso') {
+    throw { code: 'VASE_OFFLINE', status: 409, message: 'Il vaso è disconnesso, impossibile richiedere una lettura' };
+  }
+  requestVaseRefresh(vase.deviceId);
+  audit('vase.refresh.requested', { userId, targetId: vaseId, meta: { deviceId: vase.deviceId } });
 }
 
 export async function deleteVase(userId: string, vaseId: string) {

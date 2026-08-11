@@ -131,6 +131,39 @@ router.get(
 
 /**
  * @swagger
+ * /vases/{id}/refresh:
+ *   post:
+ *     summary: Chiede al vaso una lettura sensori immediata (fuori dal ciclo di campionamento)
+ *     tags: [Vases]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       202: { description: "Richiesta inviata al vaso; il dato aggiornato arriva poi via MQTT come una lettura normale" }
+ *       404: { description: Vaso non trovato }
+ *       409: { description: Vaso disconnesso }
+ */
+// ── POST /vases/:id/refresh ───────────────────────────────────────────────────
+
+router.post(
+  '/:id/refresh',
+  [param('id').isUUID().withMessage('ID non valido')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      await vaseService.refreshVase(req.userId!, req.params.id as string);
+      res.status(202).json({ success: true, data: { message: 'Richiesta inviata' } });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
  * /vases/{id}:
  *   patch:
  *     summary: Modifica nome vaso

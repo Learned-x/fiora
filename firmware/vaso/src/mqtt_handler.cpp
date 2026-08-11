@@ -66,6 +66,7 @@ void connectMQTT() {
   while (!client.connected()) {
     client.setServer(cfg_mqtt_host.c_str(), cfg_mqtt_port);
     client.setCallback(mqttCallback);
+    client.setKeepAlive(60);
     if (client.connect(clientId.c_str(), cfg_mqtt_user.c_str(), cfg_mqtt_pass.c_str(),
                         willTopic.c_str(), 1, false, willPayload.c_str())) {
       // Pubblica stato online al momento della connessione

@@ -7,7 +7,7 @@
 // Cambia questa stringa (es. "v1" -> "v2") e ricarica il firmware quando vuoi
 // forzare una cancellazione automatica delle credenziali al primo avvio
 // dopo l'upload, senza dover usare il pin di reset.
-#define FIRMWARE_RESET_TOKEN "v1"
+#define FIRMWARE_RESET_TOKEN "v2"
 
 // ---------- PIN DI RESET ----------
 #define RESET_PIN 13

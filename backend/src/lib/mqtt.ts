@@ -166,3 +166,15 @@ export function publishToVase(deviceId: string, payload: object): void {
   const topic = `fiora/vaso/${deviceId}/config`;
   client.publish(topic, JSON.stringify(payload), { qos: 1 });
 }
+
+// Il firmware confronta il payload raw con la stringa "check" (non JSON) per
+// forzare una lettura immediata fuori dal ciclo di campionamento — vedi
+// mqttCallback in firmware/vaso/src/mqtt_handler.cpp.
+export function requestVaseRefresh(deviceId: string): void {
+  if (!client?.connected) {
+    log.error({ deviceId }, 'Impossibile pubblicare: client MQTT non connesso');
+    return;
+  }
+  const topic = `fiora/vaso/${deviceId}/config`;
+  client.publish(topic, 'check', { qos: 1 });
+}

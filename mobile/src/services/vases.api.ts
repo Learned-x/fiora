@@ -56,3 +56,10 @@ export async function renameVase(id: string, nome: string): Promise<SmartVase> {
 export async function deleteVase(id: string): Promise<void> {
   await api.delete(`/vases/${id}`);
 }
+
+// Chiede al vaso una lettura immediata: fire-and-forget, il dato arriva
+// poi via MQTT come una lettura normale — chi chiama deve ripollare
+// getVase()/getVaseReadings24h() per vederlo.
+export async function refreshVase(id: string): Promise<void> {
+  await api.post(`/vases/${id}/refresh`);
+}

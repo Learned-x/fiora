@@ -55,6 +55,14 @@ void setup() {
   }
 
   initSensors();
+
+  // ---------- BURST DI TEST: 10 letture fake rapide, WiFi già connesso qui ----------
+  connectMQTT();
+  for (int i = 0; i < 10; i++) {
+    client.loop();
+    executeSensorCycle();
+    delay(2000);
+  }
 }
 
 void loop() {

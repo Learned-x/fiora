@@ -125,9 +125,9 @@ Il firmware è stato riscritto e modularizzato (commit `c146237`, 2026-07-31 cir
 - ~~npm test backend rotto~~ — **risolto/non riproducibile** (verificato 2026-07-31): 153/153 test passano puliti su questa macchina (`node v20.20.2`, `jest 30.4.2`, `ts-jest 29.4.11`). Probabile causa originale un `node_modules` incompleto su un'altra macchina — se ricompare, `rm -rf node_modules && npm install` prima di indagare oltre.
 
 ### Note build iOS locale (npx expo run:ios)
-- Lo spazio nei path ("SSD Lexar", "Fiora TG") rompe script di build RN/Expo. Patch attive:
+- Lo spazio nei path ("SSD Lexar", "Fiora TG") rompeva script di build RN/Expo. Patch attive:
   - `mobile/patches/expo-constants+18.0.13.patch` (via patch-package, postinstall) — quoting in EXConstants podspec e get-app-config-ios.sh
-  - Fase "Bundle React Native code and images" in `ios/mobile.xcodeproj` ha lo stesso bug (backtick non quotato) — NON ancora patchata, build locale fallisce lì; per ora si usa EAS
+- **`npx expo run:ios --device` funziona** (verificato 2026-08-11, build su iPhone via cavo riuscita) — la fase "Bundle React Native code and images" che secondo audit precedente falliva sul backtick non quotato NON si è ripresentata, causa non chiara (forse fix a monte in Expo/RN, o l'audit era su condizioni diverse). Se si ripresenta, isolare di nuovo dove fallisce prima di assumere serva EAS.
 - Xcode 26 richiede runtime simulatore iOS 26 (scaricato)
 
 ## Scelte progettuali fatte (con motivazione)

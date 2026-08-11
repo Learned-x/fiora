@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -16,7 +16,7 @@ import { SensorChart } from '../../src/components/SensorChart';
 import { Toast } from '../../src/components/Toast';
 import type { ToastTrigger } from '../../src/components/Toast';
 import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
-import { getVase, getVaseReadings24h } from '../../src/services/vases.api';
+import { getVase, getVaseReadings24h, refreshVase } from '../../src/services/vases.api';
 import type { SensorReading, SmartVase } from '../../src/services/vases.api';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import {
@@ -57,6 +57,8 @@ export default function PlantDetailScreen() {
   const [readings24h, setReadings24h] = useState<SensorReading[]>([]);
   const [sensorWindow, setSensorWindow] = useState<'24h' | '7d' | '30d'>('24h');
   const [toast, setToast] = useState<ToastTrigger | null>(null);
+  const [refreshingVase, setRefreshingVase] = useState(false);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -81,8 +83,45 @@ export default function PlantDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      return () => {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+      };
     }, [load])
   );
+
+  // Chiede al vaso una lettura immediata e ripolla per un po' aspettando un
+  // dato più recente: la risposta non arriva in questa chiamata HTTP ma via
+  // MQTT come una lettura normale (vedi vase.service.ts refreshVase).
+  async function handleVaseRefresh() {
+    if (!vase) return;
+    if (pollTimer.current) clearInterval(pollTimer.current);
+    setRefreshingVase(true);
+    try {
+      await refreshVase(vase.id);
+    } catch {
+      setRefreshingVase(false);
+      Alert.alert('Errore', 'Richiesta di aggiornamento non riuscita, riprova.');
+      return;
+    }
+
+    const startedAt = vase.ultimaLettura?.time;
+    const vaseId = vase.id;
+    const deadline = Date.now() + 30000;
+    pollTimer.current = setInterval(async () => {
+      if (Date.now() >= deadline) {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        setRefreshingVase(false);
+        return;
+      }
+      const fresh = await getVase(vaseId).catch(() => null);
+      if (fresh?.ultimaLettura?.time && fresh.ultimaLettura.time !== startedAt) {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        setRefreshingVase(false);
+        setVase(fresh);
+        getVaseReadings24h(vaseId).then(setReadings24h).catch(() => {});
+      }
+    }, 3000);
+  }
 
   async function quickAction(tipo: TaskTipo) {
     if (!plant || busy) return;
@@ -136,7 +175,18 @@ export default function PlantDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <ScreenHeader back={{ label: 'Piante' }} right={{ label: 'Modifica', onPress: handleEdit }} />
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg24 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: spacing.lg24 }}
+        refreshControl={
+          vase ? (
+            <RefreshControl
+              refreshing={refreshingVase}
+              onRefresh={handleVaseRefresh}
+              enabled={vase.stato === 'connesso'}
+            />
+          ) : undefined
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>{plantEmoji(plant)}</Text>
@@ -180,6 +230,23 @@ export default function PlantDetailScreen() {
                 >
                   {vase.stato === 'connesso' ? 'Connesso' : 'Disconnesso'}
                 </Text>
+                {vase.stato === 'connesso' && (
+                  <Pressable
+                    onPress={handleVaseRefresh}
+                    disabled={refreshingVase}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Aggiorna dati vaso"
+                  >
+                    {refreshingVase ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Text style={[styles.sensorStatusText, { color: theme.primary, marginLeft: spacing.xs4 }]}>
+                        Aggiorna
+                      </Text>
+                    )}
+                  </Pressable>
+                )}
               </View>
             </View>
 
