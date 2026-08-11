@@ -4,18 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
+import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
-import { elevation } from '../../src/theme/elevation';
-import { Card } from '../../src/components/Card';
 import { Button } from '../../src/components/Button';
+import { Card } from '../../src/components/Card';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 import { listVases } from '../../src/services/vases.api';
 import type { SmartVase } from '../../src/services/vases.api';
+import type { ThemeColors } from '../../src/theme/colors';
 
-function statoColor(stato: SmartVase['stato'], theme: ReturnType<typeof useTheme>) {
-  if (stato === 'connesso') return theme.acc;
-  if (stato === 'batteria_scarica') return theme.amb;
-  return theme.t3;
+function statoColor(stato: SmartVase['stato'], theme: ThemeColors) {
+  if (stato === 'connesso') return theme.primary;
+  if (stato === 'batteria_scarica') return theme.warning;
+  return theme.onSurfaceVariant;
 }
 
 function statoLabel(stato: SmartVase['stato']) {
@@ -24,18 +27,26 @@ function statoLabel(stato: SmartVase['stato']) {
   return 'Disconnesso';
 }
 
+function batteryColor(pct: number, theme: ThemeColors) {
+  if (pct <= 15) return theme.error;
+  if (pct <= 35) return theme.warning;
+  return theme.primary;
+}
+
 export default function VasiScreen() {
   const theme = useTheme();
   const [vasi, setVasi] = useState<SmartVase[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setVasi(await listVases());
       setLoaded(true);
+      setLoadError(false);
     } catch {
-      // errore rete: pull-to-refresh per riprovare
+      setLoadError(true);
     }
   }, []);
 
@@ -54,33 +65,47 @@ export default function VasiScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={[styles.eyebrow, { color: theme.acc }]}>DISPOSITIVI</Text>
-          <Text style={[styles.title, { color: theme.t1 }]}>Vasi Smart</Text>
-        </View>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Vasi Smart</Text>
         <Pressable
           onPress={() => router.push('/vase/pair')}
-          style={[styles.addBtn, { backgroundColor: theme.acc }, elevation.md(theme.acc)]}
+          accessibilityRole="button"
+          accessibilityLabel="Collega un nuovo vaso"
+          hitSlop={8}
+          style={({ pressed }) => [styles.addBtn, { backgroundColor: theme.primary }, pressed && { opacity: 0.82 }]}
         >
-          <Svg width={18} height={18} viewBox="0 0 14 14" fill="none">
-            <Path d="M7 1.5v11M1.5 7h11" stroke="white" strokeWidth={2} strokeLinecap="round" />
+          <Svg width={16} height={16} viewBox="0 0 14 14" fill="none">
+            <Path d="M7 1.5v11M1.5 7h11" stroke={theme.onPrimary} strokeWidth={2} strokeLinecap="round" />
           </Svg>
         </Pressable>
       </View>
 
+      {!loaded && !loadError && (
+        <View style={styles.list}>
+          <View style={styles.row}>
+            <Skeleton height={140} style={{ flex: 1 }} />
+            <Skeleton height={140} style={{ flex: 1 }} />
+          </View>
+        </View>
+      )}
+      {loadError && (
+        <View style={styles.list}>
+          <ErrorState message="Impossibile caricare i vasi. Controlla la connessione." onRetry={load} />
+        </View>
+      )}
+
       <FlatList
         data={vasi}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.t2} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.onSurfaceVariant} />}
         ListEmptyComponent={
           loaded ? (
             <View style={styles.empty}>
-              <View style={[styles.emptyIcon, { backgroundColor: theme.card2 }]}>
-                <Text style={{ fontSize: 36 }}>🪴</Text>
-              </View>
-              <Text style={[styles.emptyTitle, { color: theme.t1 }]}>Nessun vaso collegato</Text>
-              <Text style={[styles.emptySub, { color: theme.t2 }]}>
+              <Text style={{ fontSize: 44, marginBottom: spacing.md16 }}>🪴</Text>
+              <Text style={[styles.emptyTitle, { color: theme.onSurface }]}>Nessun vaso collegato</Text>
+              <Text style={[styles.emptySub, { color: theme.onSurfaceVariant }]}>
                 Collega il tuo vaso smart per monitorare umidità, luce e temperatura in tempo reale.
               </Text>
               <View style={styles.emptyButton}>
@@ -91,26 +116,42 @@ export default function VasiScreen() {
         }
         renderItem={({ item }) => {
           const pianta = item.plants?.[0];
+          const nomeVaso = item.nome ?? 'Vaso non nominato';
+          const battColor = item.batteria !== null ? batteryColor(item.batteria, theme) : theme.onSurfaceVariant;
           return (
-            <Pressable onPress={() => router.push(`/vase/${item.id}`)} style={styles.cardWrap}>
-              <Card style={styles.card}>
-                <View style={styles.cardTop}>
-                  <View style={styles.cardTitleRow}>
-                    <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
-                    <Text style={[styles.cardName, { color: theme.t1 }]} numberOfLines={1}>
-                      {item.nome ?? item.deviceId}
-                    </Text>
-                  </View>
-                  {item.batteria !== null && (
-                    <Text style={[styles.battery, { color: theme.t2 }]}>🔋 {item.batteria}%</Text>
-                  )}
+            <Pressable
+              onPress={() => router.push(`/vase/${item.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`${nomeVaso}, ${statoLabel(item.stato)}${pianta ? `, collegato a ${pianta.nome}` : ''}`}
+              style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.85 }]}
+            >
+              <Card variant="elevated" style={styles.card}>
+                <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
+                  <Text style={styles.icon}>🪴</Text>
+                  <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
                 </View>
-                <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]}>
+                <Text style={[styles.cardName, { color: theme.onSurface }]} numberOfLines={1}>
+                  {nomeVaso}
+                </Text>
+                <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]} numberOfLines={1}>
                   {statoLabel(item.stato)}
                 </Text>
-                <Text style={[styles.cardPlant, { color: theme.t2 }]} numberOfLines={1}>
-                  {pianta ? `Collegato a ${pianta.nome}` : 'Nessuna pianta collegata'}
+                <Text style={[styles.cardPlant, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
+                  {pianta ? pianta.nome : 'Nessuna pianta collegata'}
                 </Text>
+                {item.batteria !== null && (
+                  <View style={styles.batteryWrap}>
+                    <View style={[styles.batteryTrack, { backgroundColor: theme.outlineVariant }]}>
+                      <View
+                        style={[
+                          styles.batteryFill,
+                          { width: `${Math.max(4, Math.min(100, item.batteria))}%`, backgroundColor: battColor },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.battery, { color: theme.onSurfaceVariant }]}>{item.batteria}%</Text>
+                  </View>
+                )}
               </Card>
             </Pressable>
           );
@@ -126,33 +167,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md16,
+    paddingTop: spacing.md16,
+    marginBottom: spacing.md16,
   },
-  eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
-  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.8 },
-  addBtn: { width: 48, height: 48, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, flexGrow: 1 },
-  cardWrap: { marginBottom: spacing.md },
-  card: { padding: spacing.lg },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  cardName: { fontSize: 17, fontWeight: '700', flexShrink: 1 },
-  battery: { fontSize: 13 },
-  cardStato: { fontSize: 12, fontWeight: '700', marginBottom: 4, letterSpacing: 0.3 },
-  cardPlant: { fontSize: 13 },
-  empty: { alignItems: 'center', paddingTop: spacing.xxxl + spacing.xl },
-  emptyIcon: {
-    width: 80,
-    height: 80,
+  title: { ...typography.headlineMedium },
+  addBtn: {
+    width: 44,
+    height: 44,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  emptySub: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
-  emptyButton: { marginTop: spacing.xl, alignSelf: 'stretch', width: '100%', paddingHorizontal: spacing.xl },
+  list: { paddingHorizontal: spacing.md16, paddingBottom: spacing.lg24, flexGrow: 1 },
+  row: { gap: spacing.sm12, marginBottom: spacing.sm12 },
+  cardWrap: { flex: 1 },
+  card: { padding: spacing.sm12 },
+  iconTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: radius.md,
+    marginBottom: spacing.xs8,
+  },
+  icon: { fontSize: 26 },
+  dot: { position: 'absolute', top: spacing.xs8, right: spacing.xs8, width: 10, height: 10, borderRadius: radius.full },
+  cardName: { ...typography.titleSmall, marginBottom: 2 },
+  cardStato: { ...typography.labelMedium, fontWeight: '600', marginBottom: 2 },
+  cardPlant: { ...typography.bodySmall },
+  batteryWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs8, marginTop: spacing.xs8 },
+  batteryTrack: { flex: 1, height: 6, borderRadius: radius.full, overflow: 'hidden' },
+  batteryFill: { height: '100%', borderRadius: radius.full },
+  battery: { ...typography.labelSmall },
+  empty: { alignItems: 'center', paddingTop: spacing.xxxl64 + spacing.lg24 },
+  emptyTitle: { ...typography.titleLarge, marginBottom: spacing.xs4 },
+  emptySub: { ...typography.bodyMedium, textAlign: 'center', paddingHorizontal: spacing.xl40 },
+  emptyButton: { marginTop: spacing.lg24, alignSelf: 'stretch', width: '100%', paddingHorizontal: spacing.lg24 },
 });

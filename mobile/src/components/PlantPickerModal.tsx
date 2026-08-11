@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
+import { radius } from '../theme/radius';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 import { listPlants } from '../services/plants.api';
 import type { Plant } from '../types/models';
 
@@ -26,29 +29,31 @@ export function PlantPickerModal({ visible, onClose, onSelect }: PlantPickerModa
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
         <View style={styles.nav}>
-          <Pressable onPress={onClose}>
-            <Text style={{ fontSize: 17, color: theme.acc }}>Chiudi</Text>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={4}>
+            <Text style={{ fontSize: typography.bodyLarge.fontSize, color: theme.primary }}>Chiudi</Text>
           </Pressable>
-          <Text style={[styles.navTitle, { color: theme.t1 }]}>Collega a pianta</Text>
+          <Text style={[styles.navTitle, { color: theme.onSurface }]}>Collega a pianta</Text>
           <View style={{ width: 50 }} />
         </View>
         <FlatList
           data={plants}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.md16, paddingBottom: spacing.lg24 }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => onSelect(item)}
-              style={[styles.plantRow, { backgroundColor: theme.card, borderColor: theme.bord }]}
+              accessibilityRole="button"
+              accessibilityLabel={item.nome}
+              style={[styles.plantRow, { backgroundColor: theme.surface, borderColor: theme.outlineVariant }]}
             >
-              <Text style={{ fontSize: 15, color: theme.t1 }}>{item.nome}</Text>
+              <Text style={{ fontSize: typography.bodyMedium.fontSize, color: theme.onSurface }}>{item.nome}</Text>
               {item.species?.nomeComune && (
-                <Text style={{ fontSize: 12, color: theme.t2, fontStyle: 'italic' }}>{item.species.nomeComune}</Text>
+                <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.onSurfaceVariant, fontStyle: 'italic' }}>{item.species.nomeComune}</Text>
               )}
             </Pressable>
           )}
           ListEmptyComponent={
-            <Text style={{ textAlign: 'center', color: theme.t2, paddingTop: 40 }}>
+            <Text style={{ textAlign: 'center', color: theme.onSurfaceVariant, paddingTop: spacing.xl40 }}>
               Nessuna pianta disponibile (tutte già collegate a un vaso).
             </Text>
           }
@@ -64,16 +69,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.md16,
+    paddingTop: spacing.sm12 + 2,
+    paddingBottom: spacing.xs8,
+    minHeight: 44,
   },
-  navTitle: { fontSize: 17, fontWeight: '600' },
+  navTitle: { fontSize: typography.bodyLarge.fontSize, fontWeight: '600' },
   plantRow: {
-    padding: 13,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    padding: spacing.sm12 + 1,
+    paddingHorizontal: spacing.md16,
+    borderRadius: radius.md,
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: spacing.xs8,
+    minHeight: 44,
+    justifyContent: 'center',
   },
 });

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Fiora",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,7 @@
     "android": {
       "package": "app.fiora.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FCFCF0",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -39,7 +39,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.766129169137-3g5ddn0p8imns29m1qlf3kqjns5cihql"
+          "iosUrlScheme": "com.googleusercontent.apps.766129169137-8pmfvdtuqh8efjjrsljg8c0h10gd0if9"
         }
       ],
       [
@@ -57,7 +57,8 @@
           "modes": [],
           "bluetoothAlwaysPermission": "Fiora usa il Bluetooth per collegare il vaso smart alla tua rete WiFi durante il pairing."
         }
-      ]
+      ],
+      "./plugins/withFixXcodeBundlePhase"
     ],
     "extra": {
       "router": {},

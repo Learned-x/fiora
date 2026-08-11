@@ -4,25 +4,35 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
-import type { ThemeColors } from '../../src/theme/colors';
+import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
+import type { ThemeColors } from '../../src/theme/colors';
 import { Card } from '../../src/components/Card';
+import { Chip } from '../../src/components/Chip';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { deleteVase, getVase, renameVase } from '../../src/services/vases.api';
-import type { SmartVase } from '../../src/services/vases.api';
-import { formatDay } from '../../src/lib/plantUi';
+import { Button } from '../../src/components/Button';
+import { TextInput } from '../../src/components/TextInput';
+import { SensorTile } from '../../src/components/SensorTile';
+import type { SensorStatus as TileStatus } from '../../src/components/SensorTile';
+import { SensorChart } from '../../src/components/SensorChart';
+import { Collapsible } from '../../src/components/Collapsible';
+import { deleteVase, getVase, getVaseReadings24h, renameVase } from '../../src/services/vases.api';
+import type { SmartVase, SensorReading } from '../../src/services/vases.api';
+import { formatDay, luceSensoreLabel, luceSensoreStatus, temperaturaLabel, temperaturaStatus, umiditaLabel, umiditaStatus } from '../../src/lib/plantUi';
 import { updatePlant } from '../../src/services/plants.api';
 import { PlantPickerModal } from '../../src/components/PlantPickerModal';
 import { ActionSheet } from '../../src/components/ActionSheet';
-import { TextInput } from '../../src/components/TextInput';
-import { Button } from '../../src/components/Button';
 import type { Plant } from '../../src/types/models';
 
+function toTileStatus(status: 'ok' | 'warning'): TileStatus {
+  return status === 'ok' ? 'ok' : 'warn';
+}
+
 function statoColor(stato: SmartVase['stato'], theme: ThemeColors) {
-  if (stato === 'connesso') return theme.acc;
-  if (stato === 'batteria_scarica') return theme.amb;
-  return theme.t3;
+  if (stato === 'connesso') return theme.primary;
+  if (stato === 'batteria_scarica') return theme.warning;
+  return theme.onSurfaceVariant;
 }
 
 function statoLabel(stato: SmartVase['stato']) {
@@ -37,6 +47,8 @@ export default function VaseDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [vase, setVase] = useState<SmartVase | null>(null);
+  const [readings24h, setReadings24h] = useState<SensorReading[]>([]);
+  const [sensorWindow, setSensorWindow] = useState<'24h' | '7d' | '30d'>('24h');
   const [busy, setBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [sheet, setSheet] = useState<Sheet>('none');
@@ -48,6 +60,11 @@ export default function VaseDetailScreen() {
       setVase(await getVase(id));
     } catch {
       setSheet('notFound');
+    }
+    try {
+      setReadings24h(await getVaseReadings24h(id));
+    } catch {
+      // storico opzionale: la schermata resta utilizzabile senza grafici
     }
   }, [id]);
 
@@ -131,7 +148,7 @@ export default function VaseDetailScreen() {
   if (!vase) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-        <ScreenHeader />
+        <ScreenHeader back={{ label: 'Vasi' }} />
         <ActionSheet
           visible={sheet === 'notFound'}
           message="Vaso non trovato."
@@ -144,84 +161,169 @@ export default function VaseDetailScreen() {
 
   const pianta = vase.plants?.[0];
   const lettura = vase.ultimaLettura;
+  const temperaturaNum = lettura?.temperatura !== null && lettura?.temperatura !== undefined ? Number(lettura.temperatura) : null;
+  const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
+  const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
+  const temperaturaHistory = readings24h
+    .filter((r) => r.temperatura !== null)
+    .map((r) => Number(r.temperatura));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScreenHeader />
+      <ScreenHeader back={{ label: 'Vasi' }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable onPress={openRename} disabled={busy} style={styles.headerRow}>
+        <Pressable
+          onPress={openRename}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={`Rinomina vaso, nome attuale ${vase.nome ?? 'Vaso non nominato'}`}
+          style={styles.headerRow}
+        >
           <View style={[styles.dot, { backgroundColor: statoColor(vase.stato, theme) }]} />
-          <Text style={[styles.name, { color: theme.t1 }]}>{vase.nome ?? vase.deviceId}</Text>
+          <Text style={[styles.name, { color: theme.onSurface }]} numberOfLines={1} ellipsizeMode="middle">
+            {vase.nome ?? 'Vaso non nominato'}
+          </Text>
           <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
-            <Path d="M14.5 2.5a1.5 1.5 0 0 1 2.12 2.12L6.5 14.75 3 15.5l.75-3.5 10.75-9.5Z" stroke={theme.t3} strokeWidth={1.4} strokeLinejoin="round" />
+            <Path d="M14.5 2.5a1.5 1.5 0 0 1 2.12 2.12L6.5 14.75 3 15.5l.75-3.5 10.75-9.5Z" stroke={theme.onSurfaceVariant} strokeWidth={1.4} strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <Text style={[styles.stato, { color: statoColor(vase.stato, theme) }]}>{statoLabel(vase.stato)}</Text>
 
         {vase.stato !== 'connesso' && (
-          <Card style={[styles.banner, { borderColor: theme.amb, borderWidth: 1.5 }]}>
-            <Text style={[styles.bannerText, { color: theme.t2 }]}>
+          <Card variant="flat" style={styles.banner}>
+            <Text style={[styles.bannerText, { color: theme.onSurfaceVariant }]}>
               Vaso disconnesso
               {lettura ? ` — ultima lettura ${formatDay(lettura.time)}` : ''}
             </Text>
           </Card>
         )}
 
-        <Card style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.t1 }]}>Dati ambientali</Text>
-          {lettura ? (
-            <>
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.t2 }]}>💧 Umidità terreno</Text>
-                <Text style={[styles.dataValue, { color: theme.t1 }]}>
-                  {lettura.umidita !== null ? `${lettura.umidita}%` : '—'}
-                </Text>
+        {lettura ? (
+          <>
+            <View style={styles.tilesRow}>
+              <View style={styles.tile}>
+                <SensorTile
+                  value={lettura.umidita !== null ? `${lettura.umidita}%` : '—'}
+                  label={lettura.umidita !== null ? umiditaLabel(lettura.umidita, undefined) : 'Umidità'}
+                  status={lettura.umidita !== null ? toTileStatus(umiditaStatus(lettura.umidita, undefined)) : 'ok'}
+                />
               </View>
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.t2 }]}>☀️ Luce</Text>
-                <Text style={[styles.dataValue, { color: theme.t1 }]}>
-                  {lettura.luce !== null ? `${lettura.luce} lux` : '—'}
-                </Text>
+              <View style={styles.tile}>
+                <SensorTile
+                  value={lettura.luce !== null ? `${lettura.luce} lux` : '—'}
+                  label={lettura.luce !== null ? luceSensoreLabel(lettura.luce) : 'Luce'}
+                  status={lettura.luce !== null ? toTileStatus(luceSensoreStatus(lettura.luce)) : 'ok'}
+                />
               </View>
-              <View style={styles.dataRow}>
-                <Text style={[styles.dataLabel, { color: theme.t2 }]}>🌡️ Temperatura</Text>
-                <Text style={[styles.dataValue, { color: theme.t1 }]}>
-                  {lettura.temperatura !== null ? `${lettura.temperatura}°C` : '—'}
-                </Text>
+              <View style={styles.tile}>
+                <SensorTile
+                  value={temperaturaNum !== null ? `${temperaturaNum}°C` : '—'}
+                  label={temperaturaNum !== null ? temperaturaLabel(temperaturaNum, null, null) : 'Temperatura'}
+                  status={temperaturaNum !== null ? toTileStatus(temperaturaStatus(temperaturaNum, null, null)) : 'ok'}
+                />
               </View>
-              <Text style={[styles.timestamp, { color: theme.t3 }]}>
-                Aggiornato {formatDay(lettura.time)}
-              </Text>
-            </>
-          ) : (
-            <Text style={[styles.emptyData, { color: theme.t2 }]}>
+            </View>
+            <Text style={[styles.timestamp, { color: theme.onSurfaceVariant }]}>
+              Aggiornato {formatDay(lettura.time)}
+            </Text>
+
+            <View style={{ marginTop: spacing.md16 }}>
+              <Collapsible title="Andamento sensori">
+                <View style={styles.segTrack}>
+                  {(['24h', '7d', '30d'] as const).map((w) => (
+                    <Chip
+                      key={w}
+                      label={w === '24h' ? '24H' : w === '7d' ? '7 GG' : '30 GG'}
+                      selected={sensorWindow === w}
+                      onPress={() => setSensorWindow(w)}
+                      accessibilityLabel={`Intervallo ${w === '24h' ? '24 ore' : w === '7d' ? '7 giorni' : '30 giorni'}`}
+                    />
+                  ))}
+                </View>
+                {sensorWindow === '24h' ? (
+                  <View style={styles.chartsList}>
+                    {umiditaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Umidità terreno"
+                        value={`${umiditaHistory[umiditaHistory.length - 1]}%`}
+                        color={theme.warning}
+                        values={umiditaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {luceHistory.length >= 2 && (
+                      <SensorChart
+                        label="Luce"
+                        value={`${luceHistory[luceHistory.length - 1]} lux`}
+                        color={theme.primary}
+                        values={luceHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {temperaturaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Temperatura"
+                        value={`${temperaturaHistory[temperaturaHistory.length - 1]}°`}
+                        color={theme.error}
+                        values={temperaturaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.emptyData, { color: theme.onSurfaceVariant, paddingTop: spacing.sm12 }]}>
+                    Storico oltre le 24h non ancora disponibile.
+                  </Text>
+                )}
+              </Collapsible>
+            </View>
+          </>
+        ) : (
+          <Card variant="flat" style={styles.section}>
+            <Text style={[styles.emptyData, { color: theme.onSurfaceVariant }]}>
               Nessuna lettura ricevuta ancora dal vaso.
             </Text>
-          )}
-        </Card>
+          </Card>
+        )}
 
-        <Card style={styles.section}>
-          <View style={[styles.dataRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.bord }]}>
-            <Text style={[styles.dataLabel, { color: theme.t2 }]}>🔋 Batteria</Text>
-            <Text style={[styles.dataValue, { color: theme.t1 }]}>
+        <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Gestione</Text>
+        <Card variant="flat" style={styles.section}>
+          <View style={[styles.dataRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.outlineVariant }]}>
+            <Text style={[styles.dataLabel, { color: theme.onSurfaceVariant }]}>Batteria</Text>
+            <Text style={[styles.dataValue, { color: theme.onSurface }]}>
               {vase.batteria !== null ? `${vase.batteria}%` : '—'}
             </Text>
           </View>
-          <Pressable onPress={handlePlantRowPress} disabled={busy} style={styles.plantRow}>
-            <Text style={[styles.dataLabel, { color: theme.t2 }]}>🪴 Pianta collegata</Text>
+          <Pressable
+            onPress={handlePlantRowPress}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={pianta ? `Pianta collegata: ${pianta.nome}` : 'Collega una pianta'}
+            style={styles.plantRow}
+          >
+            <Text style={[styles.dataLabel, { color: theme.onSurfaceVariant }]}>Pianta collegata</Text>
             <View style={styles.plantRowRight}>
-              <Text style={[styles.dataValue, { color: pianta ? theme.t1 : theme.acc }]}>
+              <Text style={[styles.dataValue, { color: pianta ? theme.onSurface : theme.primary }]}>
                 {pianta ? pianta.nome : 'Collega…'}
               </Text>
               <Svg width={7} height={12} viewBox="0 0 7 12" fill="none">
-                <Path d="M1 1L6 6L1 11" stroke={theme.t3} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L6 6L1 11" stroke={theme.onSurfaceVariant} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
           </Pressable>
         </Card>
 
-        <Pressable onPress={() => setSheet('confirmDelete')} disabled={busy} style={[styles.deleteBtn, { borderColor: theme.red }]}>
-          <Text style={[styles.deleteText, { color: theme.red }]}>Rimuovi vaso</Text>
+        <Pressable
+          onPress={() => setSheet('confirmDelete')}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Rimuovi vaso"
+          style={styles.deleteBtn}
+        >
+          <Text style={[styles.deleteText, { color: theme.error }]}>Rimuovi vaso</Text>
         </Pressable>
       </ScrollView>
 
@@ -268,15 +370,15 @@ export default function VaseDetailScreen() {
 
       <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
         <Pressable style={styles.renameBackdrop} onPress={() => setRenameVisible(false)}>
-          <Pressable style={[styles.renameCard, { backgroundColor: theme.card }]} onPress={() => {}}>
-            <Text style={[styles.sectionTitle, { color: theme.t1 }]}>Nome vaso</Text>
+          <Pressable style={[styles.renameCard, { backgroundColor: theme.surface }]} onPress={() => {}}>
+            <Text style={[styles.sectionTitle, { color: theme.onSurface }]}>Nome vaso</Text>
             <TextInput
               value={renameValue}
               onChangeText={setRenameValue}
               placeholder="Es. Vaso soggiorno"
               autoFocus
               maxLength={255}
-              style={{ marginTop: 12, marginBottom: 16 }}
+              style={{ marginTop: spacing.sm12, marginBottom: spacing.md16 }}
             />
             <View style={styles.renameActions}>
               <View style={{ flex: 1 }}>
@@ -295,32 +397,37 @@ export default function VaseDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xs },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  name: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
-  stato: { fontSize: 14, fontWeight: '700', marginBottom: spacing.lg },
-  banner: { marginBottom: spacing.lg },
-  bannerText: { fontSize: 13 },
-  section: { marginBottom: spacing.lg },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: spacing.md },
-  dataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm + 2 },
-  plantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm + 2, minHeight: 44 },
-  plantRowRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  dataLabel: { fontSize: 14 },
-  dataValue: { fontSize: 14, fontWeight: '600' },
-  timestamp: { fontSize: 12, marginTop: spacing.sm },
-  emptyData: { fontSize: 13, fontStyle: 'italic' },
-  deleteBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    minHeight: 50,
-    justifyContent: 'center',
+  content: { padding: spacing.md16, paddingBottom: spacing.xl40 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm12 - 2, marginBottom: spacing.xs4, minHeight: 44 },
+  dot: { width: 10, height: 10, borderRadius: radius.full },
+  name: { ...typography.headlineSmall, flexShrink: 1 },
+  stato: { ...typography.labelLarge, fontWeight: '600', marginBottom: spacing.md16 },
+  banner: { padding: spacing.sm12 + 2, marginBottom: spacing.md16 },
+  bannerText: { ...typography.bodySmall },
+  tilesRow: { flexDirection: 'row', gap: spacing.xs8 },
+  tile: { flex: 1 },
+  sectionLabel: {
+    ...typography.labelMedium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing.lg24,
+    marginBottom: spacing.xs8,
+    paddingHorizontal: spacing.xs4,
   },
-  deleteText: { fontSize: 15, fontWeight: '700' },
-  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.xl },
-  renameCard: { borderRadius: radius.lg, padding: spacing.xl },
-  renameActions: { flexDirection: 'row', gap: spacing.md },
+  section: { padding: spacing.md16, marginBottom: spacing.md16 },
+  sectionTitle: { ...typography.titleSmall },
+  dataRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs8 + 2, minHeight: 44 },
+  plantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.xs8 + 2, minHeight: 44 },
+  plantRowRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 + 2 },
+  dataLabel: { ...typography.bodyMedium },
+  dataValue: { ...typography.bodyMedium, fontWeight: '600' },
+  timestamp: { ...typography.labelMedium, marginTop: spacing.xs8 },
+  segTrack: { flexDirection: 'row', gap: spacing.xs8, paddingBottom: spacing.sm12 },
+  chartsList: { gap: spacing.sm12 },
+  emptyData: { ...typography.bodySmall, fontStyle: 'italic' },
+  deleteBtn: { alignItems: 'center', paddingVertical: spacing.sm12, minHeight: 44, justifyContent: 'center' },
+  deleteText: { ...typography.bodyLarge, fontWeight: '600' },
+  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.lg24 },
+  renameCard: { borderRadius: radius.lg, padding: spacing.md20 },
+  renameActions: { flexDirection: 'row', gap: spacing.sm12 - 2 },
 });

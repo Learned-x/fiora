@@ -1,38 +1,38 @@
-import { ReactNode } from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { elevation } from '../theme/elevation';
+import type { ReactNode } from 'react';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useTheme, useIsDark } from '../theme/useTheme';
 import { radius } from '../theme/radius';
-import { spacing } from '../theme/spacing';
-import { useTheme } from '../theme/useTheme';
+import { getElevation } from '../theme/elevation';
+
+export type CardVariant = 'elevated' | 'flat' | 'outlined';
 
 interface CardProps {
-  children: ReactNode;
+  variant?: CardVariant;
   style?: StyleProp<ViewStyle>;
-  padded?: boolean;
-  elevated?: boolean;
+  children?: ReactNode;
 }
 
-export function Card({ children, style, padded = true, elevated = true }: CardProps) {
+/** 3 varianti MD3 (elevata/filled/outlined) sullo stesso shape — radius.lg di default. */
+export function Card({ variant = 'elevated', style, children }: CardProps) {
   const theme = useTheme();
+  const dark = useIsDark();
 
-  return (
-    <View style={[styles.shadowWrap, elevated && elevation.sm(theme.t1), style]}>
-      <View style={[styles.base, { backgroundColor: theme.card }, padded && styles.padded]}>
-        {children}
-      </View>
-    </View>
-  );
+  const variantStyle: ViewStyle = (() => {
+    switch (variant) {
+      case 'elevated':
+        return { backgroundColor: theme.surface, ...getElevation(2, dark) };
+      case 'flat':
+        return { backgroundColor: theme.surfaceHigh };
+      case 'outlined':
+        return { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.outlineVariant };
+    }
+  })();
+
+  return <View style={[styles.base, variantStyle, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
-  shadowWrap: {
-    borderRadius: radius.lg,
-  },
   base: {
     borderRadius: radius.lg,
-    overflow: 'hidden',
-  },
-  padded: {
-    padding: spacing.lg,
   },
 });

@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AxiosError } from 'axios';
 import { useTheme } from '../src/theme/useTheme';
+import { typography } from '../src/theme/typography';
+import { spacing } from '../src/theme/spacing';
 import { verifyEmail } from '../src/services/auth.api';
 import { useAuthStore } from '../src/store/auth.store';
 
@@ -40,11 +42,11 @@ export default function VerifyEmailScreen() {
       <View style={styles.content}>
         {status === 'checking' ? (
           <>
-            <ActivityIndicator color={theme.acc} />
-            <Text style={[styles.text, { color: theme.t2 }]}>Conferma in corso…</Text>
+            <ActivityIndicator color={theme.primary} />
+            <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>Conferma in corso…</Text>
           </>
         ) : (
-          <Text style={[styles.text, { color: theme.t2 }]}>Link non valido.</Text>
+          <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>Link non valido.</Text>
         )}
       </View>
     </SafeAreaView>
@@ -53,6 +55,6 @@ export default function VerifyEmailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  text: { fontSize: 15 },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm12 },
+  text: { ...typography.bodyLarge },
 });

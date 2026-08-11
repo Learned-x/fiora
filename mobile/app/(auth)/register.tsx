@@ -8,6 +8,8 @@ import { TextInput } from '../../src/components/TextInput';
 import { Button } from '../../src/components/Button';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { useAuthStore } from '../../src/store/auth.store';
+import { spacing } from '../../src/theme/spacing';
+import { typography } from '../../src/theme/typography';
 
 export default function RegisterScreen() {
   const theme = useTheme();
@@ -29,25 +31,28 @@ export default function RegisterScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScreenHeader />
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.t1 }]}>Crea account</Text>
-        <Text style={[styles.subtitle, { color: theme.t2 }]}>Password minimo 8 caratteri.</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Crea account</Text>
+        <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>Password minimo 8 caratteri.</Text>
 
         <View style={styles.form}>
           <TextInput
-            placeholder="Nome (opzionale)"
+            label="Nome (opzionale)"
+            placeholder="Come ti chiami"
             autoCapitalize="words"
             value={name}
             onChangeText={setName}
           />
           <TextInput
-            placeholder="Email"
+            label="Email"
+            placeholder="mario@esempio.com"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
           />
           <TextInput
-            placeholder="Password"
+            label="Password"
+            placeholder="Minimo 8 caratteri"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -63,8 +68,13 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <Pressable style={styles.link} onPress={() => router.push('/(auth)/login')}>
-          <Text style={[styles.linkText, { color: theme.acc }]}>Hai già un account? Accedi</Text>
+        <Pressable
+          style={styles.link}
+          onPress={() => router.push('/(auth)/login')}
+          accessibilityRole="button"
+          accessibilityLabel="Hai già un account? Accedi"
+        >
+          <Text style={[styles.linkText, { color: theme.primary }]}>Hai già un account? Accedi</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -73,11 +83,11 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: spacing.xl, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.sm },
-  subtitle: { fontSize: 16, marginBottom: spacing.xxl },
-  form: { gap: spacing.md, marginBottom: spacing.xl },
-  actions: { marginBottom: spacing.lg },
+  content: { flex: 1, padding: spacing.md16, justifyContent: 'center' },
+  title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
+  subtitle: { ...typography.bodyLarge, marginBottom: spacing.xl32 },
+  form: { gap: spacing.sm12, marginBottom: spacing.lg24 },
+  actions: { marginBottom: spacing.md16 },
   link: { alignItems: 'center', minHeight: 44, justifyContent: 'center' },
-  linkText: { fontSize: 15, fontWeight: '600' },
+  linkText: { ...typography.bodyLarge, fontWeight: '500' },
 });

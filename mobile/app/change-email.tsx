@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { AxiosError } from 'axios';
 import { useTheme } from '../src/theme/useTheme';
+import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
@@ -53,34 +54,34 @@ export default function ChangeEmailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScreenHeader />
+      <ScreenHeader back={{ label: 'Indietro' }} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: theme.t1 }]}>Cambia email</Text>
-          <Text style={[styles.sub, { color: theme.t2 }]}>
+          <Text style={[styles.title, { color: theme.onSurface }]}>Cambia email</Text>
+          <Text style={[styles.sub, { color: theme.onSurfaceVariant }]}>
             Attuale: {profile?.email ?? '—'}
           </Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.t2 }]}>NUOVO INDIRIZZO EMAIL</Text>
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>NUOVO INDIRIZZO EMAIL</Text>
           <TextInput
             value={newEmail}
             onChangeText={setNewEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: spacing.md16 }}
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.t2 }]}>PASSWORD ATTUALE</Text>
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>PASSWORD ATTUALE</Text>
           <TextInput
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry
             autoCapitalize="none"
-            style={{ marginBottom: 8 }}
+            style={{ marginBottom: spacing.xs8 }}
           />
 
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: spacing.md16 }}>
             <Button label="Invia link di conferma" onPress={handleSave} disabled={!canSubmit} loading={saving} />
           </View>
         </ScrollView>
@@ -91,8 +92,8 @@ export default function ChangeEmailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  form: { padding: spacing.lg, paddingTop: spacing.sm },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.xs },
-  sub: { fontSize: 14, marginBottom: spacing.xl, paddingHorizontal: 4 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: spacing.sm, paddingHorizontal: 4 },
+  form: { padding: spacing.md16, paddingTop: spacing.xs8 },
+  title: { ...typography.headlineSmall, marginBottom: spacing.xs8 - 2 },
+  sub: { ...typography.bodyMedium, marginBottom: spacing.md20, paddingHorizontal: spacing.xs4 },
+  fieldLabel: { ...typography.labelMedium, letterSpacing: 0.5, marginBottom: spacing.xs8 - 2, paddingHorizontal: spacing.xs4 },
 });

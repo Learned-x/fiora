@@ -1,8 +1,7 @@
-export { useTheme } from './useTheme';
+export { light, dark, tonalRamps } from './colors';
 export type { ThemeColors } from './colors';
-export { light, dark } from './colors';
-export { spacing } from './spacing';
-export type { SpacingKey } from './spacing';
-export { typography } from './typography';
+export { useTheme, useIsDark } from './useTheme';
 export { radius } from './radius';
-export type { RadiusKey } from './radius';
+export { spacing } from './spacing';
+export { typography } from './typography';
+export { getElevation } from './elevation';

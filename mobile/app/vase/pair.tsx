@@ -17,11 +17,12 @@ import { isAxiosError } from 'axios';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
 import { spacing } from '../../src/theme/spacing';
+import { radius } from '../../src/theme/radius';
+import { typography } from '../../src/theme/typography';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
-import { Card } from '../../src/components/Card';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { startPairing, getVase, deleteVase, PairingCredentials } from '../../src/services/vases.api';
+import { startPairing, getVase, deleteVase, renameVase, PairingCredentials } from '../../src/services/vases.api';
 
 // Deve combaciare con firmware/vaso/ble_provisioning.cpp
 const PROV_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -129,6 +130,9 @@ export default function VasePairScreen() {
   const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [pairedVaseId, setPairedVaseId] = useState<string | null>(null);
+  const [vaseName, setVaseName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   // Dove riporta il tasto Riprova dopo un errore
   const [retryTarget, setRetryTarget] = useState<'scan' | 'wifi-form'>('scan');
 
@@ -228,6 +232,7 @@ export default function VasePairScreen() {
     let credentials: PairingCredentials | null = null;
     try {
       credentials = await startPairing();
+      setPairedVaseId(credentials.vaseId);
       const { host, port } = parseBrokerUrl(credentials.brokerUrl);
       await connectAndProvision(selectedDevice!, {
         ssid: ssid.trim(),
@@ -319,51 +324,54 @@ export default function VasePairScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      {backVisible ? <ScreenHeader onBack={handleExit} /> : <View style={styles.navPlaceholder} />}
+      <ScreenHeader back={backVisible ? { label: 'Indietro', onPress: handleExit } : undefined} />
 
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.t1 }]}>Collega vaso smart</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Collega vaso smart</Text>
 
         {(step === 'scanning' || step === 'device-list') && (
           <View style={styles.form}>
-            <Text style={[styles.label, { color: theme.t2 }]}>
+            <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
               Accendi il vaso e assicurati che sia in modalità pairing (LED lampeggiante).
             </Text>
 
             {step === 'scanning' && (
               <View style={styles.inlineStatus}>
-                <ActivityIndicator color={theme.acc} />
-                <Text style={[styles.statusText, { color: theme.t2 }]}>Ricerca vasi nelle vicinanze…</Text>
+                <ActivityIndicator color={theme.primary} />
+                <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>Ricerca vasi nelle vicinanze…</Text>
               </View>
             )}
 
             {step === 'device-list' && (
               <>
-                <Text style={[styles.sectionLabel, { color: theme.t2 }]}>
+                <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>
                   {devices.length === 1 ? 'Vaso trovato — toccalo per collegarlo' : 'Vasi trovati — tocca il tuo'}
                 </Text>
                 <FlatList
                   data={devices}
                   keyExtractor={(d) => d.id}
                   renderItem={({ item }) => (
-                    <Pressable onPress={() => handleSelectDevice(item)} style={styles.deviceRowWrap}>
-                      <Card style={styles.deviceRow}>
-                        <Text style={{ fontSize: 20 }}>🪴</Text>
-                        <Text style={[styles.deviceName, { color: theme.t1 }]}>{item.name}</Text>
-                        <Svg width={8} height={13} viewBox="0 0 9 15" fill="none" style={{ marginLeft: 'auto' }}>
-                          <Path d="M1 1L7.5 7.5L1 14" stroke={theme.t3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                        </Svg>
-                      </Card>
+                    <Pressable
+                      onPress={() => handleSelectDevice(item)}
+                      style={[styles.deviceRow, { backgroundColor: theme.surface, borderColor: theme.outline }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Collega ${item.name}`}
+                    >
+                      <Text style={{ fontSize: 20 }}>🪴</Text>
+                      <Text style={[styles.deviceName, { color: theme.onSurface }]}>{item.name}</Text>
+                      <Svg width={8} height={13} viewBox="0 0 9 15" fill="none" style={{ marginLeft: 'auto' }}>
+                        <Path d="M1 1L7.5 7.5L1 14" stroke={theme.onSurfaceVariant} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
                     </Pressable>
                   )}
                   ListFooterComponent={
                     scanActive ? (
                       <View style={styles.inlineStatus}>
-                        <ActivityIndicator color={theme.acc} size="small" />
-                        <Text style={[styles.footerText, { color: theme.t3 }]}>Ricerca di altri vasi…</Text>
+                        <ActivityIndicator color={theme.primary} size="small" />
+                        <Text style={[styles.footerText, { color: theme.onSurfaceVariant }]}>Ricerca di altri vasi…</Text>
                       </View>
                     ) : (
-                      <View style={{ marginTop: 12 }}>
+                      <View style={{ marginTop: spacing.sm12 }}>
                         <Button label="Cerca di nuovo" onPress={startScan} variant="outline" />
                       </View>
                     )
@@ -376,11 +384,11 @@ export default function VasePairScreen() {
 
         {step === 'wifi-form' && (
           <View style={styles.form}>
-            <Card style={styles.selectedBox}>
+            <View style={[styles.selectedBox, { backgroundColor: theme.surface, borderColor: theme.outline }]}>
               <Text style={{ fontSize: 20 }}>🪴</Text>
-              <Text style={[styles.deviceName, { color: theme.t1 }]}>{selectedDevice?.name}</Text>
-            </Card>
-            <Text style={[styles.label, { color: theme.t2 }]}>
+              <Text style={[styles.deviceName, { color: theme.onSurface }]}>{selectedDevice?.name}</Text>
+            </View>
+            <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
               Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete a
               2.4 GHz (il vaso non supporta le reti 5 GHz).
             </Text>
@@ -407,8 +415,8 @@ export default function VasePairScreen() {
         {step === 'connecting' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <ActivityIndicator color={theme.acc} size="large" />
-              <Text style={[styles.statusText, { color: theme.t1 }]}>Connessione a {selectedDevice?.name}…</Text>
+              <ActivityIndicator color={theme.primary} size="large" />
+              <Text style={[styles.statusMsg, { color: theme.onSurface }]}>Connessione a {selectedDevice?.name}…</Text>
             </View>
           </View>
         )}
@@ -416,8 +424,8 @@ export default function VasePairScreen() {
         {step === 'sending' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <ActivityIndicator color={theme.acc} size="large" />
-              <Text style={[styles.statusText, { color: theme.t1 }]}>Invio credenziali al vaso…</Text>
+              <ActivityIndicator color={theme.primary} size="large" />
+              <Text style={[styles.statusMsg, { color: theme.onSurface }]}>Invio credenziali al vaso…</Text>
             </View>
           </View>
         )}
@@ -425,11 +433,11 @@ export default function VasePairScreen() {
         {step === 'verifying' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <ActivityIndicator color={theme.acc} size="large" />
-              <Text style={[styles.statusText, { color: theme.t1 }]}>
+              <ActivityIndicator color={theme.primary} size="large" />
+              <Text style={[styles.statusMsg, { color: theme.onSurface }]}>
                 Credenziali inviate. In attesa che il vaso si connetta alla rete…
               </Text>
-              <Text style={[styles.footerText, { color: theme.t3 }]}>Può volerci fino a un minuto.</Text>
+              <Text style={[styles.footerText, { color: theme.onSurfaceVariant }]}>Può volerci fino a un minuto.</Text>
             </View>
           </View>
         )}
@@ -437,22 +445,46 @@ export default function VasePairScreen() {
         {step === 'done' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <Text style={{ fontSize: 44 }}>✅</Text>
-              <Text style={[styles.statusTitle, { color: theme.t1 }]}>Vaso collegato!</Text>
-              <Text style={[styles.statusText, { color: theme.t2 }]}>
+              <Text style={styles.statusEmoji}>✅</Text>
+              <Text style={[styles.statusTitle, { color: theme.onSurface }]}>Vaso collegato!</Text>
+              <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
                 {selectedDevice?.name} è online e sta inviando i dati dei sensori.
               </Text>
+              <TextInput
+                label="Nome del vaso"
+                placeholder="Es. Vaso soggiorno"
+                value={vaseName}
+                onChangeText={setVaseName}
+                autoFocus
+                maxLength={255}
+                style={styles.nameInput}
+              />
             </View>
-            <Button label="Fatto" onPress={() => router.back()} />
+            <Button
+              label="Fatto"
+              loading={savingName}
+              onPress={async () => {
+                const nome = vaseName.trim();
+                if (nome && pairedVaseId) {
+                  setSavingName(true);
+                  try {
+                    await renameVase(pairedVaseId, nome);
+                  } catch {
+                    // il vaso resta collegato e funzionante: si potrà rinominare dal dettaglio
+                  }
+                }
+                router.back();
+              }}
+            />
           </View>
         )}
 
         {step === 'done-unverified' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <Text style={{ fontSize: 44 }}>⏳</Text>
-              <Text style={[styles.statusTitle, { color: theme.t1 }]}>Credenziali inviate</Text>
-              <Text style={[styles.statusText, { color: theme.t2 }]}>
+              <Text style={styles.statusEmoji}>⏳</Text>
+              <Text style={[styles.statusTitle, { color: theme.onSurface }]}>Credenziali inviate</Text>
+              <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
                 Il vaso non risulta ancora online. Se la password WiFi è corretta comparirà tra i tuoi vasi entro
                 qualche minuto; altrimenti rimettilo in modalità pairing e riprova.
               </Text>
@@ -464,8 +496,8 @@ export default function VasePairScreen() {
         {step === 'error' && (
           <View style={styles.status}>
             <View style={styles.statusCenter}>
-              <Text style={{ fontSize: 44 }}>⚠️</Text>
-              <Text style={[styles.statusText, { color: theme.t1 }]}>{errorMsg}</Text>
+              <Text style={styles.statusEmoji}>⚠️</Text>
+              <Text style={[styles.statusMsg, { color: theme.onSurface }]}>{errorMsg}</Text>
             </View>
             <Button label="Riprova" onPress={handleRetry} />
             <Button label="Annulla" onPress={handleExit} variant="outline" />
@@ -478,28 +510,39 @@ export default function VasePairScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  navPlaceholder: { height: 44 },
-  content: { flex: 1, padding: spacing.lg },
-  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6, marginBottom: spacing.xl },
-  form: { gap: spacing.md, flex: 1 },
-  label: { fontSize: 14, lineHeight: 20 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: spacing.sm },
-  status: { alignItems: 'stretch', gap: spacing.lg, paddingTop: spacing.xxl + spacing.xs, paddingHorizontal: spacing.sm },
-  statusCenter: { alignItems: 'center', gap: spacing.sm },
-  statusTitle: { fontSize: 18, fontWeight: '700' },
-  statusText: { fontSize: 15, textAlign: 'center', lineHeight: 21 },
-  inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.xl },
-  footerText: { fontSize: 13, textAlign: 'center' },
+  content: { flex: 1, padding: spacing.md16 },
+  title: { ...typography.headlineSmall, letterSpacing: -0.5, marginBottom: spacing.lg24 - 4 },
+  form: { gap: spacing.sm12, flex: 1 },
+  label: { ...typography.bodyMedium, lineHeight: 20 },
+  sectionLabel: { ...typography.labelMedium, textTransform: 'uppercase', letterSpacing: 0.3, marginTop: spacing.xs8 },
+  status: { alignItems: 'stretch', gap: spacing.md16, paddingTop: spacing.xl32 + 8, paddingHorizontal: spacing.xs8 },
+  statusCenter: { alignItems: 'center', gap: spacing.xs8 },
+  statusTitle: { ...typography.titleMedium },
+  statusMsg: { ...typography.bodyLarge, textAlign: 'center' },
+  statusText: { ...typography.bodyMedium, textAlign: 'center', lineHeight: 21 },
+  statusEmoji: { fontSize: 44 },
+  nameInput: { alignSelf: 'stretch', marginTop: spacing.sm12, width: '100%' },
+  inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm12 - 2, paddingVertical: spacing.lg24 - 4 },
+  footerText: { ...typography.bodySmall, textAlign: 'center' },
   selectedBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm12,
+    padding: spacing.sm12 + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    minHeight: 44,
   },
   deviceRowWrap: { marginBottom: spacing.sm },
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm12,
+    padding: spacing.sm12 + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    marginBottom: spacing.sm12 - 2,
+    minHeight: 44,
   },
-  deviceName: { fontSize: 16, fontWeight: '600' },
+  deviceName: { ...typography.bodyLarge, fontWeight: '500' },
 });

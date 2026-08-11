@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../src/theme/useTheme';
+import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { Card } from '../src/components/Card';
 import { ScreenHeader } from '../src/components/ScreenHeader';
@@ -54,20 +55,20 @@ export default function PlantHistoryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScreenHeader />
+      <ScreenHeader back={{ label: 'Indietro' }} />
 
-      <Text style={[styles.title, { color: theme.t1 }]}>Storico cure</Text>
-      {nome ? <Text style={[styles.subtitle, { color: theme.t2 }]}>{nome}</Text> : null}
+      <Text style={[styles.title, { color: theme.onSurface }]}>Storico cure</Text>
+      {nome ? <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>{nome}</Text> : null}
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={theme.acc} />
+          <ActivityIndicator color={theme.primary} />
         </View>
       ) : items.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ fontSize: 36, marginBottom: 10 }}>🌱</Text>
-          <Text style={[styles.emptyTitle, { color: theme.t1 }]}>Nessuna cura registrata</Text>
-          <Text style={[styles.emptySub, { color: theme.t2 }]}>
+          <Text style={{ fontSize: 36, marginBottom: spacing.sm12 - 2 }}>🌱</Text>
+          <Text style={[styles.emptyTitle, { color: theme.onSurface }]}>Nessuna cura registrata</Text>
+          <Text style={[styles.emptySub, { color: theme.onSurfaceVariant }]}>
             Le azioni completate compariranno qui.
           </Text>
         </View>
@@ -78,14 +79,24 @@ export default function PlantHistoryScreen() {
           contentContainerStyle={styles.list}
           onEndReached={loadMore}
           onEndReachedThreshold={0.4}
-          ListFooterComponent={loadingMore ? <ActivityIndicator color={theme.acc} style={{ marginVertical: spacing.lg }} /> : null}
-          renderItem={({ item }) => (
-            <Card style={styles.row}>
-              <Text style={[styles.rowTipo, { color: theme.t1 }]}>
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator color={theme.primary} style={{ marginVertical: spacing.md16 }} /> : null
+          }
+          renderItem={({ item, index }) => (
+            <Card
+              variant="flat"
+              style={[
+                styles.row,
+                index === 0 && styles.rowFirst,
+                index === items.length - 1 && styles.rowLast,
+                index < items.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.outlineVariant, borderRadius: 0 },
+              ]}
+            >
+              <Text style={[styles.rowTipo, { color: theme.onSurface }]}>
                 {TASK_LABELS[item.tipo as keyof typeof TASK_LABELS] ?? item.tipo}
               </Text>
-              <Text style={[styles.rowDate, { color: theme.t2 }]}>{formatDateTime(item.createdAt)}</Text>
-              {item.nota ? <Text style={[styles.rowNota, { color: theme.t3 }]}>{item.nota}</Text> : null}
+              <Text style={[styles.rowDate, { color: theme.onSurfaceVariant }]}>{formatDateTime(item.createdAt)}</Text>
+              {item.nota ? <Text style={[styles.rowNota, { color: theme.onSurfaceVariant }]}>{item.nota}</Text> : null}
             </Card>
           )}
         />
@@ -96,15 +107,17 @@ export default function PlantHistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, paddingHorizontal: spacing.lg },
-  subtitle: { fontSize: 14, paddingHorizontal: spacing.lg, marginTop: 2, marginBottom: spacing.md },
+  title: { ...typography.headlineSmall, paddingHorizontal: spacing.md16 },
+  subtitle: { ...typography.bodyMedium, paddingHorizontal: spacing.md16, marginTop: 2, marginBottom: spacing.sm12 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
-  emptySub: { fontSize: 14 },
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm, paddingBottom: spacing.xl },
-  row: { padding: spacing.lg },
-  rowTipo: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
-  rowDate: { fontSize: 13 },
-  rowNota: { fontSize: 13, marginTop: spacing.xs, fontStyle: 'italic' },
+  emptyTitle: { ...typography.titleMedium, marginBottom: spacing.xs4 },
+  emptySub: { ...typography.bodyMedium },
+  list: { paddingHorizontal: spacing.md16, paddingTop: spacing.xs8, paddingBottom: spacing.lg24 },
+  row: { padding: spacing.sm12 + 2, paddingHorizontal: spacing.md16 },
+  rowFirst: { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
+  rowLast: { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
+  rowTipo: { ...typography.bodyLarge, fontWeight: '500', marginBottom: 2 },
+  rowDate: { ...typography.bodySmall },
+  rowNota: { ...typography.bodySmall, marginTop: 3, fontStyle: 'italic' },
 });

@@ -14,12 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../src/theme/useTheme';
+import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { radius } from '../src/theme/radius';
 import { Button } from '../src/components/Button';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { TextInput } from '../src/components/TextInput';
 import { Card } from '../src/components/Card';
-import { ScreenHeader } from '../src/components/ScreenHeader';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { deletePlant, getPlant, updatePlant } from '../src/services/plants.api';
 import type { Plant, SpeciesSummary, StatoBouquet } from '../src/types/models';
@@ -122,7 +123,7 @@ export default function EditPlantScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
         <View style={styles.loading}>
-          <ActivityIndicator color={theme.acc} />
+          <ActivityIndicator color={theme.primary} />
         </View>
       </SafeAreaView>
     );
@@ -132,44 +133,49 @@ export default function EditPlantScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <ScreenHeader
-        title="Modifica"
-        rightAction={
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.t2 }}>Annulla</Text>
-          </Pressable>
-        }
-      />
+      <ScreenHeader left={{ label: 'Annulla', onPress: () => router.back() }} title="Modifica" />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.fieldLabel, { color: theme.t2 }]}>NOME</Text>
-          <TextInput value={nome} onChangeText={setNome} style={{ marginBottom: 16 }} />
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>NOME</Text>
+          <TextInput value={nome} onChangeText={setNome} style={{ marginBottom: spacing.md16 }} />
 
           {plant.tipo === 'pianta' && (
             <>
-              <Text style={[styles.fieldLabel, { color: theme.t2 }]}>SPECIE</Text>
+              <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>SPECIE</Text>
               <Pressable
                 onPress={() => setPickerVisible(true)}
-                style={[styles.speciesPicker, { backgroundColor: theme.card, borderColor: theme.bord }]}
+                accessibilityRole="button"
+                accessibilityLabel={species ? `Specie: ${species.nomeComune}` : 'Scegli specie dal catalogo'}
+                style={[styles.speciesPicker, { backgroundColor: theme.surface, borderColor: theme.outline }]}
               >
                 {species ? (
                   <View>
-                    <Text style={{ fontSize: 16, color: theme.t1 }}>{species.nomeComune}</Text>
+                    <Text style={{ fontSize: typography.bodyLarge.fontSize, color: theme.onSurface }}>{species.nomeComune}</Text>
                     {species.nomeScientifico && (
-                      <Text style={{ fontSize: 12, color: theme.t2, fontStyle: 'italic' }}>{species.nomeScientifico}</Text>
+                      <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.onSurfaceVariant, fontStyle: 'italic' }}>
+                        {species.nomeScientifico}
+                      </Text>
                     )}
                   </View>
                 ) : (
-                  <Text style={{ fontSize: 16, color: theme.t3 }}>Scegli dal catalogo (opzionale)</Text>
+                  <Text style={{ fontSize: typography.bodyLarge.fontSize, color: theme.onSurfaceVariant }}>
+                    Scegli dal catalogo (opzionale)
+                  </Text>
                 )}
                 <Svg width={7} height={12} viewBox="0 0 7 12" fill="none">
-                  <Path d="M1 1L6 6L1 11" stroke={theme.t3} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M1 1L6 6L1 11" stroke={theme.onSurfaceVariant} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </Pressable>
               {species && (
-                <Pressable onPress={() => setSpecies(null)} style={{ marginBottom: 16, paddingHorizontal: 4 }}>
-                  <Text style={{ fontSize: 13, color: theme.red }}>Rimuovi specie</Text>
+                <Pressable
+                  onPress={() => setSpecies(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Rimuovi specie"
+                  hitSlop={4}
+                  style={{ marginBottom: spacing.md16, paddingHorizontal: spacing.xs4, minHeight: 44, justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.error }}>Rimuovi specie</Text>
                 </Pressable>
               )}
             </>
@@ -177,7 +183,7 @@ export default function EditPlantScreen() {
 
           {plant.tipo === 'bouquet' && (
             <>
-              <Text style={[styles.fieldLabel, { color: theme.t2 }]}>STATO BOUQUET</Text>
+              <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>STATO BOUQUET</Text>
               <View style={styles.stagesRow}>
                 {BOUQUET_STAGES.map((stage) => {
                   const isSelected = statoBouquet === stage.key;
@@ -185,82 +191,99 @@ export default function EditPlantScreen() {
                     <Pressable
                       key={stage.key}
                       onPress={() => setStatoBouquet(stage.key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Stato bouquet: ${stage.label}`}
+                      accessibilityState={{ selected: isSelected }}
                       style={[
                         styles.stageChip,
                         {
-                          backgroundColor: isSelected ? theme.acc : theme.card,
-                          borderColor: isSelected ? theme.acc : theme.bord,
+                          backgroundColor: isSelected ? theme.primary : theme.surface,
+                          borderColor: isSelected ? theme.primary : theme.outline,
                         },
                       ]}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '500', color: isSelected ? 'white' : theme.t1 }}>
+                      <Text style={{ fontSize: typography.labelLarge.fontSize, fontWeight: '500', color: isSelected ? theme.onPrimary : theme.onSurface }}>
                         {stage.label}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-              <Text style={[styles.hint, { color: theme.t3 }]}>
+              <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
                 Impostando lo stato manualmente, l'aggiornamento automatico si disattiva.
               </Text>
             </>
           )}
 
-          <Text style={[styles.fieldLabel, { color: theme.t2 }]}>POSIZIONE</Text>
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>POSIZIONE</Text>
           <TextInput
             value={posizione}
             onChangeText={setPosizione}
             placeholder="Soggiorno (opzionale)"
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: spacing.md16 }}
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.t2 }]}>NOTE</Text>
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>NOTE</Text>
           <TextInput
             value={note}
             onChangeText={setNote}
             placeholder="Note (opzionale)"
             multiline
             numberOfLines={3}
-            style={{ marginBottom: 24, minHeight: 80, textAlignVertical: 'top' }}
+            style={{ marginBottom: spacing.lg24, minHeight: 80, textAlignVertical: 'top' }}
           />
 
           <Button label="Salva modifiche" onPress={handleSave} loading={saving} />
 
           {/* Altre azioni */}
-          <Text style={[styles.fieldLabel, { color: theme.t2, marginTop: spacing.xl + spacing.xs }]}>ALTRE AZIONI</Text>
-          <Card padded={false} style={styles.actionsCard}>
+          <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant, marginTop: spacing.lg24 + spacing.xs4 }]}>
+            ALTRE AZIONI
+          </Text>
+          <Card variant="flat" style={styles.actionsCard}>
             <Pressable
               onPress={() => router.push({ pathname: '/plant-history', params: { id: plant.id, nome: plant.nome } })}
-              style={[styles.actionRow, { borderBottomWidth: 1, borderBottomColor: theme.bord }]}
+              accessibilityRole="button"
+              accessibilityLabel="Storico cure"
+              style={[styles.actionRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.outlineVariant }]}
             >
-              <Text style={[styles.actionText, { color: theme.t1 }]}>Storico cure</Text>
+              <Text style={[styles.actionText, { color: theme.onSurface }]}>Storico cure</Text>
               <Svg width={7} height={12} viewBox="0 0 7 12" fill="none">
-                <Path d="M1 1L6 6L1 11" stroke={theme.t3} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M1 1L6 6L1 11" stroke={theme.onSurfaceVariant} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Pressable>
-            <Pressable onPress={handleToggleArchive} style={styles.actionRow}>
-              <Text style={[styles.actionText, { color: theme.amb }]}>
+            <Pressable
+              onPress={handleToggleArchive}
+              accessibilityRole="button"
+              accessibilityLabel={plant.stato === 'attivo' ? 'Archivia pianta' : 'Ripristina pianta'}
+              style={styles.actionRow}
+            >
+              <Text style={[styles.actionText, { color: theme.warning }]}>
                 {plant.stato === 'attivo' ? 'Archivia pianta' : 'Ripristina pianta'}
               </Text>
-              {archiving && <ActivityIndicator size="small" color={theme.amb} />}
+              {archiving && <ActivityIndicator size="small" color={theme.warning} />}
             </Pressable>
           </Card>
           {plant.stato === 'attivo' && (
-            <Text style={[styles.hint, { color: theme.t3 }]}>
+            <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
               Archiviando, i task in sospeso verranno annullati e i promemoria sospesi.
             </Text>
           )}
 
           {/* Zona eliminazione */}
-          <View style={[styles.dangerZone, { borderColor: theme.red }]}>
+          <View style={[styles.dangerZone, { borderColor: theme.error }]}>
             {!deleteMode ? (
-              <Pressable onPress={() => setDeleteMode(true)} style={styles.actionRow}>
-                <Text style={[styles.actionText, { color: theme.red }]}>Elimina pianta</Text>
+              <Pressable
+                onPress={() => setDeleteMode(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Elimina pianta"
+                style={styles.actionRow}
+              >
+                <Text style={[styles.actionText, { color: theme.error }]}>Elimina pianta</Text>
               </Pressable>
             ) : (
               <View style={styles.deleteConfirmBox}>
-                <Text style={[styles.deleteTitle, { color: theme.red }]}>Eliminare "{plant.nome}"?</Text>
-                <Text style={[styles.deleteText, { color: theme.t2 }]}>
+                <Text style={[styles.deleteTitle, { color: theme.error }]}>Eliminare "{plant.nome}"?</Text>
+                <Text style={[styles.deleteMessage, { color: theme.onSurfaceVariant }]}>
                   L'operazione non è reversibile e i task in sospeso verranno annullati. Digita ELIMINA per
                   confermare.
                 </Text>
@@ -270,29 +293,37 @@ export default function EditPlantScreen() {
                   placeholder="ELIMINA"
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  style={{ marginBottom: 12 }}
+                  style={{ marginBottom: spacing.sm12 }}
                 />
                 <View style={styles.deleteButtons}>
-                  <Pressable
-                    onPress={() => {
-                      setDeleteMode(false);
-                      setDeleteConfirm('');
-                    }}
-                    style={[styles.deleteBtn, { backgroundColor: theme.card2 }]}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '500', color: theme.t1 }}>Annulla</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleDelete}
-                    disabled={!deleteEnabled || deleting}
-                    style={[styles.deleteBtn, { backgroundColor: theme.red, opacity: deleteEnabled ? 1 : 0.4 }]}
-                  >
-                    {deleting ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: 'white' }}>Elimina definitivamente</Text>
-                    )}
-                  </Pressable>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label="Annulla"
+                      variant="outline"
+                      onPress={() => {
+                        setDeleteMode(false);
+                        setDeleteConfirm('');
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Pressable
+                      onPress={handleDelete}
+                      disabled={!deleteEnabled || deleting}
+                      accessibilityRole="button"
+                      accessibilityLabel="Elimina definitivamente"
+                      accessibilityState={{ disabled: !deleteEnabled || deleting }}
+                      style={[styles.deleteConfirmBtn, { backgroundColor: theme.error, opacity: deleteEnabled ? 1 : 0.4 }]}
+                    >
+                      {deleting ? (
+                        <ActivityIndicator size="small" color={theme.onError} />
+                      ) : (
+                        <Text style={{ fontSize: typography.labelLarge.fontSize, fontWeight: '600', color: theme.onError }}>
+                          Elimina definitivamente
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             )}
@@ -315,51 +346,51 @@ export default function EditPlantScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  form: { padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xxl },
-  fieldLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, marginBottom: spacing.sm, paddingHorizontal: 4 },
+  form: { padding: spacing.md16, paddingTop: spacing.xs8, paddingBottom: spacing.xl32 },
+  fieldLabel: { ...typography.labelMedium, letterSpacing: 0.5, marginBottom: spacing.xs8 - 2, paddingHorizontal: spacing.xs4 },
   speciesPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md + 2,
-    minHeight: 50,
-    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md16,
+    paddingVertical: spacing.sm12 + 2,
+    marginBottom: spacing.xs8,
+    minHeight: 44,
   },
-  stagesRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  stagesRow: { flexDirection: 'row', gap: spacing.xs8, marginBottom: spacing.xs8 },
   stageChip: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
-    paddingVertical: spacing.sm + 2,
-    minHeight: 40,
+    paddingVertical: spacing.xs8 + 2,
+    minHeight: 44,
     justifyContent: 'center',
   },
-  hint: { fontSize: 12, lineHeight: 17, marginBottom: spacing.lg, paddingHorizontal: 4 },
-  actionsCard: { marginBottom: spacing.sm },
+  hint: { ...typography.bodySmall, marginBottom: spacing.md16, paddingHorizontal: spacing.xs4 },
+  actionsCard: { overflow: 'hidden', marginBottom: spacing.xs8 },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    minHeight: 52,
+    paddingVertical: spacing.sm12 + 2,
+    paddingHorizontal: spacing.md16,
+    minHeight: 44,
   },
-  actionText: { fontSize: 16 },
-  dangerZone: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.lg, overflow: 'hidden' },
-  deleteConfirmBox: { padding: spacing.lg },
-  deleteTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.sm },
-  deleteText: { fontSize: 13, lineHeight: 19, marginBottom: spacing.md + 2 },
-  deleteButtons: { flexDirection: 'row', gap: spacing.md },
-  deleteBtn: {
+  actionText: { ...typography.bodyLarge },
+  dangerZone: { borderRadius: radius.md, borderWidth: 1, marginTop: spacing.md16, overflow: 'hidden' },
+  deleteConfirmBox: { padding: spacing.md16 },
+  deleteTitle: { ...typography.titleMedium, fontWeight: '700', marginBottom: spacing.xs8 - 2 },
+  deleteMessage: { ...typography.bodySmall, marginBottom: spacing.sm12 + 2 },
+  deleteButtons: { flexDirection: 'row', gap: spacing.sm12 - 2 },
+  deleteConfirmBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingVertical: spacing.md,
-    minHeight: 46,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm12,
+    minHeight: 44,
   },
 });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useAuthStore } from '../src/store/auth.store';
 import { useTheme } from '../src/theme/useTheme';
 import { useNotificationObserver } from '../src/hooks/usePushNotifications';
@@ -18,10 +18,12 @@ export default function RootLayout() {
   if (isRestoring) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.acc} />
+        <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
 
-  return <Slot />;
+  // Push/pop stile iOS: durata 380ms (onorata da native-stack solo su iOS; Android
+  // usa la curva nativa di piattaforma, native-stack non espone easing/offset custom da JS).
+  return <Stack screenOptions={{ headerShown: false, animation: 'default', animationDuration: 380 }} />;
 }

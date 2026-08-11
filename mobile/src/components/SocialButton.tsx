@@ -1,6 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useTheme } from '../theme/useTheme';
+import { useTheme, useIsDark } from '../theme/useTheme';
+import { radius } from '../theme/radius';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
+import { getElevation } from '../theme/elevation';
 
 function GoogleIcon() {
   return (
@@ -46,23 +50,29 @@ interface SocialButtonProps {
 
 export function SocialButton({ provider, label, onPress, loading, disabled }: SocialButtonProps) {
   const theme = useTheme();
+  const dark = useIsDark();
+  const isDisabled = disabled || loading;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
-      style={[
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled }}
+      hitSlop={4}
+      style={({ pressed }) => [
         styles.base,
-        { backgroundColor: theme.card, shadowColor: '#000' },
-        (disabled || loading) && { opacity: 0.5 },
+        { backgroundColor: theme.surface, ...getElevation(pressed ? 1 : 2, dark) },
+        isDisabled && { opacity: 0.5 },
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={theme.t1} />
+        <ActivityIndicator color={theme.onSurface} />
       ) : (
         <>
-          {provider === 'google' ? <GoogleIcon /> : <AppleIcon color={theme.t1} />}
-          <Text style={[styles.label, { color: theme.t1 }]}>{label}</Text>
+          {provider === 'google' ? <GoogleIcon /> : <AppleIcon color={theme.onSurface} />}
+          <Text style={[styles.label, { color: theme.onSurface }]}>{label}</Text>
         </>
       )}
     </Pressable>
@@ -74,16 +84,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    borderRadius: 13,
-    paddingVertical: 14,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: spacing.sm12 - 2,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md16 - 2,
+    minHeight: 44,
   },
   label: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge.fontSize,
     fontWeight: '500',
   },
 });
