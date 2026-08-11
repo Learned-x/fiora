@@ -21,7 +21,8 @@ import { radius } from '../../src/theme/radius';
 import { typography } from '../../src/theme/typography';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
-import { startPairing, getVase, deleteVase, PairingCredentials } from '../../src/services/vases.api';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
+import { startPairing, getVase, deleteVase, renameVase, PairingCredentials } from '../../src/services/vases.api';
 
 // Deve combaciare con firmware/vaso/ble_provisioning.cpp
 const PROV_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -129,6 +130,9 @@ export default function VasePairScreen() {
   const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [pairedVaseId, setPairedVaseId] = useState<string | null>(null);
+  const [vaseName, setVaseName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   // Dove riporta il tasto Riprova dopo un errore
   const [retryTarget, setRetryTarget] = useState<'scan' | 'wifi-form'>('scan');
 
@@ -228,6 +232,7 @@ export default function VasePairScreen() {
     let credentials: PairingCredentials | null = null;
     try {
       credentials = await startPairing();
+      setPairedVaseId(credentials.vaseId);
       const { host, port } = parseBrokerUrl(credentials.brokerUrl);
       await connectAndProvision(selectedDevice!, {
         ssid: ssid.trim(),
@@ -319,22 +324,7 @@ export default function VasePairScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        {backVisible && (
-          <Pressable
-            onPress={handleExit}
-            style={styles.backBtn}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Indietro"
-          >
-            <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-              <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-            <Text style={[styles.backText, { color: theme.primary }]}>Indietro</Text>
-          </Pressable>
-        )}
-      </View>
+      <ScreenHeader back={backVisible ? { label: 'Indietro', onPress: handleExit } : undefined} />
 
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.onSurface }]}>Collega vaso smart</Text>
@@ -460,8 +450,32 @@ export default function VasePairScreen() {
               <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
                 {selectedDevice?.name} è online e sta inviando i dati dei sensori.
               </Text>
+              <TextInput
+                label="Nome del vaso"
+                placeholder="Es. Vaso soggiorno"
+                value={vaseName}
+                onChangeText={setVaseName}
+                autoFocus
+                maxLength={255}
+                style={styles.nameInput}
+              />
             </View>
-            <Button label="Fatto" onPress={() => router.back()} />
+            <Button
+              label="Fatto"
+              loading={savingName}
+              onPress={async () => {
+                const nome = vaseName.trim();
+                if (nome && pairedVaseId) {
+                  setSavingName(true);
+                  try {
+                    await renameVase(pairedVaseId, nome);
+                  } catch {
+                    // il vaso resta collegato e funzionante: si potrà rinominare dal dettaglio
+                  }
+                }
+                router.back();
+              }}
+            />
           </View>
         )}
 
@@ -496,9 +510,6 @@ export default function VasePairScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { paddingHorizontal: spacing.md16, paddingTop: spacing.xs4, minHeight: 44, justifyContent: 'center' },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', minHeight: 44 },
-  backText: { ...typography.bodyLarge },
   content: { flex: 1, padding: spacing.md16 },
   title: { ...typography.headlineSmall, letterSpacing: -0.5, marginBottom: spacing.lg24 - 4 },
   form: { gap: spacing.sm12, flex: 1 },
@@ -510,6 +521,7 @@ const styles = StyleSheet.create({
   statusMsg: { ...typography.bodyLarge, textAlign: 'center' },
   statusText: { ...typography.bodyMedium, textAlign: 'center', lineHeight: 21 },
   statusEmoji: { fontSize: 44 },
+  nameInput: { alignSelf: 'stretch', marginTop: spacing.sm12, width: '100%' },
   inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm12 - 2, paddingVertical: spacing.lg24 - 4 },
   footerText: { ...typography.bodySmall, textAlign: 'center' },
   selectedBox: {

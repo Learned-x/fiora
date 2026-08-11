@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,6 +18,8 @@ import { radius } from '../src/theme/radius';
 import { typography } from '../src/theme/typography';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { ScreenHeader } from '../src/components/ScreenHeader';
+import { StepTransition } from '../src/components/StepTransition';
 import { Card } from '../src/components/Card';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { createPlant } from '../src/services/plants.api';
@@ -34,6 +36,13 @@ export default function AddPlantScreen() {
   const [giaInAcqua, setGiaInAcqua] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+
+  const prevAddTypeRef = useRef(addType);
+  const directionRef = useRef<'fwd' | 'back'>('fwd');
+  if (prevAddTypeRef.current !== addType) {
+    directionRef.current = addType === null ? 'back' : 'fwd';
+    prevAddTypeRef.current = addType;
+  }
 
   async function handleSave() {
     if (!nome.trim()) {
@@ -60,23 +69,12 @@ export default function AddPlantScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable
-          onPress={() => (addType === null ? router.back() : setAddType(null))}
-          style={styles.backBtn}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Indietro"
-        >
-          <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-            <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={[styles.backText, { color: theme.primary }]}>Indietro</Text>
-        </Pressable>
-        <Text style={[styles.navTitle, { color: theme.onSurface }]}>{title}</Text>
-        <View style={{ width: 80 }} />
-      </View>
+      <ScreenHeader
+        back={{ label: 'Indietro', onPress: () => (addType === null ? router.back() : setAddType(null)) }}
+        title={title}
+      />
 
+      <StepTransition stepKey={addType} direction={directionRef.current}>
       {addType === null ? (
         <View style={styles.typeSelect}>
           <Text style={[styles.question, { color: theme.onSurfaceVariant }]}>Cosa vuoi aggiungere?</Text>
@@ -206,6 +204,7 @@ export default function AddPlantScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
+      </StepTransition>
 
       <SpeciesPickerModal
         visible={pickerVisible}
@@ -221,18 +220,6 @@ export default function AddPlantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md16,
-    paddingTop: spacing.sm12,
-    paddingBottom: spacing.xs8,
-    minHeight: 44,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, width: 80, minHeight: 44 },
-  backText: { ...typography.bodyLarge },
-  navTitle: { ...typography.titleMedium },
   typeSelect: { padding: spacing.md16 },
   question: { ...typography.bodyLarge, marginBottom: spacing.lg24 - 4 },
   typeCard: { overflow: 'hidden' },

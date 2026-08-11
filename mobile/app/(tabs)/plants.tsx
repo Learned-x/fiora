@@ -9,6 +9,8 @@ import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 import { listPlants } from '../../src/services/plants.api';
 import type { Plant } from '../../src/types/models';
 import { plantEmoji } from '../../src/lib/plantUi';
@@ -28,14 +30,16 @@ export default function PlantsScreen() {
   const [filter, setFilter] = useState<Filter>('tutti');
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async (currentFilter: Filter) => {
     try {
       const stato = currentFilter === 'archiviate' ? 'archiviato' : 'attivo';
       setPlants(await listPlants(stato));
       setLoaded(true);
+      setLoadError(false);
     } catch {
-      // errore rete: pull-to-refresh per riprovare
+      setLoadError(true);
     }
   }, []);
 
@@ -63,7 +67,7 @@ export default function PlantsScreen() {
         <Text style={[styles.title, { color: theme.onSurface }]}>Piante</Text>
         <Pressable
           onPress={() => router.push('/add-plant')}
-          style={[styles.addBtn, { backgroundColor: theme.primary }]}
+          style={({ pressed }) => [styles.addBtn, { backgroundColor: theme.primary }, pressed && { opacity: 0.82 }]}
           accessibilityRole="button"
           accessibilityLabel="Aggiungi pianta"
           hitSlop={4}
@@ -85,6 +89,20 @@ export default function PlantsScreen() {
           />
         ))}
       </View>
+
+      {!loaded && !loadError && (
+        <View style={styles.list}>
+          <View style={styles.row}>
+            <Skeleton height={140} style={{ flex: 1 }} />
+            <Skeleton height={140} style={{ flex: 1 }} />
+          </View>
+        </View>
+      )}
+      {loadError && (
+        <View style={styles.list}>
+          <ErrorState message="Impossibile caricare le piante. Controlla la connessione." onRetry={() => load(filter)} />
+        </View>
+      )}
 
       <FlatList
         data={filtered}
@@ -110,10 +128,8 @@ export default function PlantsScreen() {
             style={styles.cardWrap}
           >
             <Card variant="elevated" style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={[styles.emojiTile, { backgroundColor: theme.surfaceHigh }]}>
-                  <Text style={styles.emoji}>{plantEmoji(item)}</Text>
-                </View>
+              <View style={[styles.emojiTile, { backgroundColor: theme.surfaceHigh }]}>
+                <Text style={styles.emoji}>{plantEmoji(item)}</Text>
                 {item.tipo === 'bouquet' && (
                   <View style={[styles.bouquetBadge, { backgroundColor: theme.tertiaryContainer }]}>
                     <Text style={[styles.bouquetBadgeText, { color: theme.onTertiaryContainer }]}>bouquet</Text>
@@ -153,16 +169,28 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md16,
   },
   title: { ...typography.headlineLarge, letterSpacing: -0.6 },
-  addBtn: { width: 32, height: 32, borderRadius: radius.md + 4, alignItems: 'center', justifyContent: 'center' },
+  addBtn: { width: 44, height: 44, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', gap: spacing.xs8 - 1, paddingHorizontal: spacing.md16, marginBottom: spacing.md16, flexWrap: 'wrap' },
   list: { paddingHorizontal: spacing.md16, paddingBottom: spacing.lg24, flexGrow: 1 },
   row: { gap: spacing.sm12, marginBottom: spacing.sm12 },
   cardWrap: { flex: 1 },
-  card: { padding: spacing.md16 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.sm12 + 2 },
-  emojiTile: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  emoji: { fontSize: 24, lineHeight: 28 },
-  bouquetBadge: { paddingVertical: 3, paddingHorizontal: spacing.xs8 - 1, borderRadius: radius.xs + 2 },
+  card: { padding: spacing.sm12 },
+  emojiTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: radius.md,
+    marginBottom: spacing.xs8,
+  },
+  emoji: { fontSize: 26 },
+  bouquetBadge: {
+    position: 'absolute',
+    top: spacing.xs4,
+    right: spacing.xs4,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.xs8 - 1,
+    borderRadius: radius.xs + 2,
+  },
   bouquetBadgeText: { ...typography.labelSmall },
   cardName: { ...typography.titleSmall, marginBottom: 2 },
   cardSpecies: { ...typography.bodySmall, fontStyle: 'italic' },

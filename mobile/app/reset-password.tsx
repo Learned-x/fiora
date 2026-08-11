@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
 import { AxiosError } from 'axios';
 import { useTheme } from '../src/theme/useTheme';
 import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { Button } from '../src/components/Button';
 import { TextInput } from '../src/components/TextInput';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { resetPassword } from '../src/services/auth.api';
 
 export default function ResetPasswordScreen() {
@@ -40,22 +40,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      {router.canGoBack() && (
-        <View style={styles.nav}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Indietro"
-            hitSlop={8}
-            style={styles.backBtn}
-          >
-            <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-              <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-            <Text style={{ fontSize: 17, color: theme.primary }}>Indietro</Text>
-          </Pressable>
-        </View>
-      )}
+      {router.canGoBack() && <ScreenHeader back={{ label: 'Indietro' }} />}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: theme.onSurface }]}>Nuova password</Text>
@@ -100,8 +85,6 @@ export default function ResetPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { paddingHorizontal: spacing.md16, paddingTop: spacing.sm12 + 2, paddingBottom: spacing.xs8 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 - 1, alignSelf: 'flex-start', minHeight: 44 },
   form: { padding: spacing.md16, paddingTop: spacing.lg24 },
   title: { ...typography.headlineSmall, marginBottom: spacing.md20 },
   fieldLabel: { ...typography.labelMedium, letterSpacing: 0.5, marginBottom: spacing.xs8 - 2, paddingHorizontal: spacing.xs4 },

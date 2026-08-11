@@ -47,12 +47,12 @@ export default function ForgotPasswordScreen() {
             </Text>
             <View style={styles.form}>
               <TextInput
-                placeholder="Email"
+                label="Email"
+                placeholder="mario@esempio.com"
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
-                accessibilityLabel="Email"
               />
             </View>
             <View style={styles.actions}>

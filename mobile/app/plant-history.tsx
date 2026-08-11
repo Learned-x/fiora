@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../src/theme/useTheme';
 import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { Card } from '../src/components/Card';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { listPlantActions } from '../src/services/plants.api';
 import type { ActionLogEntry } from '../src/types/models';
 import { TASK_LABELS } from '../src/lib/plantUi';
@@ -55,20 +55,7 @@ export default function PlantHistoryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Indietro"
-          hitSlop={8}
-          style={styles.backBtn}
-        >
-          <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-            <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={{ fontSize: 17, color: theme.primary }}>Indietro</Text>
-        </Pressable>
-      </View>
+      <ScreenHeader back={{ label: 'Indietro' }} />
 
       <Text style={[styles.title, { color: theme.onSurface }]}>Storico cure</Text>
       {nome ? <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>{nome}</Text> : null}
@@ -120,8 +107,6 @@ export default function PlantHistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { paddingHorizontal: spacing.md16, paddingTop: spacing.sm12 + 2, paddingBottom: spacing.xs8 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 - 1, alignSelf: 'flex-start', minHeight: 44 },
   title: { ...typography.headlineSmall, paddingHorizontal: spacing.md16 },
   subtitle: { ...typography.bodyMedium, paddingHorizontal: spacing.md16, marginTop: 2, marginBottom: spacing.sm12 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },

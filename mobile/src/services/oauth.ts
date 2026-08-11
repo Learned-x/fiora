@@ -1,5 +1,6 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { CodedError } from 'expo-modules-core';
 
 GoogleSignin.configure({
   iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID!,
@@ -65,8 +66,8 @@ export async function signInWithApple(): Promise<AppleSignInResult> {
       : null;
 
     return { identityToken: credential.identityToken, fullName };
-  } catch (err: any) {
-    if (err?.code === 'ERR_REQUEST_CANCELED') {
+  } catch (err) {
+    if (err instanceof CodedError && err.code === 'ERR_REQUEST_CANCELED') {
       throw new AppleSignInCancelledError();
     }
     console.error('[oauth] Apple Sign-In error:', JSON.stringify(err, Object.getOwnPropertyNames(err as object)));

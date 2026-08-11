@@ -18,6 +18,7 @@ import { typography } from '../src/theme/typography';
 import { spacing } from '../src/theme/spacing';
 import { radius } from '../src/theme/radius';
 import { Button } from '../src/components/Button';
+import { ScreenHeader } from '../src/components/ScreenHeader';
 import { TextInput } from '../src/components/TextInput';
 import { Card } from '../src/components/Card';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
@@ -132,19 +133,7 @@ export default function EditPlantScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={styles.nav}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Annulla modifica"
-          hitSlop={8}
-          style={styles.backBtn}
-        >
-          <Text style={{ fontSize: 17, color: theme.onSurfaceVariant }}>Annulla</Text>
-        </Pressable>
-        <Text style={[styles.navTitle, { color: theme.onSurface }]}>Modifica</Text>
-        <View style={{ width: 80 }} />
-      </View>
+      <ScreenHeader left={{ label: 'Annulla', onPress: () => router.back() }} title="Modifica" />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
@@ -183,7 +172,8 @@ export default function EditPlantScreen() {
                   onPress={() => setSpecies(null)}
                   accessibilityRole="button"
                   accessibilityLabel="Rimuovi specie"
-                  style={{ marginBottom: spacing.md16, paddingHorizontal: spacing.xs4, minHeight: 32, justifyContent: 'center' }}
+                  hitSlop={4}
+                  style={{ marginBottom: spacing.md16, paddingHorizontal: spacing.xs4, minHeight: 44, justifyContent: 'center' }}
                 >
                   <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.error }}>Rimuovi specie</Text>
                 </Pressable>
@@ -356,16 +346,6 @@ export default function EditPlantScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md16,
-    paddingTop: spacing.sm12 + 2,
-    paddingBottom: spacing.xs8,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 - 1, width: 80, minHeight: 44, justifyContent: 'center' },
-  navTitle: { ...typography.titleMedium },
   form: { padding: spacing.md16, paddingTop: spacing.xs8, paddingBottom: spacing.xl32 },
   fieldLabel: { ...typography.labelMedium, letterSpacing: 0.5, marginBottom: spacing.xs8 - 2, paddingHorizontal: spacing.xs4 },
   speciesPicker: {

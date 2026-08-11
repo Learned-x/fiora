@@ -33,26 +33,26 @@ export default function RegisterScreen() {
 
         <View style={styles.form}>
           <TextInput
-            placeholder="Nome (opzionale)"
+            label="Nome (opzionale)"
+            placeholder="Come ti chiami"
             autoCapitalize="words"
             value={name}
             onChangeText={setName}
-            accessibilityLabel="Nome"
           />
           <TextInput
-            placeholder="Email"
+            label="Email"
+            placeholder="mario@esempio.com"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            accessibilityLabel="Email"
           />
           <TextInput
-            placeholder="Password"
+            label="Password"
+            placeholder="Minimo 8 caratteri"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            accessibilityLabel="Password"
           />
         </View>
 

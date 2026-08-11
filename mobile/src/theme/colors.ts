@@ -85,7 +85,7 @@ export const light: ThemeColors = {
 export const dark: ThemeColors = {
   bg: '#000000',
   surface: '#272827',
-  surfaceHigh: '#424442',
+  surfaceHigh: '#343634',
   onSurface: '#f5f5f5',
   onSurfaceVariant: '#979f98',
   outline: '#5b635c',

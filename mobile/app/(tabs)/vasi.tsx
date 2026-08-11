@@ -9,6 +9,8 @@ import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
+import { Skeleton } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 import { listVases } from '../../src/services/vases.api';
 import type { SmartVase } from '../../src/services/vases.api';
 import type { ThemeColors } from '../../src/theme/colors';
@@ -36,13 +38,15 @@ export default function VasiScreen() {
   const [vasi, setVasi] = useState<SmartVase[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setVasi(await listVases());
       setLoaded(true);
+      setLoadError(false);
     } catch {
-      // errore rete: pull-to-refresh per riprovare
+      setLoadError(true);
     }
   }, []);
 
@@ -75,9 +79,25 @@ export default function VasiScreen() {
         </Pressable>
       </View>
 
+      {!loaded && !loadError && (
+        <View style={styles.list}>
+          <View style={styles.row}>
+            <Skeleton height={140} style={{ flex: 1 }} />
+            <Skeleton height={140} style={{ flex: 1 }} />
+          </View>
+        </View>
+      )}
+      {loadError && (
+        <View style={styles.list}>
+          <ErrorState message="Impossibile caricare i vasi. Controlla la connessione." onRetry={load} />
+        </View>
+      )}
+
       <FlatList
         data={vasi}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.onSurfaceVariant} />}
         ListEmptyComponent={
@@ -96,42 +116,42 @@ export default function VasiScreen() {
         }
         renderItem={({ item }) => {
           const pianta = item.plants?.[0];
+          const nomeVaso = item.nome ?? 'Vaso non nominato';
           const battColor = item.batteria !== null ? batteryColor(item.batteria, theme) : theme.onSurfaceVariant;
           return (
             <Pressable
               onPress={() => router.push(`/vase/${item.id}`)}
               accessibilityRole="button"
-              accessibilityLabel={`Vaso ${item.nome ?? item.deviceId}, ${statoLabel(item.stato)}${pianta ? `, collegato a ${pianta.nome}` : ''}`}
+              accessibilityLabel={`${nomeVaso}, ${statoLabel(item.stato)}${pianta ? `, collegato a ${pianta.nome}` : ''}`}
               style={({ pressed }) => [styles.cardWrap, pressed && { opacity: 0.85 }]}
             >
               <Card variant="elevated" style={styles.card}>
-                <View style={styles.cardTop}>
-                  <View style={styles.cardTitleRow}>
-                    <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
-                    <Text style={[styles.cardName, { color: theme.onSurface }]} numberOfLines={1}>
-                      {item.nome ?? item.deviceId}
-                    </Text>
-                  </View>
-                  {item.batteria !== null && (
-                    <View style={styles.batteryWrap}>
-                      <View style={[styles.batteryTrack, { backgroundColor: theme.outlineVariant }]}>
-                        <View
-                          style={[
-                            styles.batteryFill,
-                            { width: `${Math.max(4, Math.min(100, item.batteria))}%`, backgroundColor: battColor },
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.battery, { color: theme.onSurfaceVariant }]}>{item.batteria}%</Text>
-                    </View>
-                  )}
+                <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
+                  <Text style={styles.icon}>🪴</Text>
+                  <View style={[styles.dot, { backgroundColor: statoColor(item.stato, theme) }]} />
                 </View>
-                <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]}>
+                <Text style={[styles.cardName, { color: theme.onSurface }]} numberOfLines={1}>
+                  {nomeVaso}
+                </Text>
+                <Text style={[styles.cardStato, { color: statoColor(item.stato, theme) }]} numberOfLines={1}>
                   {statoLabel(item.stato)}
                 </Text>
                 <Text style={[styles.cardPlant, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
-                  {pianta ? `Collegato a ${pianta.nome}` : 'Nessuna pianta collegata'}
+                  {pianta ? pianta.nome : 'Nessuna pianta collegata'}
                 </Text>
+                {item.batteria !== null && (
+                  <View style={styles.batteryWrap}>
+                    <View style={[styles.batteryTrack, { backgroundColor: theme.outlineVariant }]}>
+                      <View
+                        style={[
+                          styles.batteryFill,
+                          { width: `${Math.max(4, Math.min(100, item.batteria))}%`, backgroundColor: battColor },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.battery, { color: theme.onSurfaceVariant }]}>{item.batteria}%</Text>
+                  </View>
+                )}
               </Card>
             </Pressable>
           );
@@ -160,18 +180,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: { paddingHorizontal: spacing.md16, paddingBottom: spacing.lg24, flexGrow: 1 },
-  cardWrap: { marginBottom: spacing.sm12 },
-  card: { padding: spacing.md16 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs8 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs8, flex: 1 },
-  dot: { width: 10, height: 10, borderRadius: radius.full },
-  cardName: { ...typography.titleMedium, flexShrink: 1 },
-  batteryWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs8 },
-  batteryTrack: { width: 36, height: 6, borderRadius: radius.full, overflow: 'hidden' },
+  row: { gap: spacing.sm12, marginBottom: spacing.sm12 },
+  cardWrap: { flex: 1 },
+  card: { padding: spacing.sm12 },
+  iconTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: radius.md,
+    marginBottom: spacing.xs8,
+  },
+  icon: { fontSize: 26 },
+  dot: { position: 'absolute', top: spacing.xs8, right: spacing.xs8, width: 10, height: 10, borderRadius: radius.full },
+  cardName: { ...typography.titleSmall, marginBottom: 2 },
+  cardStato: { ...typography.labelMedium, fontWeight: '600', marginBottom: 2 },
+  cardPlant: { ...typography.bodySmall },
+  batteryWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs8, marginTop: spacing.xs8 },
+  batteryTrack: { flex: 1, height: 6, borderRadius: radius.full, overflow: 'hidden' },
   batteryFill: { height: '100%', borderRadius: radius.full },
-  battery: { ...typography.labelMedium },
-  cardStato: { ...typography.labelLarge, fontWeight: '600', marginBottom: spacing.xs4 },
-  cardPlant: { ...typography.bodyMedium },
+  battery: { ...typography.labelSmall },
   empty: { alignItems: 'center', paddingTop: spacing.xxxl64 + spacing.lg24 },
   emptyTitle: { ...typography.titleLarge, marginBottom: spacing.xs4 },
   emptySub: { ...typography.bodyMedium, textAlign: 'center', paddingHorizontal: spacing.xl40 },

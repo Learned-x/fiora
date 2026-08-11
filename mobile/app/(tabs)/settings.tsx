@@ -154,7 +154,7 @@ export default function SettingsScreen() {
 
         {/* Preferenze */}
         <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Preferenze</Text>
-        <Card variant="flat" style={styles.card}>
+        <Card variant="elevated" style={styles.card}>
           <Pressable
             onPress={handleChangeClima}
             accessibilityRole="button"
@@ -202,7 +202,7 @@ export default function SettingsScreen() {
 
         {/* Dispositivi */}
         <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Dispositivi</Text>
-        <Card variant="flat" style={styles.card}>
+        <Card variant="elevated" style={styles.card}>
           <View style={[styles.row, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.outlineVariant }]}>
             <Text style={[styles.rowTitle, { color: theme.onSurface }]}>Vasi Smart</Text>
             <Text style={[styles.rowValue, { color: theme.onSurfaceVariant }]}>Prossimamente</Text>
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
 
         {/* Account */}
         <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Account</Text>
-        <Card variant="flat" style={styles.card}>
+        <Card variant="elevated" style={styles.card}>
           {!!profile?.email && (
             <Pressable
               onPress={() => router.push('/change-email')}

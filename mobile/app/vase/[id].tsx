@@ -9,13 +9,16 @@ import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
 import type { ThemeColors } from '../../src/theme/colors';
 import { Card } from '../../src/components/Card';
+import { Chip } from '../../src/components/Chip';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { SensorTile } from '../../src/components/SensorTile';
 import type { SensorStatus as TileStatus } from '../../src/components/SensorTile';
-import { Sparkline } from '../../src/components/Sparkline';
+import { SensorChart } from '../../src/components/SensorChart';
+import { Collapsible } from '../../src/components/Collapsible';
 import { deleteVase, getVase, getVaseReadings24h, renameVase } from '../../src/services/vases.api';
-import type { SmartVase } from '../../src/services/vases.api';
+import type { SmartVase, SensorReading } from '../../src/services/vases.api';
 import { formatDay, luceSensoreLabel, luceSensoreStatus, temperaturaLabel, temperaturaStatus, umiditaLabel, umiditaStatus } from '../../src/lib/plantUi';
 import { updatePlant } from '../../src/services/plants.api';
 import { PlantPickerModal } from '../../src/components/PlantPickerModal';
@@ -24,25 +27,6 @@ import type { Plant } from '../../src/types/models';
 
 function toTileStatus(status: 'ok' | 'warning'): TileStatus {
   return status === 'ok' ? 'ok' : 'warn';
-}
-
-function BackNav({ theme }: { theme: ThemeColors }) {
-  return (
-    <View style={styles.nav}>
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Torna a Vasi"
-        hitSlop={8}
-        style={styles.backBtn}
-      >
-        <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-          <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-        <Text style={{ fontSize: 17, color: theme.primary }}>Vasi</Text>
-      </Pressable>
-    </View>
-  );
 }
 
 function statoColor(stato: SmartVase['stato'], theme: ThemeColors) {
@@ -63,7 +47,8 @@ export default function VaseDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [vase, setVase] = useState<SmartVase | null>(null);
-  const [humidityHistory, setHumidityHistory] = useState<number[]>([]);
+  const [readings24h, setReadings24h] = useState<SensorReading[]>([]);
+  const [sensorWindow, setSensorWindow] = useState<'24h' | '7d' | '30d'>('24h');
   const [busy, setBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [sheet, setSheet] = useState<Sheet>('none');
@@ -77,14 +62,9 @@ export default function VaseDetailScreen() {
       setSheet('notFound');
     }
     try {
-      const readings = await getVaseReadings24h(id);
-      setHumidityHistory(
-        readings
-          .filter((r) => r.umidita !== null)
-          .map((r) => r.umidita as number)
-      );
+      setReadings24h(await getVaseReadings24h(id));
     } catch {
-      // storico opzionale: la schermata resta utilizzabile senza sparkline
+      // storico opzionale: la schermata resta utilizzabile senza grafici
     }
   }, [id]);
 
@@ -168,7 +148,7 @@ export default function VaseDetailScreen() {
   if (!vase) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-        <BackNav theme={theme} />
+        <ScreenHeader back={{ label: 'Vasi' }} />
         <ActionSheet
           visible={sheet === 'notFound'}
           message="Vaso non trovato."
@@ -182,20 +162,27 @@ export default function VaseDetailScreen() {
   const pianta = vase.plants?.[0];
   const lettura = vase.ultimaLettura;
   const temperaturaNum = lettura?.temperatura !== null && lettura?.temperatura !== undefined ? Number(lettura.temperatura) : null;
+  const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
+  const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
+  const temperaturaHistory = readings24h
+    .filter((r) => r.temperatura !== null)
+    .map((r) => Number(r.temperatura));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <BackNav theme={theme} />
+      <ScreenHeader back={{ label: 'Vasi' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Pressable
           onPress={openRename}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel={`Rinomina vaso, nome attuale ${vase.nome ?? vase.deviceId}`}
+          accessibilityLabel={`Rinomina vaso, nome attuale ${vase.nome ?? 'Vaso non nominato'}`}
           style={styles.headerRow}
         >
           <View style={[styles.dot, { backgroundColor: statoColor(vase.stato, theme) }]} />
-          <Text style={[styles.name, { color: theme.onSurface }]}>{vase.nome ?? vase.deviceId}</Text>
+          <Text style={[styles.name, { color: theme.onSurface }]} numberOfLines={1} ellipsizeMode="middle">
+            {vase.nome ?? 'Vaso non nominato'}
+          </Text>
           <Svg width={15} height={15} viewBox="0 0 20 20" fill="none">
             <Path d="M14.5 2.5a1.5 1.5 0 0 1 2.12 2.12L6.5 14.75 3 15.5l.75-3.5 10.75-9.5Z" stroke={theme.onSurfaceVariant} strokeWidth={1.4} strokeLinejoin="round" />
           </Svg>
@@ -240,11 +227,59 @@ export default function VaseDetailScreen() {
               Aggiornato {formatDay(lettura.time)}
             </Text>
 
-            {humidityHistory.length >= 2 && (
-              <View style={{ marginTop: spacing.md16 }}>
-                <Sparkline label="Umidità" values={humidityHistory} unit="%" />
-              </View>
-            )}
+            <View style={{ marginTop: spacing.md16 }}>
+              <Collapsible title="Andamento sensori">
+                <View style={styles.segTrack}>
+                  {(['24h', '7d', '30d'] as const).map((w) => (
+                    <Chip
+                      key={w}
+                      label={w === '24h' ? '24H' : w === '7d' ? '7 GG' : '30 GG'}
+                      selected={sensorWindow === w}
+                      onPress={() => setSensorWindow(w)}
+                      accessibilityLabel={`Intervallo ${w === '24h' ? '24 ore' : w === '7d' ? '7 giorni' : '30 giorni'}`}
+                    />
+                  ))}
+                </View>
+                {sensorWindow === '24h' ? (
+                  <View style={styles.chartsList}>
+                    {umiditaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Umidità terreno"
+                        value={`${umiditaHistory[umiditaHistory.length - 1]}%`}
+                        color={theme.warning}
+                        values={umiditaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {luceHistory.length >= 2 && (
+                      <SensorChart
+                        label="Luce"
+                        value={`${luceHistory[luceHistory.length - 1]} lux`}
+                        color={theme.primary}
+                        values={luceHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {temperaturaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Temperatura"
+                        value={`${temperaturaHistory[temperaturaHistory.length - 1]}°`}
+                        color={theme.error}
+                        values={temperaturaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.emptyData, { color: theme.onSurfaceVariant, paddingTop: spacing.sm12 }]}>
+                    Storico oltre le 24h non ancora disponibile.
+                  </Text>
+                )}
+              </Collapsible>
+            </View>
           </>
         ) : (
           <Card variant="flat" style={styles.section}>
@@ -362,12 +397,10 @@ export default function VaseDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  nav: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm12, paddingTop: spacing.xs8 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 + 2, minHeight: 44, paddingVertical: spacing.xs8, paddingHorizontal: spacing.xs4 },
   content: { padding: spacing.md16, paddingBottom: spacing.xl40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm12 - 2, marginBottom: spacing.xs4, minHeight: 44 },
   dot: { width: 10, height: 10, borderRadius: radius.full },
-  name: { ...typography.headlineSmall },
+  name: { ...typography.headlineSmall, flexShrink: 1 },
   stato: { ...typography.labelLarge, fontWeight: '600', marginBottom: spacing.md16 },
   banner: { padding: spacing.sm12 + 2, marginBottom: spacing.md16 },
   bannerText: { ...typography.bodySmall },
@@ -389,6 +422,8 @@ const styles = StyleSheet.create({
   dataLabel: { ...typography.bodyMedium },
   dataValue: { ...typography.bodyMedium, fontWeight: '600' },
   timestamp: { ...typography.labelMedium, marginTop: spacing.xs8 },
+  segTrack: { flexDirection: 'row', gap: spacing.xs8, paddingBottom: spacing.sm12 },
+  chartsList: { gap: spacing.sm12 },
   emptyData: { ...typography.bodySmall, fontStyle: 'italic' },
   deleteBtn: { alignItems: 'center', paddingVertical: spacing.sm12, minHeight: 44, justifyContent: 'center' },
   deleteText: { ...typography.bodyLarge, fontWeight: '600' },

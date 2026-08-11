@@ -2,19 +2,22 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
-import type { ThemeColors } from '../../src/theme/colors';
 import { spacing } from '../../src/theme/spacing';
 import { radius } from '../../src/theme/radius';
 import { typography } from '../../src/theme/typography';
 import { Card } from '../../src/components/Card';
+import { Chip } from '../../src/components/Chip';
+import { Collapsible } from '../../src/components/Collapsible';
+import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { SensorTile } from '../../src/components/SensorTile';
 import type { SensorStatus as TileStatus } from '../../src/components/SensorTile';
+import { SensorChart } from '../../src/components/SensorChart';
+import { Toast } from '../../src/components/Toast';
+import type { ToastTrigger } from '../../src/components/Toast';
 import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
 import { getVase, getVaseReadings24h } from '../../src/services/vases.api';
 import type { SensorReading, SmartVase } from '../../src/services/vases.api';
-import { Sparkline } from '../../src/components/Sparkline';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import {
   annaffiaturaLabel,
@@ -45,28 +48,6 @@ const BOUQUET_STAGES: { key: StatoBouquet; label: string }[] = [
   { key: 'concluso', label: 'Concluso' },
 ];
 
-function BackNav({ theme, onEdit }: { theme: ThemeColors; onEdit: () => void }) {
-  return (
-    <View style={styles.nav}>
-      <Pressable
-        onPress={() => router.back()}
-        style={styles.backBtn}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Torna a Piante"
-      >
-        <Svg width={9} height={15} viewBox="0 0 9 15" fill="none">
-          <Path d="M8 1L1.5 7.5L8 14" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-        <Text style={[styles.navText, { color: theme.primary }]}>Piante</Text>
-      </Pressable>
-      <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Modifica pianta">
-        <Text style={[styles.navTextSmall, { color: theme.primary }]}>Modifica</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 export default function PlantDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,6 +55,8 @@ export default function PlantDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [vase, setVase] = useState<SmartVase | null>(null);
   const [readings24h, setReadings24h] = useState<SensorReading[]>([]);
+  const [sensorWindow, setSensorWindow] = useState<'24h' | '7d' | '30d'>('24h');
+  const [toast, setToast] = useState<ToastTrigger | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -115,6 +98,10 @@ export default function PlantDetailScreen() {
         await completeTask(created.id);
       }
       await load();
+      setToast({
+        text: tipo === 'annaffiatura' ? 'Annaffiatura registrata ✓' : 'Concimazione registrata ✓',
+        id: Date.now(),
+      });
     } catch {
       Alert.alert('Errore', 'Operazione non riuscita, riprova.');
     } finally {
@@ -140,12 +127,16 @@ export default function PlantDetailScreen() {
   const pendingTasks = plant.tasks.filter((t) => t.stato === 'pending');
   const isBouquet = plant.tipo === 'bouquet';
   const stageIdx = isBouquet ? BOUQUET_STAGES.findIndex((s) => s.key === plant.statoBouquet) : -1;
+  const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
+  const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
+  const temperaturaHistory = readings24h
+    .filter((r) => r.temperatura !== null)
+    .map((r) => Number(r.temperatura));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+      <ScreenHeader back={{ label: 'Piante' }} right={{ label: 'Modifica', onPress: handleEdit }} />
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg24 }}>
-        <BackNav theme={theme} onEdit={handleEdit} />
-
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>{plantEmoji(plant)}</Text>
@@ -232,15 +223,59 @@ export default function PlantDetailScreen() {
               )}
             </View>
 
-            {readings24h.length >= 2 && (
-              <View style={{ marginTop: spacing.sm12 }}>
-                <Sparkline
-                  label="Umidità"
-                  unit="%"
-                  values={readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number)}
-                />
-              </View>
-            )}
+            <View style={{ marginTop: spacing.sm12 }}>
+              <Collapsible title="Andamento sensori">
+                <View style={styles.segTrack}>
+                  {(['24h', '7d', '30d'] as const).map((w) => (
+                    <Chip
+                      key={w}
+                      label={w === '24h' ? '24H' : w === '7d' ? '7 GG' : '30 GG'}
+                      selected={sensorWindow === w}
+                      onPress={() => setSensorWindow(w)}
+                      accessibilityLabel={`Intervallo ${w === '24h' ? '24 ore' : w === '7d' ? '7 giorni' : '30 giorni'}`}
+                    />
+                  ))}
+                </View>
+                {sensorWindow === '24h' ? (
+                  <View style={styles.chartsList}>
+                    {umiditaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Umidità terreno"
+                        value={`${umiditaHistory[umiditaHistory.length - 1]}%`}
+                        color={theme.warning}
+                        values={umiditaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {luceHistory.length >= 2 && (
+                      <SensorChart
+                        label="Luce"
+                        value={`${luceHistory[luceHistory.length - 1]} lux`}
+                        color={theme.primary}
+                        values={luceHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                    {temperaturaHistory.length >= 2 && (
+                      <SensorChart
+                        label="Temperatura"
+                        value={`${temperaturaHistory[temperaturaHistory.length - 1]}°`}
+                        color={theme.error}
+                        values={temperaturaHistory}
+                        fromLabel="24h fa"
+                        toLabel="ora"
+                      />
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.noteText, { color: theme.onSurfaceVariant, paddingTop: spacing.sm12 }]}>
+                    Storico oltre le 24h non ancora disponibile.
+                  </Text>
+                )}
+              </Collapsible>
+            </View>
           </View>
         )}
 
@@ -399,6 +434,7 @@ export default function PlantDetailScreen() {
           )}
         </View>
       </ScrollView>
+      <Toast trigger={toast} />
     </SafeAreaView>
   );
 }
@@ -406,18 +442,6 @@ export default function PlantDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md16,
-    paddingTop: spacing.sm12,
-    paddingBottom: spacing.xs8,
-    minHeight: 44,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, minHeight: 44, paddingVertical: spacing.xs8 },
-  navText: { ...typography.bodyLarge },
-  navTextSmall: { ...typography.bodyMedium },
   header: { paddingHorizontal: spacing.md16, paddingTop: spacing.sm12, paddingBottom: spacing.lg24, alignItems: 'center' },
   emoji: { fontSize: 60, lineHeight: 66, marginBottom: spacing.sm12 },
   name: { ...typography.headlineSmall, letterSpacing: -0.4, marginBottom: 3, textAlign: 'center' },
@@ -432,6 +456,8 @@ const styles = StyleSheet.create({
   sensorStatusText: { ...typography.labelMedium },
   sensorTiles: { flexDirection: 'row', gap: spacing.sm12 - 2 },
   sensorTileWrap: { flex: 1 },
+  segTrack: { flexDirection: 'row', gap: spacing.xs8, paddingBottom: spacing.sm12 },
+  chartsList: { gap: spacing.sm12 },
   sectionLabel: {
     ...typography.labelMedium,
     textTransform: 'uppercase',
@@ -468,7 +494,7 @@ const styles = StyleSheet.create({
   },
   taskLabel: { ...typography.bodyMedium },
   taskDue: { ...typography.bodySmall, marginTop: 1 },
-  taskDoneBtn: { paddingVertical: 6, paddingHorizontal: spacing.sm12, borderRadius: radius.sm, minHeight: 32 },
+  taskDoneBtn: { paddingHorizontal: spacing.sm12, borderRadius: radius.sm, minHeight: 44, justifyContent: 'center' },
   taskDoneBtnText: { ...typography.labelMedium },
   noteText: { ...typography.bodyMedium },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm12 - 2, paddingHorizontal: spacing.md16 },
