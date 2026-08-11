@@ -1,6 +1,4 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { radius } from '../theme/radius';
-import { typography } from '../theme/typography';
 import { useTheme } from '../theme/useTheme';
 import { radius } from '../theme/radius';
 import { typography } from '../theme/typography';

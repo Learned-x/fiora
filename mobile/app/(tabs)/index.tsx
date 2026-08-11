@@ -234,7 +234,7 @@ export default function OggiScreen() {
             >
               <Text style={[styles.graceBtnText, { color: theme.onError }]}>Annulla eliminazione</Text>
             </Pressable>
-          </Card>
+          </View>
         )}
 
         {sensorTasks.length > 0 && (

@@ -533,7 +533,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 44,
   },
-  deviceRowWrap: { marginBottom: spacing.sm },
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',

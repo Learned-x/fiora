@@ -4,8 +4,6 @@ import { Pressable } from 'react-native';
 import { router } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../src/theme/useTheme';
-import { spacing } from '../../src/theme/spacing';
-import { radius } from '../../src/theme/radius';
 import { SocialButton } from '../../src/components/SocialButton';
 import { useAuthStore } from '../../src/store/auth.store';
 import { GoogleSignInCancelledError, AppleSignInCancelledError } from '../../src/services/oauth';
@@ -101,7 +99,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1.5,
     paddingVertical: 15,
-    minHeight: 50,
     alignItems: 'center',
     minHeight: 44,
     justifyContent: 'center',

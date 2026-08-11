@@ -3,10 +3,8 @@ import { Alert, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
-import { spacing } from '../../src/theme/spacing';
 import { TextInput } from '../../src/components/TextInput';
 import { Button } from '../../src/components/Button';
-import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { useAuthStore } from '../../src/store/auth.store';
 import { spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
@@ -28,7 +26,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <ScreenHeader />
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.onSurface }]}>Accedi</Text>
         <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>Inserisci le tue credenziali.</Text>
