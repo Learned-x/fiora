@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -33,8 +33,12 @@ function batteryColor(pct: number, theme: ThemeColors) {
   return theme.primary;
 }
 
+const CARD_MIN_WIDTH = 160;
+
 export default function VasiScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const numColumns = Math.max(2, Math.floor(width / CARD_MIN_WIDTH));
   const [vasi, setVasi] = useState<SmartVase[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -94,9 +98,10 @@ export default function VasiScreen() {
       )}
 
       <FlatList
+        key={numColumns}
         data={vasi}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={numColumns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.onSurfaceVariant} />}

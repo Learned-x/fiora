@@ -5,6 +5,21 @@
 #include "sensors.h"
 #include "sleep_manager.h"
 
+// ========== MODIFICHE DI TEST ATTIVE (scheda nuda, senza sensori) ==========
+// 1) sensors.cpp: dati fake random invece di letture reali (nessun sensore fisico collegato)
+// 2) mqtt_handler.cpp: client.setKeepAlive(60) — il default 15s scadeva troppo in fretta
+//    e causava il ciclo online/offline visto nei test (LWT del broker)
+// 3) config.h: FIRMWARE_RESET_TOKEN "v2" — forza un nuovo pairing BLE al prossimo boot
+// 4) setup(): burst di 10 letture fake ogni 2s subito dopo la connessione MQTT,
+//    per verificare il flusso end-to-end senza aspettare samplingInterval (30 min)
+// 5) loop(): enterLightSleep() sostituito con delay() semplice — confermato che il
+//    light sleep rompeva la sessione MQTT (client.connected() restava true ma i
+//    messaggi in arrivo, es. "check" su .../config, non venivano più recapitati).
+//    Il codice originale con light sleep è commentato sotto, da ripristinare
+//    quando si affronterà il consumo energetico (va gestito diversamente, es.
+//    tenendo sveglio lo stack WiFi durante lo sleep o un ciclo di sleep più corto)
+// =============================================================================
+
 // Ogni quanto controllare la connessione durante l'attesa (light sleep)
 #define POLL_SLEEP_MS 3000
 
@@ -83,8 +98,7 @@ void loop() {
     executeSensorCycle();
   }
 
-  // Invece di restare sveglio, dorme 2-3s alla volta: si risveglia,
-  // ricontrolla MQTT/timer, e se non c'è nulla torna a dormire.
-  // Così resta raggiungibile "quasi sempre" senza consumare come da sveglio.
-  enterLightSleep(POLL_SLEEP_MS);
+  // Codice originale (light sleep), commentato — vedi nota in cima al file:
+  // enterLightSleep(POLL_SLEEP_MS);
+  delay(POLL_SLEEP_MS);
 }

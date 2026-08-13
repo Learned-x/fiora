@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm12 + 2,
     paddingBottom: spacing.xs8,
   },
-  side: { minWidth: 60, justifyContent: 'center' },
+  side: { flex: 1, justifyContent: 'center' },
   sideRight: { alignItems: 'flex-end' },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs4 - 1, alignSelf: 'flex-start', minHeight: 44 },
   backText: { ...typography.bodyLarge },

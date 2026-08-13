@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../src/theme/useTheme';

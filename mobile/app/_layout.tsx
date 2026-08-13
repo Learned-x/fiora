@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useAuthStore } from '../src/store/auth.store';
 import { useTheme } from '../src/theme/useTheme';
@@ -23,7 +24,11 @@ export default function RootLayout() {
     );
   }
 
-  // Push/pop stile iOS: durata 380ms (onorata da native-stack solo su iOS; Android
-  // usa la curva nativa di piattaforma, native-stack non espone easing/offset custom da JS).
-  return <Stack screenOptions={{ headerShown: false, animation: 'default', animationDuration: 380 }} />;
+  return (
+    <SafeAreaProvider>
+      {/* Push/pop stile iOS: durata 380ms (onorata da native-stack solo su iOS; Android
+          usa la curva nativa di piattaforma, native-stack non espone easing/offset custom da JS). */}
+      <Stack screenOptions={{ headerShown: false, animation: 'default', animationDuration: 380 }} />
+    </SafeAreaProvider>
+  );
 }

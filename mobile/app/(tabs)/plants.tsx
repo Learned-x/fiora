@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -24,8 +24,12 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'archiviate', label: 'Archiviate' },
 ];
 
+const CARD_MIN_WIDTH = 160;
+
 export default function PlantsScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const numColumns = Math.max(2, Math.floor(width / CARD_MIN_WIDTH));
   const [plants, setPlants] = useState<Plant[]>([]);
   const [filter, setFilter] = useState<Filter>('tutti');
   const [refreshing, setRefreshing] = useState(false);
@@ -105,9 +109,10 @@ export default function PlantsScreen() {
       )}
 
       <FlatList
+        key={numColumns}
         data={filtered}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={numColumns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.onSurfaceVariant} />}

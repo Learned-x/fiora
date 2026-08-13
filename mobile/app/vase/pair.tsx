@@ -109,11 +109,19 @@ function friendlyError(err: unknown, context: 'scan' | 'provision'): string {
 
 async function ensureBlePermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
-  const granted = await PermissionsAndroid.requestMultiple([
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-  ]);
+  // BLUETOOTH_SCAN/BLUETOOTH_CONNECT esistono solo da API 31 (Android 12).
+  // Richiederli su OS precedenti (es. Android 10, API 29) può risultare in
+  // 'denied' per un permesso che il sistema non riconosce, bloccando lo scan
+  // anche se ACCESS_FINE_LOCATION (l'unico che serve lì) è concesso.
+  const permissions =
+    Platform.Version >= 31
+      ? [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]
+      : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+  const granted = await PermissionsAndroid.requestMultiple(permissions);
   return Object.values(granted).every((v) => v === PermissionsAndroid.RESULTS.GRANTED);
 }
 

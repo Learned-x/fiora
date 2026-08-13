@@ -114,7 +114,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   };
 
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.bg, paddingBottom: Math.max(insets.bottom, 4) }]}>
+    <View style={[styles.wrap, { backgroundColor: theme.bg, paddingBottom: Math.max(insets.bottom, 16) }]}>
       <View style={[styles.bar, { backgroundColor: theme.surface }, getElevation(2, dark)]}>
         {renderTab('index')}
         {renderTab('plants')}
@@ -150,16 +150,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -20,
     shadowOpacity: 0.35,
     shadowRadius: 7,
     shadowOffset: { width: 0, height: 4 },
