@@ -6,6 +6,7 @@
 
 extern WiFiClientSecure espClient;
 extern PubSubClient client;
+extern bool mqttResetRequested;
 
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 void connectMQTT();

@@ -1,6 +1,8 @@
 #include "mqtt_handler.h"
 #include "config.h"
 
+bool mqttResetRequested = false;
+
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
@@ -53,6 +55,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   if (message == "check") {
     forceRead = true;
+  }
+
+  if (message == "reset") {
+    mqttResetRequested = true;   // gestito in loop(), non qui (dentro client.loop())
   }
 }
 

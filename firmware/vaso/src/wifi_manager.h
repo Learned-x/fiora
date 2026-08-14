@@ -12,6 +12,10 @@ bool checkFirmwareResetToken();
 // Cancella ssid/password/mqtt/device_id salvati, mantenendo il fw_token
 void wipeStoredCredentials();
 
+// Cancella solo ssid/wifi_pass (mantiene mqtt/device_id), forza nuovo pairing BLE.
+// Usata da reset via pin GPIO e da comando MQTT "reset".
+void wipeWifiCredentials();
+
 // Carica le credenziali salvate in NVS, se presenti
 bool loadStoredCredentials();
 

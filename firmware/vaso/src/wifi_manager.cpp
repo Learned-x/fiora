@@ -94,6 +94,16 @@ bool connectWiFi() {
   return true;
 }
 
+void wipeWifiCredentials() {
+  prefs.begin("fiora", false);
+  prefs.remove("ssid");
+  prefs.remove("wifi_pass");
+  prefs.end();
+
+  cfg_ssid = "";
+  cfg_wifi_pass = "";
+}
+
 void handleInterruptIfNeeded() {
   if (!interruptTriggered) return;
 
@@ -104,13 +114,7 @@ void handleInterruptIfNeeded() {
   client.disconnect();
   WiFi.disconnect(true);
 
-  prefs.begin("fiora", false);
-  prefs.remove("ssid");
-  prefs.remove("wifi_pass");
-  prefs.end();
-
-  cfg_ssid = "";
-  cfg_wifi_pass = "";
+  wipeWifiCredentials();
 
   startBLEProvisioning();   // blocca finché non arrivano nuove credenziali
 

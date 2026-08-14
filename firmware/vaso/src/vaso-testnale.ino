@@ -89,6 +89,20 @@ void loop() {
 
   client.loop();
 
+  if (mqttResetRequested) {
+    mqttResetRequested = false;
+
+    Serial.println("Comando reset ricevuto via MQTT: cancello credenziali e riavvio provisioning BLE...");
+
+    client.disconnect();
+    WiFi.disconnect(true);
+
+    wipeWifiCredentials();
+
+    startBLEProvisioning();   // blocca finché non arrivano nuove credenziali
+    connectWiFi();
+  }
+
   if (forceRead ||
       millis() - lastPublish >= samplingInterval) {
 
