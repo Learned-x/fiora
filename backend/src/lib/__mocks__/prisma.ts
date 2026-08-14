@@ -1,4 +1,4 @@
-export const prisma = {
+export const prisma: any = {
   user: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -18,6 +18,7 @@ export const prisma = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   task: {
     create: jest.fn(),
@@ -42,4 +43,5 @@ export const prisma = {
     create: jest.fn(),
     createMany: jest.fn(),
   },
+  $transaction: jest.fn((callback: (tx: any) => unknown) => callback(prisma)),
 };

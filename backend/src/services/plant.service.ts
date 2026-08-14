@@ -155,28 +155,35 @@ export async function updatePlant(userId: string, plantId: string, input: Update
     if (!vaso) {
       throw { code: 'VASE_NOT_FOUND', status: 404, message: 'Vaso non trovato' };
     }
-    const giaCollegato = await prisma.plant.findFirst({ where: { vasoId: input.vasoId, id: { not: plantId } } });
-    if (giaCollegato) {
-      throw { code: 'VASE_ALREADY_LINKED', status: 409, message: 'Vaso già collegato a un\'altra pianta' };
-    }
   }
 
-  const updated = await prisma.plant.update({
-    where: { id: plantId },
-    data: {
-      ...(input.nome !== undefined && { nome: input.nome }),
-      ...(input.speciesId !== undefined && { speciesId: input.speciesId }),
-      ...(input.posizione !== undefined && { posizione: input.posizione }),
-      ...(input.note !== undefined && { note: input.note }),
-      ...(input.fotoUrl !== undefined && { fotoUrl: input.fotoUrl }),
-      ...(input.stato !== undefined && { stato: input.stato }),
-      ...(input.statoBouquet !== undefined && { statoBouquet: input.statoBouquet, statoBouquetManuale: true }),
-      ...(input.dataRicezione !== undefined && {
-        dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
-      }),
-      ...(input.vasoId !== undefined && { vasoId: input.vasoId }),
-    },
-    include: { species: { select: speciesSelect } },
+  const updated = await prisma.$transaction(async (tx) => {
+    // Cambio pianta: il vaso può essere collegato a una sola pianta alla volta,
+    // scollegare quella precedente fa parte dell'operazione, non è un conflitto.
+    if (input.vasoId) {
+      await tx.plant.updateMany({
+        where: { vasoId: input.vasoId, id: { not: plantId } },
+        data: { vasoId: null },
+      });
+    }
+
+    return tx.plant.update({
+      where: { id: plantId },
+      data: {
+        ...(input.nome !== undefined && { nome: input.nome }),
+        ...(input.speciesId !== undefined && { speciesId: input.speciesId }),
+        ...(input.posizione !== undefined && { posizione: input.posizione }),
+        ...(input.note !== undefined && { note: input.note }),
+        ...(input.fotoUrl !== undefined && { fotoUrl: input.fotoUrl }),
+        ...(input.stato !== undefined && { stato: input.stato }),
+        ...(input.statoBouquet !== undefined && { statoBouquet: input.statoBouquet, statoBouquetManuale: true }),
+        ...(input.dataRicezione !== undefined && {
+          dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
+        }),
+        ...(input.vasoId !== undefined && { vasoId: input.vasoId }),
+      },
+      include: { species: { select: speciesSelect } },
+    });
   });
 
   if (input.vasoId !== undefined) {
