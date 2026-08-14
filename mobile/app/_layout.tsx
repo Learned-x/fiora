@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -27,14 +28,16 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      {/* style inverso allo sfondo (bg bianco/nero puro): icone scure su sfondo chiaro
-          e viceversa. Su Android senza questo l'icona resta al default di sistema e
-          può risultare illeggibile contro card/header scuri. */}
-      <StatusBar style={dark ? 'light' : 'dark'} />
-      {/* Push/pop stile iOS: durata 380ms (onorata da native-stack solo su iOS; Android
-          usa la curva nativa di piattaforma, native-stack non espone easing/offset custom da JS). */}
-      <Stack screenOptions={{ headerShown: false, animation: 'default', animationDuration: 380 }} />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        {/* style inverso allo sfondo (bg bianco/nero puro): icone scure su sfondo chiaro
+            e viceversa. Su Android senza questo l'icona resta al default di sistema e
+            può risultare illeggibile contro card/header scuri. */}
+        <StatusBar style={dark ? 'light' : 'dark'} />
+        {/* Push/pop stile iOS: durata 380ms (onorata da native-stack solo su iOS; Android
+            usa la curva nativa di piattaforma, native-stack non espone easing/offset custom da JS). */}
+        <Stack screenOptions={{ headerShown: false, animation: 'default', animationDuration: 380 }} />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
