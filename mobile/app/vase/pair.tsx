@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -391,33 +392,35 @@ export default function VasePairScreen() {
         )}
 
         {step === 'wifi-form' && (
-          <View style={styles.form}>
-            <View style={[styles.selectedBox, { backgroundColor: theme.surface, borderColor: theme.outline }]}>
-              <Text style={{ fontSize: 20 }}>🪴</Text>
-              <Text style={[styles.deviceName, { color: theme.onSurface }]}>{selectedDevice?.name}</Text>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.form}>
+              <View style={[styles.selectedBox, { backgroundColor: theme.surface, borderColor: theme.outline }]}>
+                <Text style={{ fontSize: 20 }}>🪴</Text>
+                <Text style={[styles.deviceName, { color: theme.onSurface }]}>{selectedDevice?.name}</Text>
+              </View>
+              <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
+                Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete
+                a 2.4 GHz (il vaso non supporta le reti 5 GHz).
+              </Text>
+              <TextInput
+                placeholder="Nome rete WiFi (SSID)"
+                value={ssid}
+                onChangeText={setSsid}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TextInput
+                placeholder="Password WiFi"
+                value={wifiPassword}
+                onChangeText={setWifiPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Button label="Collega vaso" onPress={handleConfirmWifi} />
+              <Button label="Scegli un altro vaso" onPress={startScan} variant="outline" />
             </View>
-            <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
-              Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete a
-              2.4 GHz (il vaso non supporta le reti 5 GHz).
-            </Text>
-            <TextInput
-              placeholder="Nome rete WiFi (SSID)"
-              value={ssid}
-              onChangeText={setSsid}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TextInput
-              placeholder="Password WiFi"
-              value={wifiPassword}
-              onChangeText={setWifiPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Button label="Collega vaso" onPress={handleConfirmWifi} />
-            <Button label="Scegli un altro vaso" onPress={startScan} variant="outline" />
-          </View>
+          </KeyboardAvoidingView>
         )}
 
         {step === 'connecting' && (

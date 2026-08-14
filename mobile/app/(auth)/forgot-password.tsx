@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -29,46 +29,48 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.onSurface }]}>Password dimenticata</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.title, { color: theme.onSurface }]}>Password dimenticata</Text>
 
-        {sent ? (
-          <>
-            <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
-              Se l'indirizzo è registrato, riceverai un'email con le istruzioni per reimpostare la password.
-            </Text>
-            <View style={styles.actions}>
-              <Button label="Torna al login" onPress={() => router.back()} />
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
-              Inserisci l'email con cui ti sei registrato: ti manderemo un link per reimpostare la password.
-            </Text>
-            <View style={styles.form}>
-              <TextInput
-                label="Email"
-                placeholder="mario@esempio.com"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
-            <View style={styles.actions}>
-              <Button label="Invia" onPress={handleSubmit} loading={loading} disabled={!email} />
-            </View>
-          </>
-        )}
-      </View>
+          {sent ? (
+            <>
+              <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
+                Se l'indirizzo è registrato, riceverai un'email con le istruzioni per reimpostare la password.
+              </Text>
+              <View style={styles.actions}>
+                <Button label="Torna al login" onPress={() => router.back()} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
+                Inserisci l'email con cui ti sei registrato: ti manderemo un link per reimpostare la password.
+              </Text>
+              <View style={styles.form}>
+                <TextInput
+                  label="Email"
+                  placeholder="mario@esempio.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+              <View style={styles.actions}>
+                <Button label="Invia" onPress={handleSubmit} loading={loading} disabled={!email} />
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: spacing.md16, justifyContent: 'center' },
+  content: { flexGrow: 1, padding: spacing.md16, justifyContent: 'center' },
   title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
   subtitle: { ...typography.bodyLarge, marginBottom: spacing.xl32 },
   form: { gap: spacing.sm12, marginBottom: spacing.lg24 },

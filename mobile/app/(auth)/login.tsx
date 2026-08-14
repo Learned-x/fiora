@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -27,57 +27,59 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.onSurface }]}>Accedi</Text>
-        <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>Inserisci le tue credenziali.</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.title, { color: theme.onSurface }]}>Accedi</Text>
+          <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>Inserisci le tue credenziali.</Text>
 
-        <View style={styles.form}>
-          <TextInput
-            label="Email"
-            placeholder="mario@esempio.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            label="Password"
-            placeholder="La tua password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-        </View>
+          <View style={styles.form}>
+            <TextInput
+              label="Email"
+              placeholder="mario@esempio.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              label="Password"
+              placeholder="La tua password"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
 
-        <View style={styles.actions}>
-          <Button label="Accedi" onPress={handleLogin} loading={isLoading} disabled={!email || !password} />
-        </View>
+          <View style={styles.actions}>
+            <Button label="Accedi" onPress={handleLogin} loading={isLoading} disabled={!email || !password} />
+          </View>
 
-        <Pressable
-          style={styles.link}
-          onPress={() => router.push('/(auth)/forgot-password')}
-          accessibilityRole="button"
-          accessibilityLabel="Password dimenticata?"
-        >
-          <Text style={[styles.linkText, { color: theme.primary }]}>Password dimenticata?</Text>
-        </Pressable>
+          <Pressable
+            style={styles.link}
+            onPress={() => router.push('/(auth)/forgot-password')}
+            accessibilityRole="button"
+            accessibilityLabel="Password dimenticata?"
+          >
+            <Text style={[styles.linkText, { color: theme.primary }]}>Password dimenticata?</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.link}
-          onPress={() => router.push('/(auth)/register')}
-          accessibilityRole="button"
-          accessibilityLabel="Non hai un account? Registrati"
-        >
-          <Text style={[styles.linkText, { color: theme.primary }]}>Non hai un account? Registrati</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={styles.link}
+            onPress={() => router.push('/(auth)/register')}
+            accessibilityRole="button"
+            accessibilityLabel="Non hai un account? Registrati"
+          >
+            <Text style={[styles.linkText, { color: theme.primary }]}>Non hai un account? Registrati</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: spacing.md16, justifyContent: 'center' },
+  content: { flexGrow: 1, padding: spacing.md16, justifyContent: 'center' },
   title: { ...typography.headlineMedium, marginBottom: spacing.xs4 + 2 },
   subtitle: { ...typography.bodyLarge, marginBottom: spacing.xl32 },
   form: { gap: spacing.sm12, marginBottom: spacing.lg24 },

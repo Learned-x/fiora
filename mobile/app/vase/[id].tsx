@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -425,27 +425,29 @@ export default function VaseDetailScreen() {
       />
 
       <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
-        <Pressable style={styles.renameBackdrop} onPress={() => setRenameVisible(false)}>
-          <Pressable style={[styles.renameCard, { backgroundColor: theme.surface }]} onPress={() => {}}>
-            <Text style={[styles.sectionTitle, { color: theme.onSurface }]}>Nome vaso</Text>
-            <TextInput
-              value={renameValue}
-              onChangeText={setRenameValue}
-              placeholder="Es. Vaso soggiorno"
-              autoFocus
-              maxLength={255}
-              style={{ marginTop: spacing.sm12, marginBottom: spacing.md16 }}
-            />
-            <View style={styles.renameActions}>
-              <View style={{ flex: 1 }}>
-                <Button label="Annulla" variant="outline" onPress={() => setRenameVisible(false)} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <Pressable style={styles.renameBackdrop} onPress={() => setRenameVisible(false)}>
+            <Pressable style={[styles.renameCard, { backgroundColor: theme.surface }]} onPress={() => {}}>
+              <Text style={[styles.sectionTitle, { color: theme.onSurface }]}>Nome vaso</Text>
+              <TextInput
+                value={renameValue}
+                onChangeText={setRenameValue}
+                placeholder="Es. Vaso soggiorno"
+                autoFocus
+                maxLength={255}
+                style={{ marginTop: spacing.sm12, marginBottom: spacing.md16 }}
+              />
+              <View style={styles.renameActions}>
+                <View style={{ flex: 1 }}>
+                  <Button label="Annulla" variant="outline" onPress={() => setRenameVisible(false)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button label="Salva" onPress={confirmRename} disabled={!renameValue.trim()} />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Button label="Salva" onPress={confirmRename} disabled={!renameValue.trim()} />
-              </View>
-            </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
