@@ -21,6 +21,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5.79.2",
     "cors": "^2.8.6",
+    "csv-parse": "^7.0.2",
     "dotenv": "^17.4.2",
     "expo-server-sdk": "^3.15.0",
     "express": "^5.2.1",
