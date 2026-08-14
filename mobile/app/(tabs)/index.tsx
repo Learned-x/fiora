@@ -11,6 +11,7 @@ import { radius } from '../../src/theme/radius';
 import { Card } from '../../src/components/Card';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
+import { ActionSheet } from '../../src/components/ActionSheet';
 import { completeTask, listTasks, postponeTask, skipTask } from '../../src/services/plants.api';
 import { cancelAccountDeletion } from '../../src/services/user.api';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -26,6 +27,19 @@ function endOfToday(): string {
 function startOfToday(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function tra2Ore(): Date {
+  const d = new Date();
+  d.setHours(d.getHours() + 2);
+  return d;
+}
+
+function traGiorni(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(9, 0, 0, 0);
   return d;
 }
 
@@ -119,6 +133,7 @@ export default function OggiScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [postponeTarget, setPostponeTarget] = useState<Task | null>(null);
 
   async function handleCancelDeletion() {
     try {
@@ -162,35 +177,28 @@ export default function OggiScreen() {
   }
 
   async function handleAction(task: Task, azione: 'completa' | 'rimanda' | 'salta') {
+    if (azione === 'rimanda') {
+      setPostponeTarget(task);
+      return;
+    }
     try {
       if (azione === 'completa') {
         await completeTask(task.id);
-      } else if (azione === 'salta') {
-        await skipTask(task.id);
       } else {
-        const postpone = async (scadenza: Date) => {
-          await postponeTask(task.id, scadenza.toISOString());
-          await load();
-        };
-        const tra2Ore = () => {
-          const d = new Date();
-          d.setHours(d.getHours() + 2);
-          return d;
-        };
-        const traGiorni = (days: number) => {
-          const d = new Date();
-          d.setDate(d.getDate() + days);
-          d.setHours(9, 0, 0, 0);
-          return d;
-        };
-        Alert.alert('Rimanda', `${TASK_LABELS[task.tipo]} ${task.plant.nome}`, [
-          { text: 'Tra 2 ore', onPress: () => postpone(tra2Ore()) },
-          { text: 'Domani', onPress: () => postpone(traGiorni(1)) },
-          { text: 'Tra 2 giorni', onPress: () => postpone(traGiorni(2)) },
-          { text: 'Annulla', style: 'cancel' },
-        ]);
-        return;
+        await skipTask(task.id);
       }
+      await load();
+    } catch {
+      Alert.alert('Errore', 'Operazione non riuscita, riprova.');
+    }
+  }
+
+  async function handlePostpone(scadenza: Date) {
+    const task = postponeTarget;
+    if (!task) return;
+    setPostponeTarget(null);
+    try {
+      await postponeTask(task.id, scadenza.toISOString());
       await load();
     } catch {
       Alert.alert('Errore', 'Operazione non riuscita, riprova.');
@@ -286,6 +294,18 @@ export default function OggiScreen() {
           </View>
         )}
       </ScrollView>
+
+      <ActionSheet
+        visible={postponeTarget !== null}
+        title={postponeTarget ? `${TASK_LABELS[postponeTarget.tipo]} ${postponeTarget.plant.nome}` : undefined}
+        onRequestClose={() => setPostponeTarget(null)}
+        actions={[
+          { label: 'Tra 2 ore', onPress: () => handlePostpone(tra2Ore()) },
+          { label: 'Domani', onPress: () => handlePostpone(traGiorni(1)) },
+          { label: 'Tra 2 giorni', onPress: () => handlePostpone(traGiorni(2)) },
+          { label: 'Annulla', variant: 'cancel', onPress: () => setPostponeTarget(null) },
+        ]}
+      />
     </SafeAreaView>
   );
 }
