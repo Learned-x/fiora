@@ -14,6 +14,7 @@ export interface SmartVase {
   nome: string | null;
   stato: 'connesso' | 'disconnesso' | 'batteria_scarica';
   batteria: number | null;
+  ordine: number;
   lastSeen: string | null;
   createdAt: string;
   plants?: { id: string; nome: string }[];
@@ -36,6 +37,10 @@ export async function startPairing(): Promise<PairingCredentials> {
 export async function listVases(): Promise<SmartVase[]> {
   const res = await api.get<{ data: SmartVase[] }>('/vases');
   return res.data.data;
+}
+
+export async function reorderVases(orderedIds: string[]): Promise<void> {
+  await api.patch('/vases/order', { orderedIds });
 }
 
 export async function getVase(id: string): Promise<SmartVase> {
@@ -62,4 +67,19 @@ export async function deleteVase(id: string): Promise<void> {
 // getVase()/getVaseReadings24h() per vederlo.
 export async function refreshVase(id: string): Promise<void> {
   await api.post(`/vases/${id}/refresh`);
+}
+
+// Chiede al vaso di dimenticare SSID/password WiFi e rientrare in
+// provisioning BLE: fire-and-forget, il vaso si disconnette pochi istanti
+// dopo — chi chiama deve poi guidare l'utente al flusso BLE di
+// reconnect-wifi.tsx (non un nuovo pairing: stesso device_id).
+export async function resetVaseWifi(id: string): Promise<void> {
+  await api.post(`/vases/${id}/reset-wifi`);
+}
+
+// Credenziali per riconfigurare via BLE un vaso GIÀ esistente (stessa shape
+// di PairingCredentials, ma senza creare un nuovo vaso lato backend).
+export async function getReconnectCredentials(id: string): Promise<PairingCredentials> {
+  const res = await api.get<{ data: PairingCredentials }>(`/vases/${id}/reconnect-credentials`);
+  return res.data.data;
 }

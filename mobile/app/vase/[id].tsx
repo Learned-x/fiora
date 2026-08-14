@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -11,18 +11,17 @@ import type { ThemeColors } from '../../src/theme/colors';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { Button } from '../../src/components/Button';
-import { TextInput } from '../../src/components/TextInput';
 import { SensorTile } from '../../src/components/SensorTile';
 import type { SensorStatus as TileStatus } from '../../src/components/SensorTile';
 import { SensorChart } from '../../src/components/SensorChart';
 import { Collapsible } from '../../src/components/Collapsible';
-import { deleteVase, getVase, getVaseReadings24h, refreshVase, renameVase } from '../../src/services/vases.api';
+import { deleteVase, getVase, getVaseReadings24h, refreshVase, resetVaseWifi } from '../../src/services/vases.api';
 import type { SmartVase, SensorReading } from '../../src/services/vases.api';
 import { formatDay, luceSensoreLabel, luceSensoreStatus, temperaturaLabel, temperaturaStatus, umiditaLabel, umiditaStatus } from '../../src/lib/plantUi';
 import { updatePlant } from '../../src/services/plants.api';
 import { PlantPickerModal } from '../../src/components/PlantPickerModal';
 import { ActionSheet } from '../../src/components/ActionSheet';
+import { RenameVaseModal } from '../../src/components/RenameVaseModal';
 import type { Plant } from '../../src/types/models';
 
 function toTileStatus(status: 'ok' | 'warning'): TileStatus {
@@ -41,7 +40,18 @@ function statoLabel(stato: SmartVase['stato']) {
   return 'Disconnesso';
 }
 
-type Sheet = 'none' | 'notFound' | 'linkError' | 'unlinkError' | 'deleteError' | 'renameError' | 'refreshError' | 'plantActions' | 'confirmDelete';
+type Sheet =
+  | 'none'
+  | 'notFound'
+  | 'linkError'
+  | 'unlinkError'
+  | 'deleteError'
+  | 'renameError'
+  | 'refreshError'
+  | 'resetWifiError'
+  | 'plantActions'
+  | 'confirmDelete'
+  | 'confirmResetWifi';
 
 // Dopo la richiesta di lettura immediata il dato arriva via MQTT in modo
 // asincrono: si ripolla il vaso per un po' sperando di vedere una lettura
@@ -60,7 +70,6 @@ export default function VaseDetailScreen() {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [sheet, setSheet] = useState<Sheet>('none');
   const [renameVisible, setRenameVisible] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -153,24 +162,7 @@ export default function VaseDetailScreen() {
 
   function openRename() {
     if (!vase) return;
-    setRenameValue(vase.nome ?? '');
     setRenameVisible(true);
-  }
-
-  async function confirmRename() {
-    if (!vase) return;
-    const nome = renameValue.trim();
-    if (!nome) return;
-    setRenameVisible(false);
-    setBusy(true);
-    try {
-      await renameVase(vase.id, nome);
-      await load();
-    } catch {
-      setSheet('renameError');
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function confirmDeleteVase() {
@@ -182,6 +174,20 @@ export default function VaseDetailScreen() {
       router.back();
     } catch {
       setSheet('deleteError');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmResetWifi() {
+    if (!vase) return;
+    setSheet('none');
+    setBusy(true);
+    try {
+      await resetVaseWifi(vase.id);
+      router.push({ pathname: '/vase/reconnect-wifi', params: { id: vase.id } });
+    } catch {
+      setSheet('resetWifiError');
     } finally {
       setBusy(false);
     }
@@ -368,6 +374,18 @@ export default function VaseDetailScreen() {
               </Svg>
             </View>
           </Pressable>
+          <Pressable
+            onPress={() => setSheet('confirmResetWifi')}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Riconfigura WiFi"
+            style={[styles.plantRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.outlineVariant }]}
+          >
+            <Text style={[styles.dataLabel, { color: theme.onSurfaceVariant }]}>Riconfigura WiFi</Text>
+            <Svg width={7} height={12} viewBox="0 0 7 12" fill="none">
+              <Path d="M1 1L6 6L1 11" stroke={theme.onSurfaceVariant} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
         </Card>
 
         <Pressable
@@ -389,23 +407,35 @@ export default function VaseDetailScreen() {
 
       <ActionSheet
         visible={sheet !== 'none'}
-        title={sheet === 'plantActions' ? pianta?.nome : sheet === 'confirmDelete' ? 'Rimuovi vaso' : undefined}
+        title={
+          sheet === 'plantActions'
+            ? pianta?.nome
+            : sheet === 'confirmDelete'
+              ? 'Rimuovi vaso'
+              : sheet === 'confirmResetWifi'
+                ? 'Riconfigura WiFi'
+                : undefined
+        }
         message={
           sheet === 'plantActions'
             ? 'Questo vaso è collegato a questa pianta.'
             : sheet === 'confirmDelete'
               ? 'Il vaso verrà scollegato e i dati di pairing andranno persi. Continuare?'
-              : sheet === 'linkError'
-                ? 'Collegamento non riuscito, riprova.'
-                : sheet === 'unlinkError'
-                  ? 'Operazione non riuscita, riprova.'
-                  : sheet === 'deleteError'
-                    ? 'Rimozione non riuscita, riprova.'
-                    : sheet === 'renameError'
-                      ? 'Rinomina non riuscita, riprova.'
-                      : sheet === 'refreshError'
-                        ? 'Richiesta di aggiornamento non riuscita, riprova.'
-                        : undefined
+              : sheet === 'confirmResetWifi'
+                ? 'Il vaso si disconnetterà e dovrai indicare la nuova rete WiFi tramite Bluetooth. La pianta collegata e lo storico dei dati non andranno persi.'
+                : sheet === 'linkError'
+                  ? 'Collegamento non riuscito, riprova.'
+                  : sheet === 'unlinkError'
+                    ? 'Operazione non riuscita, riprova.'
+                    : sheet === 'deleteError'
+                      ? 'Rimozione non riuscita, riprova.'
+                      : sheet === 'renameError'
+                        ? 'Rinomina non riuscita, riprova.'
+                        : sheet === 'refreshError'
+                          ? 'Richiesta di aggiornamento non riuscita, riprova.'
+                          : sheet === 'resetWifiError'
+                            ? 'Invio del comando non riuscito, riprova.'
+                            : undefined
         }
         actions={
           sheet === 'plantActions'
@@ -419,36 +449,24 @@ export default function VaseDetailScreen() {
                   { label: 'Rimuovi', variant: 'destructive', onPress: confirmDeleteVase },
                   { label: 'Annulla', variant: 'cancel', onPress: () => setSheet('none') },
                 ]
-              : [{ label: 'OK', onPress: () => setSheet('none') }]
+              : sheet === 'confirmResetWifi'
+                ? [
+                    { label: 'Continua', onPress: confirmResetWifi },
+                    { label: 'Annulla', variant: 'cancel', onPress: () => setSheet('none') },
+                  ]
+                : [{ label: 'OK', onPress: () => setSheet('none') }]
         }
         onRequestClose={() => setSheet('none')}
       />
 
-      <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <Pressable style={styles.renameBackdrop} onPress={() => setRenameVisible(false)}>
-            <Pressable style={[styles.renameCard, { backgroundColor: theme.surface }]} onPress={() => {}}>
-              <Text style={[styles.sectionTitle, { color: theme.onSurface }]}>Nome vaso</Text>
-              <TextInput
-                value={renameValue}
-                onChangeText={setRenameValue}
-                placeholder="Es. Vaso soggiorno"
-                autoFocus
-                maxLength={255}
-                style={{ marginTop: spacing.sm12, marginBottom: spacing.md16 }}
-              />
-              <View style={styles.renameActions}>
-                <View style={{ flex: 1 }}>
-                  <Button label="Annulla" variant="outline" onPress={() => setRenameVisible(false)} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button label="Salva" onPress={confirmRename} disabled={!renameValue.trim()} />
-                </View>
-              </View>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+      <RenameVaseModal
+        visible={renameVisible}
+        vaseId={vase.id}
+        currentName={vase.nome}
+        onClose={() => setRenameVisible(false)}
+        onRenamed={load}
+        onError={() => setSheet('renameError')}
+      />
     </SafeAreaView>
   );
 }
@@ -485,7 +503,4 @@ const styles = StyleSheet.create({
   emptyData: { ...typography.bodySmall, fontStyle: 'italic' },
   deleteBtn: { alignItems: 'center', paddingVertical: spacing.sm12, minHeight: 44, justifyContent: 'center' },
   deleteText: { ...typography.bodyLarge, fontWeight: '600' },
-  renameBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.lg24 },
-  renameCard: { borderRadius: radius.lg, padding: spacing.md20 },
-  renameActions: { flexDirection: 'row', gap: spacing.sm12 - 2 },
 });

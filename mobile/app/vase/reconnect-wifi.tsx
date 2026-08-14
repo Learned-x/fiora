@@ -1,17 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { BleManager, Device, State } from 'react-native-ble-plx';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../src/theme/useTheme';
@@ -21,14 +11,16 @@ import { typography } from '../../src/theme/typography';
 import { Button } from '../../src/components/Button';
 import { TextInput } from '../../src/components/TextInput';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { startPairing, getVase, deleteVase, renameVase, PairingCredentials } from '../../src/services/vases.api';
+import { getReconnectCredentials, getVase } from '../../src/services/vases.api';
 import { connectAndProvision, ensureBlePermissions, friendlyError, parseBrokerUrl } from '../../src/lib/bleProvisioning';
 
+const SCAN_START_DELAY_MS = 2500; // il vaso impiega qualche istante a rientrare in advertising dopo il reset
 const SCAN_TIMEOUT_MS = 20000;
 const VERIFY_TIMEOUT_MS = 45000;
 const VERIFY_INTERVAL_MS = 3000;
 
 type Step =
+  | 'starting'
   | 'scanning'
   | 'device-list'
   | 'wifi-form'
@@ -36,33 +28,32 @@ type Step =
   | 'sending'
   | 'verifying'
   | 'done'
-  | 'done-unverified'
   | 'error';
 
-export default function VasePairScreen() {
+export default function VaseReconnectWifiScreen() {
   const theme = useTheme();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const managerRef = useRef<BleManager | null>(null);
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
 
-  const [step, setStep] = useState<Step>('scanning');
+  const [step, setStep] = useState<Step>('starting');
   const [devices, setDevices] = useState<Device[]>([]);
   const [scanActive, setScanActive] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [ssid, setSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [pairedVaseId, setPairedVaseId] = useState<string | null>(null);
-  const [vaseName, setVaseName] = useState('');
-  const [savingName, setSavingName] = useState(false);
   // Dove riporta il tasto Riprova dopo un errore
   const [retryTarget, setRetryTarget] = useState<'scan' | 'wifi-form'>('scan');
 
   useEffect(() => {
     managerRef.current = new BleManager();
-    startScan();
+    startTimeoutRef.current = setTimeout(startScan, SCAN_START_DELAY_MS);
     return () => {
       unmountedRef.current = true;
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current);
       managerRef.current?.stopDeviceScan();
       managerRef.current?.destroy();
@@ -123,7 +114,7 @@ export default function VasePairScreen() {
       setScanActive(false);
       setStep((current) => {
         if (current === 'scanning') {
-          setErrorMsg('Nessun vaso trovato nelle vicinanze. Controlla che sia acceso e in modalità pairing (LED lampeggiante).');
+          setErrorMsg('Nessun vaso trovato nelle vicinanze. Controlla che sia acceso e vicino al telefono.');
           setRetryTarget('scan');
           return 'error';
         }
@@ -151,10 +142,8 @@ export default function VasePairScreen() {
     setStep('connecting');
     setErrorMsg('');
 
-    let credentials: PairingCredentials | null = null;
     try {
-      credentials = await startPairing();
-      setPairedVaseId(credentials.vaseId);
+      const credentials = await getReconnectCredentials(id);
       const { host, port } = parseBrokerUrl(credentials.brokerUrl);
       await connectAndProvision(
         selectedDevice!,
@@ -169,12 +158,10 @@ export default function VasePairScreen() {
         },
         () => setStep('sending')
       );
-      await verifyVaseOnline(credentials.vaseId);
+      await verifyVaseOnline();
     } catch (err) {
-      // Il vaso creato dal pairing non ha mai parlato: rimuovilo per non lasciare orfani
-      if (credentials) {
-        deleteVase(credentials.vaseId).catch(() => {});
-      }
+      // A differenza del primo pairing, il vaso esiste già: nessuna cancellazione,
+      // resta nell'app con il suo stato precedente finché non si riprova.
       if (unmountedRef.current) return;
       setErrorMsg(friendlyError(err, 'provision'));
       setRetryTarget('wifi-form'); // SSID e password restano compilati
@@ -182,14 +169,13 @@ export default function VasePairScreen() {
     }
   }
 
-  // Il provisioning BLE è andato: aspetta che il vaso si connetta davvero a MQTT
-  async function verifyVaseOnline(vaseId: string) {
+  async function verifyVaseOnline() {
     setStep('verifying');
     const deadline = Date.now() + VERIFY_TIMEOUT_MS;
     while (Date.now() < deadline) {
       if (unmountedRef.current) return;
       try {
-        const vase = await getVase(vaseId);
+        const vase = await getVase(id);
         if (vase.stato === 'connesso') {
           setStep('done');
           return;
@@ -199,7 +185,13 @@ export default function VasePairScreen() {
       }
       await new Promise((resolve) => setTimeout(resolve, VERIFY_INTERVAL_MS));
     }
-    if (!unmountedRef.current) setStep('done-unverified');
+    if (!unmountedRef.current) {
+      setErrorMsg(
+        'Il vaso non risulta ancora online. Se la password WiFi è corretta comparirà connesso entro qualche minuto; altrimenti riprova.'
+      );
+      setRetryTarget('scan');
+      setStep('error');
+    }
   }
 
   function handleRetry() {
@@ -217,32 +209,40 @@ export default function VasePairScreen() {
 
   // Durante connessione/invio/verifica non si esce: interrompere a metà lascia il vaso a metà configurazione
   const backVisible = step !== 'connecting' && step !== 'sending' && step !== 'verifying';
-  const busy = step === 'scanning' || step === 'connecting' || step === 'sending' || step === 'verifying';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <ScreenHeader back={backVisible ? { label: 'Indietro', onPress: handleExit } : undefined} />
 
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.onSurface }]}>Collega vaso smart</Text>
+        <Text style={[styles.title, { color: theme.onSurface }]}>Riconfigura WiFi</Text>
+
+        {step === 'starting' && (
+          <View style={styles.status}>
+            <View style={styles.statusCenter}>
+              <ActivityIndicator color={theme.primary} size="large" />
+              <Text style={[styles.statusMsg, { color: theme.onSurface }]}>Il vaso si sta disconnettendo…</Text>
+            </View>
+          </View>
+        )}
 
         {(step === 'scanning' || step === 'device-list') && (
           <View style={styles.form}>
             <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
-              Accendi il vaso e assicurati che sia in modalità pairing (LED lampeggiante).
+              Il vaso è tornato in modalità pairing (LED lampeggiante). Selezionalo per continuare.
             </Text>
 
             {step === 'scanning' && (
               <View style={styles.inlineStatus}>
                 <ActivityIndicator color={theme.primary} />
-                <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>Ricerca vasi nelle vicinanze…</Text>
+                <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>Ricerca del vaso…</Text>
               </View>
             )}
 
             {step === 'device-list' && (
               <>
                 <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>
-                  {devices.length === 1 ? 'Vaso trovato — toccalo per collegarlo' : 'Vasi trovati — tocca il tuo'}
+                  {devices.length === 1 ? 'Vaso trovato — toccalo per continuare' : 'Vasi trovati — tocca il tuo'}
                 </Text>
                 <FlatList
                   data={devices}
@@ -287,8 +287,7 @@ export default function VasePairScreen() {
                 <Text style={[styles.deviceName, { color: theme.onSurface }]}>{selectedDevice?.name}</Text>
               </View>
               <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
-                Inserisci la rete WiFi a cui è connesso il telefono: il vaso userà la stessa rete. Deve essere una rete
-                a 2.4 GHz (il vaso non supporta le reti 5 GHz).
+                Inserisci la nuova rete WiFi. Deve essere una rete a 2.4 GHz (il vaso non supporta le reti 5 GHz).
               </Text>
               <TextInput
                 placeholder="Nome rete WiFi (SSID)"
@@ -305,7 +304,7 @@ export default function VasePairScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Button label="Collega vaso" onPress={handleConfirmWifi} />
+              <Button label="Riconfigura vaso" onPress={handleConfirmWifi} />
               <Button label="Scegli un altro vaso" onPress={startScan} variant="outline" />
             </View>
           </KeyboardAvoidingView>
@@ -345,50 +344,12 @@ export default function VasePairScreen() {
           <View style={styles.status}>
             <View style={styles.statusCenter}>
               <Text style={styles.statusEmoji}>✅</Text>
-              <Text style={[styles.statusTitle, { color: theme.onSurface }]}>Vaso collegato!</Text>
+              <Text style={[styles.statusTitle, { color: theme.onSurface }]}>Vaso riconnesso!</Text>
               <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
-                {selectedDevice?.name} è online e sta inviando i dati dei sensori.
-              </Text>
-              <TextInput
-                label="Nome del vaso"
-                placeholder="Es. Vaso soggiorno"
-                value={vaseName}
-                onChangeText={setVaseName}
-                autoFocus
-                maxLength={255}
-                style={styles.nameInput}
-              />
-            </View>
-            <Button
-              label="Fatto"
-              loading={savingName}
-              onPress={async () => {
-                const nome = vaseName.trim();
-                if (nome && pairedVaseId) {
-                  setSavingName(true);
-                  try {
-                    await renameVase(pairedVaseId, nome);
-                  } catch {
-                    // il vaso resta collegato e funzionante: si potrà rinominare dal dettaglio
-                  }
-                }
-                router.back();
-              }}
-            />
-          </View>
-        )}
-
-        {step === 'done-unverified' && (
-          <View style={styles.status}>
-            <View style={styles.statusCenter}>
-              <Text style={styles.statusEmoji}>⏳</Text>
-              <Text style={[styles.statusTitle, { color: theme.onSurface }]}>Credenziali inviate</Text>
-              <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
-                Il vaso non risulta ancora online. Se la password WiFi è corretta comparirà tra i tuoi vasi entro
-                qualche minuto; altrimenti rimettilo in modalità pairing e riprova.
+                {selectedDevice?.name} è di nuovo online sulla nuova rete. Pianta collegata e storico sono intatti.
               </Text>
             </View>
-            <Button label="Chiudi" onPress={() => router.back()} />
+            <Button label="Fatto" onPress={() => router.back()} />
           </View>
         )}
 
@@ -397,6 +358,9 @@ export default function VasePairScreen() {
             <View style={styles.statusCenter}>
               <Text style={styles.statusEmoji}>⚠️</Text>
               <Text style={[styles.statusMsg, { color: theme.onSurface }]}>{errorMsg}</Text>
+              <Text style={[styles.statusText, { color: theme.onSurfaceVariant }]}>
+                Il vaso non è stato modificato: pianta collegata e storico restano quelli di prima.
+              </Text>
             </View>
             <Button label="Riprova" onPress={handleRetry} />
             <Button label="Annulla" onPress={handleExit} variant="outline" />
@@ -420,7 +384,6 @@ const styles = StyleSheet.create({
   statusMsg: { ...typography.bodyLarge, textAlign: 'center' },
   statusText: { ...typography.bodyMedium, textAlign: 'center', lineHeight: 21 },
   statusEmoji: { fontSize: 44 },
-  nameInput: { alignSelf: 'stretch', marginTop: spacing.sm12, width: '100%' },
   inlineStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm12 - 2, paddingVertical: spacing.lg24 - 4 },
   footerText: { ...typography.bodySmall, textAlign: 'center' },
   selectedBox: {
