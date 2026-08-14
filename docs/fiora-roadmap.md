@@ -158,10 +158,16 @@ indicano 15 minuti (5 in allerta): valutare se allineare o aggiornare la specifi
 **D6 — Sensori non inizializzati.** ✅ Risolto. `initSensors()` chiama
 `lightMeter.begin()` e `bmp.begin(0x76)` davvero (non più commentati).
 
-**D7 — Reset fisico.** ✅ Risolto. Pin 13 con interrupt (`handleResetInterrupt`):
-a runtime cancella le credenziali WiFi e rilancia il provisioning BLE; a GPIO13 tenuto
-a GND al boot forza la stessa cancellazione. Manca ancora la voce lato app che spieghi
-il flusso all'utente (**MEV-05**, invariato).
+**D7 — Reset fisico.** ✅ Risolto (2026-08-14, chiude anche **MEV-05**). Pin 13 con
+interrupt (`handleResetInterrupt`): a runtime cancella le credenziali WiFi e rilancia
+il provisioning BLE; a GPIO13 tenuto a GND al boot forza la stessa cancellazione.
+Aggiunto anche un secondo modo di innescare lo stesso reset (senza accesso fisico al
+vaso): comando MQTT `"reset"` sul topic `config`, azionabile da `POST
+/vases/:id/reset-wifi`. Lato app, dettaglio vaso → "Riconfigura WiFi" → conferma →
+`app/vase/reconnect-wifi.tsx` (nuova schermata, riusa la meccanica BLE di
+`vase/pair.tsx` estratta in `src/lib/bleProvisioning.ts`) → scan → nuove credenziali
+WiFi via `GET /vases/:id/reconnect-credentials` (stesso `device_id` del vaso
+esistente, nessun nuovo pairing/vaso duplicato).
 
 **D11 — Niente advertising se la connessione fallisce.** ✅ Risolto. `setup()` ora
 ritenta in loop `startBLEProvisioning()` finché `connectWiFi()` non riesce; il vaso non
@@ -278,9 +284,9 @@ Fase 6. Specifiche complete in **`fiora-mev.md`**.
 |---|---|---|
 | MEV-01 | Orario dei promemoria libero (oggi 3 fasce fisse) | Alta |
 | MEV-02 | Email transazionali e recupero password | 🚧 Alta — recupero password fatto (2026-07-31), cambio email e conferma eliminazione da fare |
-| MEV-03 | Rinominare e riordinare i vasi | Media |
+| MEV-03 | Rinominare e riordinare i vasi | 🚧 Media — rinomina completa, backend riordino pronto, UI mobile da ripianificare (2026-08-14) |
 | MEV-04 | Storico ambientale a 7 e 30 giorni | Media |
-| MEV-05 | Riconfigurazione WiFi senza ri-pairing (copre il debito D7) | Media |
+| MEV-05 | Riconfigurazione WiFi senza ri-pairing (copre il debito D7) | ✅ completa (2026-08-14) |
 | MEV-06 | Empty state con suggerimenti | Bassa |
 | MEV-07 | Esportazione dei dati utente (portabilità GDPR) | Bassa |
 

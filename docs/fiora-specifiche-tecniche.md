@@ -644,6 +644,15 @@ GET    /vases/:id              Stato e dati vaso, con pianta collegata
 PATCH  /vases/:id              Modifica nome vaso
 DELETE /vases/:id              Rimuovi vaso
 GET    /vases/:id/readings     Letture delle ultime 24 ore (non aggregate)
+POST   /vases/:id/refresh      Chiede al vaso una lettura sensori immediata
+                               (fuori dal ciclo di campionamento, fire-and-forget)
+POST   /vases/:id/reset-wifi   Chiede al vaso di dimenticare SSID/password WiFi
+                               e rientrare in provisioning BLE (device_id e
+                               credenziali MQTT restano invariati) — MEV-05
+GET    /vases/:id/reconnect-credentials
+                               Credenziali per riconfigurare via BLE un vaso
+                               GIÀ esistente, stessa shape di POST /vases/pair
+                               ma senza crearne uno nuovo — MEV-05
 ```
  
 Tutte le rotte `/vases` richiedono autenticazione e operano solo sui vasi dell'utente.

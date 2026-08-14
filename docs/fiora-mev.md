@@ -25,9 +25,9 @@ migliorare.
 |---|---|---|---|---|
 | **MEV-01** | Orario promemoria libero | Le 3 fasce fisse non coprono chi si alza presto o rientra tardi | Backend + mobile | Alta |
 | **MEV-02** | Email transazionali e recupero password | **Chi dimentica la password perde l'account** | Backend + infra + mobile | Alta |
-| **MEV-03** | Rinominare e riordinare i vasi | Con più vasi diventano indistinguibili | Mobile + backend minimo | Media |
+| **MEV-03** | Rinominare e riordinare i vasi | Con più vasi diventano indistinguibili | Mobile + backend minimo | 🚧 Media — rinomina fatta, riordino: backend pronto ma non esposto, UI mobile da ripianificare (vedi nota) |
 | **MEV-04** | Storico ambientale a 7 e 30 giorni | Oggi solo 24 h non aggregate | Backend | Media |
-| **MEV-05** | Riconfigurazione WiFi senza ri-pairing | Cambio rete o password rende il vaso muto | Firmware + mobile | Media |
+| **MEV-05** | Riconfigurazione WiFi senza ri-pairing | Cambio rete o password rende il vaso muto | Firmware + mobile | ✅ completa (2026-08-14) |
 | **MEV-06** | Empty state con suggerimenti | Prima schermata vuota per un utente nuovo | Mobile | Bassa |
 | **MEV-07** | Esportazione dei dati utente | Obbligo GDPR alla portabilità | Backend | Bassa |
 
@@ -182,7 +182,7 @@ definitiva e il link per annullare entro i 30 giorni di grazia.
 
 ## MEV-03 — Rinominare e riordinare i vasi
 
-**Stato: 📋 da fare** · Riferimento: §13.5 funzionali
+**Stato: 🚧 parziale** (2026-08-14) · Riferimento: §13.5 funzionali
 
 Il nome del vaso viene assegnato al pairing (§10.1.3) con un default `Vaso 1`,
 `Vaso 2`. Chi accetta il default e poi arriva a tre o quattro vasi si trova un
@@ -192,10 +192,27 @@ elenco di nomi che non dicono nulla su quale sia quale.
 - Rinomina del vaso dall'elenco e dal dettaglio, senza passare dalle impostazioni.
 - Riordino manuale dell'elenco tramite trascinamento, con l'ordine salvato sul profilo.
 - Nell'elenco, sotto il nome, la **pianta collegata**: è l'informazione che permette
-  di riconoscere il vaso fisico più del nome stesso.
+  di riconoscere il vaso fisico più del nome stesso — già presente, non serviva
+  lavoro aggiuntivo.
 
-**Note:** serve un campo `ordine` su `smart_vases` e un endpoint per aggiornare
-l'ordinamento in blocco. `PATCH /vases/:id` supporta già la modifica del nome.
+**Fatto (2026-08-14):**
+- Rinomina: già completa da prima (dettaglio vaso), estratta in un componente
+  condiviso `src/components/RenameVaseModal.tsx` riusabile anche da altre schermate.
+- Backend: campo `ordine Int @default(0)` su `SmartVase`, `reorderVases()` +
+  `PATCH /vases/order` (verifica che la lista contenga esattamente tutti i vasi
+  dell'utente, aggiorna in transazione), `listVases` ordina per `ordine` poi
+  `createdAt`. Testato via typecheck e suite backend (159/159), non ancora tramite
+  test dedicati (`vase.service.test.ts` non esiste ancora — da fare insieme a MEV-04).
+
+**Da ripianificare — riordino lato mobile:** primo tentativo con
+`react-native-draggable-flatlist` scartato (non supporta griglie 2 colonne, drag si
+rompe, [bug noto upstream](https://github.com/computerjazz/react-native-draggable-flatlist/issues/567)).
+Secondo tentativo con `react-native-draggable-grid` (installata poi rimossa) — la
+schermata `app/(tabs)/vasi.tsx` è stata **riportata alla versione originale** (griglia
+`FlatList` responsive, nessun drag) su richiesta esplicita per non bloccare le altre
+MEV. Il backend resta pronto e inutilizzato: alla ripresa, valutare da capo l'approccio
+UI (lista a colonna singola invece di griglia 2 colonne — più compatibile con le
+librerie di drag disponibili — o un'altra libreria/soluzione custom).
 
 ---
 
@@ -223,20 +240,37 @@ coperta.
 
 ## MEV-05 — Riconfigurazione WiFi senza ri-pairing
 
-**Stato: 📋 da fare** · Riferimento: §10.4 funzionali, §6 tecniche
+**Stato: ✅ completa** (2026-08-14) · Riferimento: §10.4 funzionali, §6 tecniche
 
-Se l'utente cambia rete o password WiFi, il vaso resta muto e l'unica via è
+Se l'utente cambia rete o password WiFi, il vaso restava muto e l'unica via era
 rimuoverlo e rifare il pairing da zero — perdendo l'associazione con la pianta.
-Le specifiche prevedono già il flusso (pulsante fisico 5 secondi → BLE advertising)
-ma il firmware non gestisce il pulsante e l'app non ha la voce corrispondente.
+Il firmware già gestiva il pulsante fisico (GPIO13, chiude anche il debito **D7**);
+mancava la voce app e un modo di innescare lo stesso reset da remoto.
 
-**Comportamento richiesto:** quanto già descritto in §10.4 funzionali, più la voce
-"Riconfigura WiFi" nel dettaglio vaso, che riporta al flusso di §10.1 mantenendo
-`device_id`, credenziali MQTT, nome del vaso e associazione alla pianta.
+**Fatto:**
+- Firmware: nessuna modifica necessaria, il comando MQTT `"reset"` sul topic
+  `config` (già esistente, stesso meccanismo del `"check"` di refresh) e il pulsante
+  GPIO13 chiamano entrambi `wipeWifiCredentials()` (solo `ssid`/`wifi_pass`, non
+  `device_id`/credenziali MQTT) poi rientrano in BLE advertising.
+- Backend: `POST /vases/:id/reset-wifi` (richiede vaso `connesso`, pubblica `"reset"`
+  via `requestVaseWifiReset()` in `src/lib/mqtt.ts`) e `GET
+  /vases/:id/reconnect-credentials` (stessa shape di `startPairing()` ma **senza**
+  creare una nuova riga `smart_vases` — restituisce il `device_id` del vaso
+  esistente, altrimenti il firmware lo sovrascriverebbe creando un vaso duplicato
+  lato app).
+- Mobile: dettaglio vaso → "Riconfigura WiFi" (sezione Gestione) → conferma
+  (`ActionSheet`) → `resetVaseWifi()` → nuova schermata `app/vase/reconnect-wifi.tsx`
+  (scan BLE → selezione device → nuove credenziali WiFi → verifica `stato:'connesso'`,
+  stesso flusso di `vase/pair.tsx` ma **nessuna cancellazione del vaso sugli errori**:
+  a differenza del primo pairing, qui il vaso esiste già e non va mai perso se il BLE
+  fallisce). Meccanica BLE (permessi, scan, scrittura payload, encoder base64
+  UTF-8-safe, traduzione errori) estratta in `src/lib/bleProvisioning.ts`, condivisa
+  tra `pair.tsx` e `reconnect-wifi.tsx`.
 
-**Note:** coincide con il debito **D7** della roadmap. È una MEV perché il valore per
-l'utente è nel flusso completo in app, non solo nella gestione del pulsante.
-Dipende dal ritorno automatico in advertising descritto in §6 tecniche.
+**Note:** dipende dal ritorno automatico in advertising descritto in §6 tecniche
+(già presente). Non ancora testato su hardware reale end-to-end (verificare: nessuna
+riga `smart_vases` duplicata dopo la riconnessione, pianta collegata e storico
+letture intatti).
 
 ---
 
