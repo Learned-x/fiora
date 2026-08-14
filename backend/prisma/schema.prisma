@@ -151,6 +151,7 @@ model SmartVase {
   nome      String?   @db.VarChar(255)
   stato     String    @default("disconnesso") @db.VarChar(50) // 'connesso' | 'disconnesso' | 'batteria_scarica'
   batteria  Int?
+  ordine    Int       @default(0)
   lastSeen  DateTime? @map("last_seen") @db.Timestamptz()
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
