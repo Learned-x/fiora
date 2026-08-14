@@ -178,3 +178,16 @@ export function requestVaseRefresh(deviceId: string): void {
   const topic = `fiora/vaso/${deviceId}/config`;
   client.publish(topic, 'check', { qos: 1 });
 }
+
+// Il firmware confronta il payload raw con la stringa "reset" (non JSON) per
+// cancellare le credenziali WiFi (mantenendo device_id e credenziali MQTT) e
+// rientrare in provisioning BLE — vedi mqttCallback in
+// firmware/vaso/src/mqtt_handler.cpp.
+export function requestVaseWifiReset(deviceId: string): void {
+  if (!client?.connected) {
+    log.error({ deviceId }, 'Impossibile pubblicare: client MQTT non connesso');
+    return;
+  }
+  const topic = `fiora/vaso/${deviceId}/config`;
+  client.publish(topic, 'reset', { qos: 1 });
+}

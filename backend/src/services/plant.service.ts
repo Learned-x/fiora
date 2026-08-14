@@ -157,7 +157,7 @@ export async function updatePlant(userId: string, plantId: string, input: Update
     }
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: typeof prisma) => {
     // Cambio pianta: il vaso può essere collegato a una sola pianta alla volta,
     // scollegare quella precedente fa parte dell'operazione, non è un conflitto.
     if (input.vasoId) {

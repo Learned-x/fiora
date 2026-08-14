@@ -43,6 +43,8 @@ export type AuditEvent =
   | 'vase.pairing.started'
   | 'vase.deleted'
   | 'vase.refresh.requested'
+  | 'vase.reordered'
+  | 'vase.wifi_reset.requested'
   | 'plant.vase_link.changed'
   | 'email.sent'
   | 'email.failed';

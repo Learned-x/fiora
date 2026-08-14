@@ -67,6 +67,47 @@ router.get('/', async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /vases/order:
+ *   patch:
+ *     summary: Riordina i vasi dell'utente
+ *     tags: [Vases]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [orderedIds]
+ *             properties:
+ *               orderedIds:
+ *                 type: array
+ *                 items: { type: string, format: uuid }
+ *     responses:
+ *       200: { description: Ordine aggiornato }
+ *       400: { description: "La lista non contiene esattamente tutti i vasi dell'utente" }
+ */
+// ── PATCH /vases/order ────────────────────────────────────────────────────────
+
+router.patch(
+  '/order',
+  [
+    body('orderedIds').isArray({ min: 1 }).withMessage('Lista vasi obbligatoria'),
+    body('orderedIds.*').isUUID().withMessage('ID non valido'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      await vaseService.reorderVases(req.userId!, req.body.orderedIds);
+      res.json({ success: true, data: { message: 'Ordine aggiornato' } });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
  * /vases/{id}:
  *   get:
  *     summary: Stato e dati vaso
@@ -156,6 +197,71 @@ router.post(
     try {
       await vaseService.refreshVase(req.userId!, req.params.id as string);
       res.status(202).json({ success: true, data: { message: 'Richiesta inviata' } });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /vases/{id}/reset-wifi:
+ *   post:
+ *     summary: Chiede al vaso di dimenticare SSID/password WiFi e rientrare in provisioning BLE
+ *     tags: [Vases]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       202: { description: "Comando inviato; il vaso si disconnette e riparte in advertising BLE" }
+ *       404: { description: Vaso non trovato }
+ *       409: { description: Vaso disconnesso }
+ */
+// ── POST /vases/:id/reset-wifi ────────────────────────────────────────────────
+
+router.post(
+  '/:id/reset-wifi',
+  [param('id').isUUID().withMessage('ID non valido')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      await vaseService.resetVaseWifi(req.userId!, req.params.id as string);
+      res.status(202).json({ success: true, data: { message: 'Comando di reset WiFi inviato' } });
+    } catch (err: any) {
+      handleError(res, err);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /vases/{id}/reconnect-credentials:
+ *   get:
+ *     summary: Credenziali per riconfigurare via BLE un vaso già esistente (stesso device_id)
+ *     tags: [Vases]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200: { description: "Credenziali MQTT e device_id del vaso, da trasferire via BLE" }
+ *       404: { description: Vaso non trovato }
+ */
+// ── GET /vases/:id/reconnect-credentials ──────────────────────────────────────
+
+router.get(
+  '/:id/reconnect-credentials',
+  [param('id').isUUID().withMessage('ID non valido')],
+  async (req: Request, res: Response) => {
+    if (!handleValidation(req, res)) return;
+    try {
+      const credentials = await vaseService.getReconnectCredentials(req.userId!, req.params.id as string);
+      res.json({ success: true, data: credentials });
     } catch (err: any) {
       handleError(res, err);
     }
