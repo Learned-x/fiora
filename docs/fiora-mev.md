@@ -25,15 +25,18 @@ migliorare.
 |---|---|---|---|---|
 | **MEV-01** | Orario promemoria libero | Le 3 fasce fisse non coprono chi si alza presto o rientra tardi | Backend + mobile | Alta |
 | **MEV-02** | Email transazionali e recupero password | **Chi dimentica la password perde l'account** | Backend + infra + mobile | Alta |
-| **MEV-03** | Rinominare e riordinare i vasi | Con più vasi diventano indistinguibili | Mobile + backend minimo | 🚧 Media — rinomina fatta, riordino: backend pronto ma non esposto, UI mobile da ripianificare (vedi nota) |
+| **MEV-03** | Rinominare e riordinare i vasi | Con più vasi diventano indistinguibili | Mobile + backend minimo | ⏸️ Media — in pausa (2026-08-18): rinomina fatta, riordino backend pronto ma non esposto, UI mobile da ripianificare quando si riprende |
 | **MEV-04** | Storico ambientale a 7 e 30 giorni | Oggi solo 24 h non aggregate | Backend | Media |
-| **MEV-05** | Riconfigurazione WiFi senza ri-pairing | Cambio rete o password rende il vaso muto | Firmware + mobile | ✅ completa (2026-08-14) |
+| **MEV-05** | Riconfigurazione WiFi senza ri-pairing | Cambio rete o password rende il vaso muto | Firmware + mobile | ✅ completa e testata (2026-08-14/18) |
 | **MEV-06** | Empty state con suggerimenti | Prima schermata vuota per un utente nuovo | Mobile | Bassa |
 | **MEV-07** | Esportazione dei dati utente | Obbligo GDPR alla portabilità | Backend | Bassa |
+| **MEV-08** | Soglie sensori personalizzabili per pianta + alert configurabili | Le soglie oggi sono fisse per specie, non per pianta/vaso reale; nessun alert esiste ancora | Backend + mobile (+ Fase 7) | 🚧 Step 1 (soglie) ✅ completo e testato (2026-08-18); step 2 (alert) da valutare |
 
-**Ordine consigliato:** MEV-02 → MEV-01 → MEV-03 → MEV-05 → MEV-04 → MEV-06 → MEV-07.
+**Ordine consigliato:** MEV-02 → MEV-01 → MEV-05 → MEV-08 → MEV-04 → MEV-03 → MEV-06 → MEV-07.
 MEV-02 per prima perché è l'unica che oggi provoca una **perdita definitiva di accesso**;
-MEV-01 subito dopo perché è la lamentela più probabile sulle notifiche.
+MEV-01 subito dopo perché è la lamentela più probabile sulle notifiche. MEV-03 spostata
+in fondo: in pausa dal 2026-08-18 per il problema UI di riordino, non bloccante per le
+altre voci.
 
 ---
 
@@ -182,7 +185,7 @@ definitiva e il link per annullare entro i 30 giorni di grazia.
 
 ## MEV-03 — Rinominare e riordinare i vasi
 
-**Stato: 🚧 parziale** (2026-08-14) · Riferimento: §13.5 funzionali
+**Stato: ⏸️ in pausa** (2026-08-18, parziale dal 2026-08-14) · Riferimento: §13.5 funzionali
 
 Il nome del vaso viene assegnato al pairing (§10.1.3) con un default `Vaso 1`,
 `Vaso 2`. Chi accetta il default e poi arriva a tre o quattro vasi si trova un
@@ -240,7 +243,7 @@ coperta.
 
 ## MEV-05 — Riconfigurazione WiFi senza ri-pairing
 
-**Stato: ✅ completa** (2026-08-14) · Riferimento: §10.4 funzionali, §6 tecniche
+**Stato: ✅ completa e testata su hardware reale** (2026-08-14/18) · Riferimento: §10.4 funzionali, §6 tecniche
 
 Se l'utente cambia rete o password WiFi, il vaso restava muto e l'unica via era
 rimuoverlo e rifare il pairing da zero — perdendo l'associazione con la pianta.
@@ -268,9 +271,9 @@ mancava la voce app e un modo di innescare lo stesso reset da remoto.
   tra `pair.tsx` e `reconnect-wifi.tsx`.
 
 **Note:** dipende dal ritorno automatico in advertising descritto in §6 tecniche
-(già presente). Non ancora testato su hardware reale end-to-end (verificare: nessuna
-riga `smart_vases` duplicata dopo la riconnessione, pianta collegata e storico
-letture intatti).
+(già presente). Testato su hardware reale end-to-end (2026-08-18): nessuna riga
+`smart_vases` duplicata dopo la riconnessione, pianta collegata e storico letture
+intatti.
 
 ---
 
@@ -304,6 +307,153 @@ cancellare l'account ma non di estrarne i dati.
 **Note:** generazione asincrona su coda BullMQ — per un account con mesi di letture
 sensori l'operazione non è istantanea. Link a scadenza breve e a uso singolo, con le
 stesse cautele dei token di MEV-02.
+
+---
+
+## MEV-08 — Soglie sensori personalizzabili per pianta + alert configurabili
+
+**Stato: 🚧 in corso, a step** (avviata 2026-08-18) · Riferimento: §7 tecniche (Species),
+§7.1/§13.3/§14 funzionali (Fase 7 alert, non ancora costruita)
+
+**Decisioni prese (2026-08-18):**
+- Campi soglia direttamente su `Plant` (non tabella separata) — coerente con
+  `statoBouquetManuale`, query più semplici.
+- Tutte e 3 le metriche che il vaso invia davvero: `umidita` (%), `luce` (lux,
+  già numerica dal firmware — `sensors.cpp` genera float lux, nessun mapping
+  categoria da inventare), `temperatura` (°C). Batteria esclusa: è salute del
+  device, non un parametro di cura della pianta.
+- Soglie disponibili **solo se `plant.vasoId` è valorizzato** — senza vaso non c'è
+  nessuna lettura reale con cui confrontarle, niente soglie orfane in UI o DB.
+- Reminder da valori inseriti manualmente per piante **senza** vaso è un meccanismo
+  diverso (soglia-vs-tempo, non soglia-vs-sensore) — tenuto fuori, vedi **MEV-09**.
+- **Step 1: solo soglie per-pianta**, nessuna generazione di alert — vedi
+  raccomandazione sotto, resta valida.
+
+**Step 1 — ✅ completo e testato (2026-08-18):**
+- Migration: 6 campi nullable su `Plant` — `sogliaUmiditaMin/Max` (Int, %),
+  `sogliaLuceMin/Max` (Int, lux), `sogliaTempMin/Max` (**Decimal(4,1)**, °C — non
+  Int come nella stima iniziale: la temperatura reale ha un decimale, es. 18,5°C,
+  scoperto in test dall'utente e corretto in una seconda migration lo stesso giorno).
+- `PATCH /plants/:id` accetta i 6 campi, valida min≤max e richiede
+  `plant.vasoId` valorizzato (`PLANT_NO_VASE` altrimenti); scollegare il vaso
+  azzera automaticamente le soglie collegate.
+- Mobile: `plant/[id].tsx` → "Personalizza soglie" (solo con vaso collegato) apre
+  `SoglieVaseModal` (6 campi, vuoto = default specie, validazione min≤max lato
+  client, reset). Campo temperatura accetta virgola o punto (tastiera IT).
+- `plantUi.ts`: `umiditaStatus/Label`, `luceSensoreStatus/Label`,
+  `temperaturaStatus/Label` generalizzati a soglia min+max con fallback a cascata
+  pianta → specie → default hardcoded (30-70% umidità, 200 lux minimo luce).
+- Corretti in corsa due problemi UX pre-esistenti scoperti testando questa MEV
+  (non causati da essa, ma toccava già gli stessi file): `SensorTile` non
+  mostrava il nome della metrica sopra valore/etichetta (aggiunto `title`); area
+  di tocco del bottone "Personalizza soglie" non tap-friendly (ora
+  `alignSelf:'flex-start'`, `minHeight:44`, feedback al tocco).
+- **Causa del primo giro di test fallito**: non un bug di codice — il server
+  `npm run dev` girava da prima della migration, quindi aveva il Prisma Client
+  vecchio in memoria (ts-node-dev non ricarica moduli nativi). Promemoria per il
+  prossimo intervento schema: dopo `prisma migrate dev`/`generate`, riavviare
+  sempre il processo dev, non solo salvare i file.
+
+### Problema
+
+Le soglie che oggi guidano i tile umidità/luce/temperatura in `plant/[id].tsx`
+(`sogliaUmidita`, `tempMin`, `tempMax`) vivono su **`Species`**, condivise da ogni
+pianta di quella specie in ogni account. Due limiti concreti:
+
+1. **Non sono per-pianta.** Un Pothos vicino a una finestra esposta e un Pothos in
+   corridoio hanno la stessa soglia perché è la stessa specie — ma le condizioni reali
+   e quindi il bisogno effettivo sono diversi. L'utente che osserva la propria pianta
+   nel tempo spesso sa meglio del valore di catalogo cosa va bene per lei.
+2. **Non esiste alcun alert.** Le soglie oggi servono solo a colorare un tile
+   (verde/ambra) quando l'utente apre la schermata — nessuna notifica, nessun task
+   generato. Le specifiche (§7.1/§14) prevedono già gli alert da sensore come task di
+   sorgente `sensore` con gruppo rosso in cima alla schermata Oggi e push dedicate, ma
+   è tutta la Fase 7, rimandata in blocco.
+
+Questa MEV propone di anticipare **la parte di soglie configurabili dall'utente**,
+tenendola distinta dalla generazione automatica di task/alert che resta in Fase 7 —
+o, in alternativa, di costruire le due cose insieme. Vedi opzioni sotto.
+
+### Cosa richiede, in ordine di complessità crescente
+
+**1. Soglie per-pianta (invece che per-specie) — piccolo**
+- Nuovi campi opzionali su `Plant` (o tabella `plant_sensor_config` separata, 1:1):
+  `sogliaUmiditaMin`, `sogliaUmiditaMax`, `tempMin`, `tempMax`, `sogliaLuceMin`,
+  `sogliaLuceMax` — tutti nullable. `null` = "usa il default della specie" (fallback
+  a cascata, stesso pattern già in uso lato client con `?? 30` in `plantUi.ts`).
+  Occorre spostare quel fallback lato backend se lo si vuole anche nella logica di
+  alert (il client non basta più, un job server deve poter valutare la soglia senza
+  aprire l'app).
+- **Luce non ha oggi una soglia numerica** (`Species.luce` è categoria
+  bassa/media/alta, non un range). Se si vogliono alert sulla luce serve prima
+  decidere un range numerico per categoria (mapping fisso, es. lux) o lasciare la
+  luce fuori dagli alert configurabili in questa MEV e coprire solo umidità e
+  temperatura, che hanno già soglie numeriche.
+- Mobile: form nel dettaglio vaso o pianta ("Personalizza soglie"), reset a
+  "predefinito specie" con un tap. Piccolo, riusa pattern form già esistenti.
+- **Stima:** 1 migrazione + 1-2 endpoint PATCH + 1 schermata form. Il pezzo più
+  semplice di questa MEV, indipendente dal resto.
+
+**2. Generazione di alert (task o notifica) — la parte grossa, è sostanzialmente Fase 7**
+Qui la complessità sale perché tocca decisioni architetturali già rimandate apposta:
+- **Chi valuta le soglie?** Oggi `handleTelemetry` (`src/lib/mqtt.ts`) scrive solo la
+  lettura. Serve un controllo soglia ad ogni messaggio telemetria (o un job periodico
+  come il reminder engine) che confronti `ultimaLettura` con le soglie effettive
+  (per-pianta o fallback specie) e decida se generare un alert.
+- **L'alert diventa un `Task`** (`sorgente:'sensore'`, come da specifiche) o una
+  **notifica separata senza riga in `Task`**? Le specifiche scelgono la prima strada
+  (coerente con "Oggi" come centro unico di tutto ciò che richiede attenzione), ma
+  introduce un problema che il reminder engine calendario non ha: un sensore fuori
+  soglia resta fuori soglia per ore/giorni continuativi, non è un evento singolo.
+  Serve una regola di **debounce/cooldown** esplicita (es. "non ricreare lo stesso
+  alert se ne esiste già uno pending per quella pianta+tipo, e non ri-notificare prima
+  di N ore dall'ultimo") o si rischia una task/notifica ogni 30 minuti (intervallo di
+  campionamento attuale del firmware) finché la pianta non torna in soglia.
+- **Push:** infrastruttura già pronta (Expo, coda BullMQ, `pushToken`), template già
+  scritti in specifiche (§14, righe "Alert umidità bassa"/"Alert temperatura") — questo
+  pezzo è riuso puro, non lavoro nuovo.
+- **UI Oggi:** il gruppo rosso "alert da sensore" è già disegnato nelle specifiche ma
+  mai costruito nella schermata reale — va aggiunto lo stato/rendering, non solo il
+  toggle impostazioni.
+- **Toggle "Alert sensori"** in Impostazioni: già nominato nelle specifiche come
+  mancante (§13.3), da costruire insieme (`User` ha già `pushToken`, serve un flag
+  booleano separato tipo le altre preferenze notifiche).
+
+### Stima complessiva
+
+- **Solo soglie personalizzabili (punto 1), senza alert:** piccola, 1-2 sessioni,
+  nessun rischio di debounce/duplicati perché non genera nulla in automatico — resta
+  solo un'informazione più precisa mostrata all'utente quando apre l'app.
+- **Soglie + alert (punto 1+2):** sostanzialmente equivale a fare la Fase 7, con la
+  sola differenza che le soglie sono per-pianta invece che (esclusivamente) di
+  catalogo — che è comunque un miglioramento della Fase 7, non un lavoro alternativo.
+  Complessità media: nessun pezzo singolo è difficile, ma sono 4-5 decisioni
+  concatenate (dove valutare la soglia, debounce, task vs notifica, rendering Oggi,
+  toggle impostazioni) che vanno prese in ordine per non ricostruire pezzi.
+
+### Raccomandazione
+
+Separare esplicitamente in due rilasci: **MEV-08 = solo soglie per-pianta** (valore
+immediato, rischio basso, sblocca comunque tile più accurati anche senza alert);
+**Fase 7 = alert**, quando si decide di riprenderla, **usa le soglie per-pianta di
+MEV-08** invece di quelle di specie — così il lavoro di MEV-08 non va rifatto e Fase 7
+parte da un dato migliore. Evita di affrontare in un colpo solo sia lo storage delle
+soglie sia il debounce/generazione alert, che sono la parte davvero delicata.
+
+---
+
+## MEV-09 — Reminder da valori di cura inseriti manualmente (idea, senza vaso)
+
+**Stato: 💡 idea, non ancora specificata** (2026-08-18)
+
+Emersa durante la discussione di MEV-08: per piante **senza** vaso smart non esistono
+letture reali da confrontare a nessuna soglia, ma l'utente potrebbe comunque inserire
+a mano quanto vorrebbe annaffiare/quanta luce dare alla pianta. Concettualmente è
+diverso da MEV-08 (soglia-vs-lettura-reale): assomiglierebbe più al reminder engine
+calendario esistente (§3, `reminder.service.ts`) — soglia-vs-tempo-trascorso, non
+soglia-vs-sensore. Tenuta volutamente fuori da MEV-08 per non mischiare due
+meccanismi diversi nello stesso intervento. Da specificare quando si arriva a
+pianificarla.
 
 ---
 

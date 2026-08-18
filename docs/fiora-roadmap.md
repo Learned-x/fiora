@@ -31,7 +31,7 @@ Documenti collegati:
 | 9 | Catalogo specie esteso (CSV in dev, Trefle in prod) | 📋 |
 | 10 | Apple Sign-In + rifinitura UI | 🚧 parziale |
 | Post-MVP | Offline SQLite | 📋 parcheggio |
-| MEV | Interventi evolutivi su funzioni esistenti — vedi `fiora-mev.md` | 📋 7 voci |
+| MEV | Interventi evolutivi su funzioni esistenti — vedi `fiora-mev.md` | 📋 8 voci |
 
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6.
 
@@ -122,7 +122,7 @@ Fase attiva. Backend e app sono scritti; **manca la validazione su hardware real
 2. ~~Allineare i nomi dei campi nel payload BLE~~ — **fatto**, vedi D1 (chiuso).
 3. **Verificare i permessi dell'utente MQTT** su HiveMQ Cloud per publish e subscribe
    sui topic `fiora/vaso/+/...`.
-4. **Investigare il bug collega/scollega pianta** (vedi debito D2, ancora aperto).
+4. ~~Investigare il bug collega/scollega pianta~~ — **fatto**, vedi D2 (chiuso).
 5. Ordinamento della collezione "per prossima azione" e filtro "con vaso smart"
    (§3.1 funzionali), rinviati qui perché richiedono l'esistenza dei vasi.
 
@@ -175,13 +175,18 @@ resta più bloccato irraggiungibile con credenziali sbagliate.
 
 ### Bloccanti per la Fase 6 rimasti aperti
 
-**D2 — Collega/scollega pianta dal dettaglio vaso non affidabile.**
-Le azioni "Cambia pianta" e "Scollega" restituiscono "Operazione non riuscita"
-nell'app, ma lo stesso payload via `curl` riceve 200 dal backend. Il fallimento
-coincideva con un episodio di corruzione I/O di Docker Desktop, risolto; non è stato
-riverificato dopo. Indagare prima lato client (stato React non aggiornato, richiesta
-inviata prima che il vaso sia caricato) che lato backend. **Non toccato dalla
-riscrittura firmware**, resta da investigare.
+Nessuno al momento — vedi D2 chiuso sotto.
+
+### Chiuse dopo l'audit del 2026-07-31
+
+**D2 — Collega/scollega pianta dal dettaglio vaso non affidabile.** ✅ Risolto
+(`f8539f8`, 2026-08-14). Causa reale: `updatePlant` scollegava il vaso dalla pianta
+precedente e collegava quella nuova in due query separate senza transazione — se la
+prima falliva, o la richiesta partiva con stato client non aggiornato, il vaso
+restava agganciato alla pianta sbagliata o l'update falliva con `VASE_ALREADY_LINKED`
+anche a fronte di un cambio pianta legittimo. Fix: singola transazione Prisma
+(scollega pianta precedente se presente + aggiorna quella nuova, atomico). Non era
+Docker Desktop come sospettato inizialmente.
 
 ### Nuovi problemi emersi dall'audit del firmware riscritto (2026-07-31)
 
@@ -284,11 +289,12 @@ Fase 6. Specifiche complete in **`fiora-mev.md`**.
 |---|---|---|
 | MEV-01 | Orario dei promemoria libero (oggi 3 fasce fisse) | Alta |
 | MEV-02 | Email transazionali e recupero password | 🚧 Alta — recupero password fatto (2026-07-31), cambio email e conferma eliminazione da fare |
-| MEV-03 | Rinominare e riordinare i vasi | 🚧 Media — rinomina completa, backend riordino pronto, UI mobile da ripianificare (2026-08-14) |
+| MEV-03 | Rinominare e riordinare i vasi | ⏸️ Media — in pausa (2026-08-18), rinomina completa, backend riordino pronto, UI mobile da ripianificare |
 | MEV-04 | Storico ambientale a 7 e 30 giorni | Media |
-| MEV-05 | Riconfigurazione WiFi senza ri-pairing (copre il debito D7) | ✅ completa (2026-08-14) |
+| MEV-05 | Riconfigurazione WiFi senza ri-pairing (copre il debito D7) | ✅ completa e testata (2026-08-14/18) |
 | MEV-06 | Empty state con suggerimenti | Bassa |
 | MEV-07 | Esportazione dei dati utente (portabilità GDPR) | Bassa |
+| MEV-08 | Soglie sensori personalizzabili per pianta + alert configurabili | 🚧 Step 1 (soglie per-pianta) ✅ completo e testato (2026-08-18); step 2 (alert, = Fase 7) da valutare — dettagli in `fiora-mev.md` |
 
 ---
 
