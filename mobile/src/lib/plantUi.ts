@@ -57,6 +57,13 @@ export function umiditaCategoriaLabel(umidita: string | null | undefined): strin
   return UMIDITA_CATEGORIA_LABELS[umidita ?? ''] ?? '—';
 }
 
+// Species.umidita è una stringa generica lato backend (mai vincolata a enum a
+// livello DB), a differenza di Plant.umiditaCura che lo è — normalizza il
+// valore letto dal catalogo prima di usarlo come default di un override tipizzato.
+export function normalizzaUmiditaCategoria(v: string | null | undefined): 'bassa' | 'media' | 'alta' | null {
+  return v === 'bassa' || v === 'media' || v === 'alta' ? v : null;
+}
+
 // Etichette brevi per i chip di selezione (form aggiungi/modifica pianta) —
 // diverse da quelle sopra, pensate per una card informativa, non per un chip stretto.
 export const LUCE_OPZIONI: { value: 'bassa' | 'media' | 'alta'; label: string }[] = [

@@ -461,11 +461,17 @@ fonte del dato spostata da specie a pianta quando serve.
   **obbligatorie** in fase di creazione e modifica (stesse categorie di `Species`:
   bassa/media/alta per luce e umidità, poca/media/frequente per annaffiatura).
   Senza, l'endpoint rifiuta con `PLANT_CURA_INCOMPLETA` (422).
-- **Pianta con specie**: i 3 campi restano `null` di default (si usa il valore
-  della specie), ma l'utente può impostarli — override privato, valido solo per
-  quella pianta, la riga `Species` non viene mai toccata. Mobile: toggle
-  "Personalizza per questa pianta" in `edit-plant.tsx`, disattivarlo reinvia
-  `null` esplicito (torna al default specie, non lascia un valore vecchio agganciato).
+- **Pianta con specie**: i 3 selettori sono **sempre visibili e già compilati**
+  con il valore effettivo (override se presente, altrimenti quello della
+  specie) — niente toggle "Personalizza" da aprire per vedere/modificare
+  (rimosso dopo test utente: nascondeva un dato che si voleva vedere subito).
+  Cambiare specie dal picker ripopola i 3 selettori con i nuovi default.
+  Al salvataggio: se il valore scelto coincide col default della specie viene
+  inviato `null` (nessun override sporco salvato); se diverso, l'override
+  esplicito. La riga `Species` non viene mai toccata in nessun caso.
+- **Bottone "Rimuovi specie"**: mancava in `add-plant.tsx` (presente solo in
+  `edit-plant.tsx`) — una specie selezionata durante la creazione non era più
+  deselezionabile. Aggiunto, azzera anche i 3 selettori cura.
 - **Reminder engine**: `generateWateringReminders` e `ricalcolaScadenzeClima`
   (`reminder.service.ts`) leggono `plant.annaffiaturaCura ?? plant.species?.annaffiatura`
   — l'override vince quando presente. La query di eleggibilità non richiede più

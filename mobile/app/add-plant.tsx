@@ -25,7 +25,7 @@ import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { CuraPickerRow } from '../src/components/CuraPickerRow';
 import { createPlant } from '../src/services/plants.api';
 import type { Species } from '../src/types/models';
-import { ANNAFFIATURA_OPZIONI, LUCE_OPZIONI, UMIDITA_OPZIONI } from '../src/lib/plantUi';
+import { ANNAFFIATURA_OPZIONI, LUCE_OPZIONI, normalizzaUmiditaCategoria, UMIDITA_OPZIONI } from '../src/lib/plantUi';
 
 type AddType = 'pianta' | 'bouquet' | null;
 
@@ -49,7 +49,7 @@ export default function AddPlantScreen() {
     prevAddTypeRef.current = addType;
   }
 
-  const curaManualeRichiesta = addType === 'pianta' && !species;
+  const curaManualeRichiesta = addType === 'pianta';
   const curaManualeCompleta = !!luceCura && !!annaffiaturaCura && !!umiditaCura;
 
   async function handleSave() {
@@ -58,7 +58,7 @@ export default function AddPlantScreen() {
       return;
     }
     if (curaManualeRichiesta && !curaManualeCompleta) {
-      Alert.alert('Dati di cura mancanti', 'Senza una specie dal catalogo, indica luce, annaffiatura e umidità.');
+      Alert.alert('Dati di cura mancanti', 'Indica luce, annaffiatura e umidità.');
       return;
     }
     setSaving(true);
@@ -163,14 +163,31 @@ export default function AddPlantScreen() {
                     <Path d="M1 1L6 6L1 11" stroke={theme.onSurfaceVariant} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </Pressable>
+                {species && (
+                  <Pressable
+                    onPress={() => {
+                      setSpecies(null);
+                      setLuceCura(null);
+                      setAnnaffiaturaCura(null);
+                      setUmiditaCura(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Rimuovi specie"
+                    hitSlop={4}
+                    style={{ marginBottom: spacing.md16, paddingHorizontal: spacing.xs4, minHeight: 44, justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.error }}>Rimuovi specie</Text>
+                  </Pressable>
+                )}
               </>
             )}
 
             {curaManualeRichiesta && (
               <>
                 <Text style={[styles.hint, { color: theme.onSurfaceVariant, marginBottom: spacing.sm12 }]}>
-                  Senza una specie dal catalogo, indica tu di cosa ha bisogno questa pianta — servono anche a
-                  generare i promemoria di annaffiatura.
+                  {species
+                    ? 'Valori della specie, modificabili solo per questa pianta.'
+                    : 'Senza una specie dal catalogo, indica tu di cosa ha bisogno questa pianta — servono anche a generare i promemoria di annaffiatura.'}
                 </Text>
                 <CuraPickerRow
                   label="LUCE"
@@ -255,6 +272,9 @@ export default function AddPlantScreen() {
         onClose={() => setPickerVisible(false)}
         onSelect={(s) => {
           setSpecies(s);
+          setLuceCura(s.luce);
+          setAnnaffiaturaCura(s.annaffiatura);
+          setUmiditaCura(normalizzaUmiditaCategoria(s.umidita));
           setPickerVisible(false);
         }}
       />

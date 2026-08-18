@@ -25,7 +25,7 @@ import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
 import { CuraPickerRow } from '../src/components/CuraPickerRow';
 import { deletePlant, getPlant, updatePlant } from '../src/services/plants.api';
 import type { Plant, SpeciesSummary, StatoBouquet } from '../src/types/models';
-import { ANNAFFIATURA_OPZIONI, LUCE_OPZIONI, UMIDITA_OPZIONI } from '../src/lib/plantUi';
+import { ANNAFFIATURA_OPZIONI, curaEffettiva, LUCE_OPZIONI, normalizzaUmiditaCategoria, UMIDITA_OPZIONI } from '../src/lib/plantUi';
 
 const BOUQUET_STAGES: { key: StatoBouquet; label: string }[] = [
   { key: 'fresco', label: 'Fresco' },
@@ -42,10 +42,12 @@ export default function EditPlantScreen() {
   const [posizione, setPosizione] = useState('');
   const [note, setNote] = useState('');
   const [species, setSpecies] = useState<SpeciesSummary | null>(null);
+  // Valore effettivo mostrato/editato: override della pianta se presente,
+  // altrimenti quello della specie. Sempre visibile e modificabile, non dietro
+  // un toggle — l'utente vede subito cosa userà l'app, non un dato nascosto.
   const [luceCura, setLuceCura] = useState<'bassa' | 'media' | 'alta' | null>(null);
   const [annaffiaturaCura, setAnnaffiaturaCura] = useState<'poca' | 'media' | 'frequente' | null>(null);
   const [umiditaCura, setUmiditaCura] = useState<'bassa' | 'media' | 'alta' | null>(null);
-  const [personalizzaCura, setPersonalizzaCura] = useState(false);
   const [statoBouquet, setStatoBouquet] = useState<StatoBouquet | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,10 +64,9 @@ export default function EditPlantScreen() {
       setPosizione(data.posizione ?? '');
       setNote(data.note ?? '');
       setSpecies(data.species);
-      setLuceCura(data.luceCura);
-      setAnnaffiaturaCura(data.annaffiaturaCura);
-      setUmiditaCura(data.umiditaCura);
-      setPersonalizzaCura(!data.species || !!data.luceCura || !!data.annaffiaturaCura || !!data.umiditaCura);
+      setLuceCura(curaEffettiva(data.luceCura, data.species?.luce));
+      setAnnaffiaturaCura(curaEffettiva(data.annaffiaturaCura, data.species?.annaffiatura));
+      setUmiditaCura(curaEffettiva(data.umiditaCura, normalizzaUmiditaCategoria(data.species?.umidita)));
       setStatoBouquet(data.statoBouquet);
     } catch {
       Alert.alert('Errore', 'Pianta non trovata.', [{ text: 'OK', onPress: () => router.back() }]);
@@ -78,8 +79,15 @@ export default function EditPlantScreen() {
     }, [load])
   );
 
-  const curaManualeRichiesta = plant?.tipo === 'pianta' && (!species || personalizzaCura);
+  const curaManualeRichiesta = plant?.tipo === 'pianta';
   const curaManualeCompleta = !!luceCura && !!annaffiaturaCura && !!umiditaCura;
+
+  // Invia override solo se diverso dal default specie — se l'utente lascia il
+  // valore di default (o lo riporta manualmente lì), niente override sporco
+  // salvato per sempre su quella pianta.
+  function campoCura<K extends string>(valore: K | null, daSpecie: K | null | undefined): K | null {
+    return valore === (daSpecie ?? null) ? null : valore;
+  }
 
   async function handleSave() {
     if (!plant) return;
@@ -88,7 +96,7 @@ export default function EditPlantScreen() {
       return;
     }
     if (curaManualeRichiesta && !curaManualeCompleta) {
-      Alert.alert('Dati di cura mancanti', 'Indica luce, annaffiatura e umidità, oppure disattiva la personalizzazione.');
+      Alert.alert('Dati di cura mancanti', 'Indica luce, annaffiatura e umidità.');
       return;
     }
     setSaving(true);
@@ -98,14 +106,12 @@ export default function EditPlantScreen() {
         posizione: posizione.trim() || null,
         note: note.trim() || null,
         ...(plant.tipo === 'pianta' ? { speciesId: species?.id ?? null } : {}),
-        // Senza specie o con override attivo: i 3 valori (validati sopra come
-        // completi). Con specie e override disattivato: null esplicito, così
-        // un ripensamento torna al default della specie invece di restare
-        // agganciato a un vecchio valore personalizzato.
         ...(plant.tipo === 'pianta'
-          ? curaManualeRichiesta
-            ? { luceCura: luceCura!, annaffiaturaCura: annaffiaturaCura!, umiditaCura: umiditaCura! }
-            : { luceCura: null, annaffiaturaCura: null, umiditaCura: null }
+          ? {
+              luceCura: campoCura(luceCura!, species?.luce),
+              annaffiaturaCura: campoCura(annaffiaturaCura!, species?.annaffiatura),
+              umiditaCura: campoCura(umiditaCura!, normalizzaUmiditaCategoria(species?.umidita)),
+            }
           : {}),
         // Invia statoBouquet solo se cambiato: un set esplicito disattiva
         // il ricalcolo automatico lato backend (statoBouquetManuale).
@@ -195,7 +201,12 @@ export default function EditPlantScreen() {
               </Pressable>
               {species && (
                 <Pressable
-                  onPress={() => setSpecies(null)}
+                  onPress={() => {
+                    setSpecies(null);
+                    setLuceCura(null);
+                    setAnnaffiaturaCura(null);
+                    setUmiditaCura(null);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Rimuovi specie"
                   hitSlop={4}
@@ -205,24 +216,11 @@ export default function EditPlantScreen() {
                 </Pressable>
               )}
 
-              {species ? (
-                <Pressable
-                  onPress={() => setPersonalizzaCura((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityLabel={personalizzaCura ? 'Usa i valori della specie' : 'Personalizza cura per questa pianta'}
-                  hitSlop={4}
-                  style={{ marginBottom: spacing.sm12, paddingHorizontal: spacing.xs4, minHeight: 44, justifyContent: 'center' }}
-                >
-                  <Text style={{ fontSize: typography.bodySmall.fontSize, color: theme.primary }}>
-                    {personalizzaCura ? 'Usa i valori della specie' : 'Personalizza per questa pianta'}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
-                  Senza una specie dal catalogo, indica tu di cosa ha bisogno questa pianta — servono anche a
-                  generare i promemoria di annaffiatura.
-                </Text>
-              )}
+              <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
+                {species
+                  ? 'Valori della specie, modificabili solo per questa pianta.'
+                  : 'Senza una specie dal catalogo, indica tu di cosa ha bisogno questa pianta — servono anche a generare i promemoria di annaffiatura.'}
+              </Text>
 
               {curaManualeRichiesta && (
                 <>
@@ -412,6 +410,9 @@ export default function EditPlantScreen() {
         onClose={() => setPickerVisible(false)}
         onSelect={(s) => {
           setSpecies(s);
+          setLuceCura(s.luce);
+          setAnnaffiaturaCura(s.annaffiatura);
+          setUmiditaCura(normalizzaUmiditaCategoria(s.umidita));
           setPickerVisible(false);
         }}
       />
