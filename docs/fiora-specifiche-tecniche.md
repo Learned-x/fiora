@@ -412,11 +412,11 @@ CREATE TABLE species (
   note_cura        TEXT,
   soglia_umidita   INTEGER,               -- % sotto cui il vaso smart attiva alert
   fonte            VARCHAR(50) NOT NULL,  -- 'curato' | 'trefle' | 'utente'
-  stato            VARCHAR(50) NOT NULL DEFAULT 'attivo',  -- 'attivo' | 'in_revisione'
+  stato            VARCHAR(50) NOT NULL DEFAULT 'attivo',  -- sempre 'attivo': revisione 2026-08-18 di Fase 9 (specifiche funzionali §12.3) ha rimosso la moderazione, 'in_revisione'/'rifiutata' non più usati
   external_id          INTEGER REFERENCES species_import_raw(external_id),  -- collegamento al payload raw importato (CSV o Trefle)
   immagine_principale_url VARCHAR(500),   -- shortcut all'immagine principale, evita di rileggere il JSONB per le liste
-  proposto_da      UUID REFERENCES users(id),  -- solo per fonte='utente'
-  approvato_da     UUID REFERENCES users(id),
+  proposto_da      UUID REFERENCES users(id),  -- fonte='utente': proprietario, la ricerca specie la restituisce solo a lui
+  approvato_da     UUID REFERENCES users(id),  -- vestigiale dopo la revisione 2026-08-18, mai più popolato — non rimosso per non forzare una migration senza necessità
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
@@ -625,12 +625,12 @@ PATCH  /tasks/:id/skip         Salta task
 #### Specie
  
 ```
-GET    /species?q=:query       Cerca specie nel catalogo (livello 1 + 2)
+GET    /species?q=:query       Cerca specie nel catalogo — curato/Trefle per tutti,
+                               fonte='utente' solo quelle proposte dall'utente stesso
 GET    /species/:id            Dettaglio specie
-POST   /species/propose        Proponi nuova specie (livello 3)
-GET    /species/pending        [admin] Lista specie in revisione
-PATCH  /species/:id/approve    [admin] Approva specie proposta
-PATCH  /species/:id/reject     [admin] Rifiuta con nota
+POST   /species/propose        Proponi nuova specie: attiva subito, visibile solo
+                               al proponente (nessuna moderazione — revisione 2026-08-18
+                               di Fase 9, vedi specifiche funzionali §12.3/§14)
 ```
  
 #### Vasi smart

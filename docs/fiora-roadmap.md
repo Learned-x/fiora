@@ -253,7 +253,9 @@ Due meccanismi sulla stessa tabella `species_import_raw`, distinti dalla colonna
   dataset che cambia di rado non giustificano la frequenza.
 
 Più: ricerca con indice trigram (`pg_trgm`), proposta di specie da parte degli utenti
-con verifica locale, area admin di moderazione.
+— **revisione 2026-08-18**: niente più area admin di moderazione, la specie proposta
+è attiva da subito ma visibile solo al proponente (dettagli in
+`fiora-specifiche-funzionali.md` §12.3/§14 e `fiora-mev.md` MEV-09).
 
 **Vincolo noto:** Trefle non ha dati di cura utilizzabili (campi `growth` quasi sempre
 nulli, verificato anche su Monstera deliciosa). Serve per nomi, ricerca e immagini;

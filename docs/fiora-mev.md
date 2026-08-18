@@ -488,9 +488,15 @@ fonte del dato spostata da specie a pianta quando serve.
 
 - Migration: 3 campi nullable `VARCHAR(50)` su `Plant` (`luce_cura`,
   `annaffiatura_cura`, `umidita_cura`), nessuna riga `Species` creata — deciso
-  esplicitamente di non riusare `Species.fonte='utente'` (pensato per Fase 9,
-  proposta specie pubbliche con moderazione): questi valori sono privati per
-  pianta, non un catalogo condiviso.
+  esplicitamente di non riusare `Species.fonte='utente'` per questo caso:
+  questi valori restano privati per **pianta**, non riusabili nemmeno dalle
+  altre piante dello stesso utente. **Nota 2026-08-18**: Fase 9 §12.3 è stata
+  rivista nel frattempo (niente moderazione admin, specie proposta attiva da
+  subito ma visibile solo al proponente — vedi `fiora-specifiche-funzionali.md`
+  §12.3/§14) — quando verrà implementata, resta comunque un livello diverso da
+  questi campi: `Species fonte='utente'` è riusabile dal proponente su più
+  piante proprie, `Plant.*Cura` resta specifico della singola pianta. I due
+  meccanismi convivono, non si sostituiscono.
 - Validazione obbligatorietà lato service (`assertCuraCompleta`), non a livello
   di colonna DB — le piante esistenti create prima di questa migration restano
   valide senza backfill.
@@ -499,8 +505,84 @@ fonte del dato spostata da specie a pianta quando serve.
 - Test backend: 3 nuovi/modificati in `plant.service.test.ts` (crea con cura
   completa, rifiuta senza) e 2 nuovi in `reminder.service.test.ts` (genera da
   `annaffiaturaCura` senza specie, override vince su specie). 162/162 passano.
-- **Non ancora testato su device reale** (solo typecheck + suite backend) —
-  verificare form add/edit-plant, generazione reminder per pianta senza specie.
+- **Testato su device** (2026-08-18): form add/edit-plant, badge "Personalizzata"
+  (parziale, vedi debito sotto), rimozione specie in add-plant.
+
+### Debito noto — da correggere prima di considerare la MEV completa
+
+Emerso dal test su device del 2026-08-18, tre problemi non ancora corretti.
+Decisioni prese (2026-08-18) prima di implementare, valgono da specifica:
+
+**D14 — Cambio annaffiatura non ricalcola la scadenza del task pending.**
+
+*Problema:* `updatePlant` scrive `annaffiaturaCura` (o `speciesId`, che cambia
+l'annaffiatura effettiva indirettamente) ma non tocca eventuali task
+`annaffiatura` già `pending` per quella pianta. Se l'utente alza la frequenza
+(es. 'poca'→'frequente', da 10 a 2 giorni) perché ha notato che la pianta ha
+più sete, il promemoria già programmato resta comunque alla vecchia scadenza,
+anche a 8 giorni di distanza — il nuovo intervallo si applica solo dal
+completamento successivo. Stesso problema che `ricalcolaScadenzeClima` risolve
+già per il cambio clima (`PATCH /users/me`), ma manca l'equivalente per il
+cambio annaffiatura di una singola pianta (`PATCH /plants/:id`).
+
+*Comportamento richiesto:*
+1. Quando `updatePlant` cambia l'annaffiatura effettiva (`annaffiaturaCura`
+   passato esplicitamente, oppure `speciesId` cambiato e la nuova specie ha
+   un'`annaffiatura` diversa dalla precedente — **solo se la pianta non ha già
+   un override**, altrimenti l'override vince e il cambio specie sull'annaffiatura
+   è indifferente), e la pianta ha un task `annaffiatura` `pending` di sorgente
+   `calendario`: ricalcola la sua `scadenza`.
+2. **Riferimento del ricalcolo: da oggi**, non dal riferimento originale del
+   task (`createdAt`). Motivo: il cambio nasce quasi sempre da un'osservazione
+   fatta *ora* ("ha più sete di quanto pensassi") — calcolare da un riferimento
+   passato può restituire una scadenza già trascorsa, che richiederebbe comunque
+   di generare un nuovo task invece di aggiornare quello esistente. Nuova
+   scadenza = `calcolaProssimaScadenza(new Date(), nuovaAnnaffiatura, clima_utente)`.
+3. **Automatico**, dentro `updatePlant` stesso — stesso pattern di
+   `ricalcolaScadenzeClima`: l'utente non deve fare nulla di esplicito, cambia
+   il valore e il task pending si aggiorna da solo.
+4. Task di sorgente `manuale` o `sensore` non toccati (fuori scope — solo
+   `calendario`, stesso filtro già usato da `ricalcolaScadenzeClima`).
+5. Se non esiste un task pending, non fare nulla (il prossimo task generato dal
+   cron userà comunque il nuovo valore, nessuna azione necessaria).
+
+*Implementazione suggerita:* funzione `ricalcolaScadenzaAnnaffiatura(plantId,
+nuovaAnnaffiatura, clima)` in `reminder.service.ts` (accanto a
+`ricalcolaScadenzeClima`, stessa forma), chiamata da `plant.service.ts` dentro
+la transazione di `updatePlant` dopo aver determinato che l'annaffiatura
+effettiva è cambiata. Va calcolato **prima** della `tx.plant.update` se serve
+leggere lo stato precedente, o dopo se si rilegge `existing` già disponibile in
+testa alla funzione (`existing.annaffiaturaCura`, `existing.species` — quest'ultimo
+non è incluso oggi in `findOwnedPlant`, va aggiunto un `include` mirato o una
+query separata).
+
+**D15 — Badge "Personalizzata" non compare per piante con specie e override attivo.**
+
+*Problema:* in `plant/[id].tsx`, il badge accanto a "Guida alla cura" oggi
+appare solo con `!plant.species` (nessuna specie = tutto per forza manuale).
+Una pianta **con** specie ma con uno o più campi (`luceCura`/`annaffiaturaCura`/
+`umiditaCura`) personalizzati non mostra alcuna indicazione — l'utente vede il
+valore ma non sa se è il default di catalogo o una sua scelta.
+
+*Comportamento richiesto:* il badge compare se **almeno uno dei tre campi
+override è non-null**, indipendentemente dalla presenza di una specie:
+```
+const haOverride = plant.luceCura !== null || plant.annaffiaturaCura !== null || plant.umiditaCura !== null;
+```
+Sostituisce la condizione attuale `!plant.species`. Nessun cambio di logica sul
+valore mostrato (già corretto, calcola il fallback giusto) — solo sul quando
+mostrare il badge.
+
+**D16 — Messaggio di errore `PLANT_CURA_INCOMPLETA` non specifica il campo mancante.**
+
+*Problema:* minore, non blocca l'app (che valida già lato client prima di
+inviare), ma un client HTTP diverso (Postman, futura webapp, script) riceve un
+messaggio generico e deve indovinare quale dei 3 campi manca.
+
+*Comportamento richiesto:* il messaggio elenca i campi effettivamente mancanti,
+es. `"Mancano: luceCura, umiditaCura"` invece del generico "sono obbligatorie".
+Il `code` resta `PLANT_CURA_INCOMPLETA` (i client che già gestiscono il codice
+non si accorgono del cambio), cambia solo `message`.
 
 ---
 

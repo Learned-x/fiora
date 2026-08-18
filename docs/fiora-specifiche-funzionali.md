@@ -43,7 +43,7 @@ sezione 📋 resta il comportamento atteso a cui il codice dovrà conformarsi.
 11. [Storico cure e diario fotografico](#11-storico-cure-e-diario-fotografico)
 12. [Catalogo specie](#12-catalogo-specie)
 13. [Impostazioni](#13-impostazioni)
-14. [Area admin — moderazione specie](#14-area-admin--moderazione-specie)
+14. [Specie proposte dagli utenti — vista di analisi](#14-specie-proposte-dagli-utenti--vista-di-analisi)
 15. [Notifiche](#15-notifiche)
 16. [Gestione stati e ciclo di vita](#16-gestione-stati-e-ciclo-di-vita)
 ---
@@ -424,17 +424,39 @@ serve a popolare le tendine dell'interfaccia, non a guidare la logica dei remind
  
 ### 4.2 Aggiunta pianta generica (senza specie)
  
+**Stato: ✅** (implementata come MEV-09, 2026-08-18 — vedi `fiora-mev.md`)
+ 
 **Descrizione:** L'utente aggiunge una pianta senza associarla a una specie del catalogo, impostando i parametri manualmente.
  
 **Flusso principale:**
 1. Flusso identico a 4.1 fino allo step 4.
-2. L'utente salta la selezione specie o tocca "Pianta generica".
-3. Vengono mostrati i campi manuali:
-   - Luce consigliata (bassa / media / alta)
+2. L'utente salta la selezione specie (o la rimuove dopo averla scelta).
+3. Vengono mostrati tre campi, **tutti obbligatori** (senza specie sono l'unica
+   fonte per i reminder, non possono restare vuoti):
+   - Luce (bassa / media / alta)
    - Frequenza annaffiatura (poca / media / frequente)
-   - Note di cura libere
-4. Il backend genera reminder con frequenze di default basate sui parametri inseriti.
+   - Umidità (bassa / media / alta)
+4. Il backend rifiuta il salvataggio se uno dei tre manca (`PLANT_CURA_INCOMPLETA`).
+5. Il backend genera reminder di annaffiatura con lo stesso meccanismo di una
+   pianta con specie (§4.1 — intervallo base × fattore clima), leggendo il
+   valore da questi campi invece che dal catalogo.
 **Postcondizioni:** Pianta generica creata, reminder pianificati con parametri manuali.
+ 
+**Nota — override anche con specie (estensione MEV-09, non nella v1.0):** questi
+stessi tre campi esistono anche su una pianta **con** specie, come override
+opzionale privato per quella pianta soltanto — utile quando le condizioni reali
+(esposizione, ambiente) differiscono dal valore tipico della specie. Il catalogo
+non viene mai modificato dall'override. Vedi §6.2 per il comportamento in modifica.
+ 
+**Nota — collegamento a Fase 9 (proposta specie, §12.3), non ancora implementato:**
+oggi una pianta generica resta isolata — i suoi dati di cura non alimentano mai
+il catalogo condiviso, anche se altri utenti hanno la stessa specie non censita
+(es. dieci utenti diversi con una "Monstera" generica inseriscono gli stessi dati
+dieci volte). Quando Fase 9 verrà pianificata, il flusso di proposta specie
+(oggi raggiungibile solo dalla ricerca vuota in fase di aggiunta) dovrebbe poter
+partire **anche dal dettaglio di una pianta generica già esistente**,
+precompilando il form di proposta con `luceCura`/`annaffiaturaCura`/`umiditaCura`
+già inseriti dall'utente — evita di far ridigitare dati che l'utente ha già dato.
  
 ---
  
@@ -528,10 +550,17 @@ valori ambientali e la sparkline umidità 24h sono ✅. Il **diario foto** è �
  
 **Flusso principale:**
 1. L'utente tocca "Modifica" dal dettaglio pianta.
-2. Vengono mostrati i campi editabili: nome, foto, posizione, specie, parametri manuali (se generica).
+2. Vengono mostrati i campi editabili: nome, foto, posizione, specie, luce/
+   annaffiatura/umidità (sempre visibili e modificabili — con specie
+   precompilati dal suo default, come override privato per questa pianta
+   soltanto; senza specie, obbligatori — §4.2).
 3. L'utente modifica e salva.
-4. Il backend aggiorna la pianta e, se la specie è cambiata, ricalcola i reminder.
-**Note:** La modifica della specie ricalcola le frequenze dei reminder futuri ma non modifica i task già esistenti e completati.
+4. Il backend aggiorna la pianta e, se **l'annaffiatura effettiva** è cambiata
+   (per cambio specie, oppure per modifica diretta dell'override — §4.2),
+   ricalcola i reminder.
+**Note:** La modifica ricalcola la scadenza del task di annaffiatura
+**pending**, se esiste, a partire da oggi — non i task già completati, che
+restano storico. Vedi debito D14 in `fiora-mev.md` per lo stato implementativo.
  
 ---
  
@@ -1061,35 +1090,57 @@ specie importate con nome comune italiano, infine a quelle col solo nome scienti
  
 ### 12.3 Proposta nuova specie (contributo utente)
  
-**Descrizione:** L'utente propone una specie non trovata nel catalogo per renderla disponibile a tutti.
+**Stato: 📋 Fase 9** · Riferimento aggiuntivo: `fiora-mev.md` (MEV-09)
+ 
+**Revisione 2026-08-18:** la v1.0 di questa sezione prevedeva un catalogo
+condiviso con moderazione admin (approva/rifiuta, notifiche, promozione a
+catalogo curato — vedi versione precedente in git history). **Decisione presa
+prima di implementare Fase 9:** niente moderazione, niente catalogo pubblico
+proposto dagli utenti. Motivo: la moderazione richiede un'area admin completa
+(coda di revisione, notifiche, gestione conflitti/duplicati) per un beneficio
+—specie riusabili da altri utenti— che il catalogo Trefle già importato copre
+quasi sempre. Il problema reale che restava (un utente ripete gli stessi dati
+di cura per piante identiche non censite) si risolve facendo restare la specie
+proposta **privata al proponente**, senza bisogno di revisione: nessun rischio
+di dati sporchi visibili ad altri, nessuna coda di moderazione da presidiare.
+ 
+**Descrizione:** L'utente propone una specie non trovata nel catalogo. La
+specie proposta diventa **subito utilizzabile per le sue piante**, ricercabile
+solo da lui — non è mai visibile né riusabile da altri utenti.
  
 **Attori:** Utente autenticato.
  
 **Flusso principale:**
-1. L'utente tocca "Aggiungi specie mancante" dalla ricerca vuota.
+1. L'utente tocca "Aggiungi specie mancante" dalla ricerca vuota (§12.1), oppure
+   dal dettaglio di una pianta generica già esistente (§4.2) con il form
+   precompilato dai dati che aveva già inserito manualmente.
 2. L'app mostra il form di proposta.
-3. L'utente compila i campi obbligatori: nome comune (in italiano), categoria (lista dinamica dal DB), luce (lista dinamica dal DB), frequenza annaffiatura (lista dinamica dal DB).
-4. Opzionalmente compila: nome scientifico, umidità, temperatura, tossicità, note, foto.
-5. Tocca "Invia proposta".
-6. Il backend verifica se la specie è già presente in `species_import_raw` (il catalogo importato: CSV in dev, Trefle in prod):
-   - **Se trovata:** viene aggiunta direttamente al catalogo condiviso con i dati Trefle integrati a quelli dell'utente.
-   - **Se non trovata:** va in stato `in_revisione`, visibile solo al proponente fino all'approvazione admin.
-7. L'utente può usare subito la specie proposta nella propria collezione.
-**Flusso approvazione:**
-1. L'admin approva la specie (sezione 14.2).
-2. La specie diventa disponibile a tutti gli utenti.
-3. Il backend invia notifica push al proponente: "La tua proposta {{nome_specie}} è stata approvata ed è ora disponibile a tutti".
-**Flusso rifiuto:**
-1. L'admin rifiuta la specie inserendo una nota obbligatoria (es. "Specie duplicata", "Dati non corretti", "Nome non riconosciuto").
-2. Il backend aggiorna `stato = 'rifiutata'`.
-3. Il backend invia notifica push al proponente: "La tua proposta {{nome_specie}} non è stata approvata" con la nota dell'admin visibile.
-4. La specie rimane nella collezione del proponente contrassegnata come "Non approvata" con la motivazione leggibile.
-5. Il proponente può:
-   - **Correggere e riproporre:** modifica i dati e reinvia — reimposta `stato = 'in_revisione'`.
-   - **Rimuovere:** elimina la specie. Se aveva piante associate, queste vengono convertite in piante generiche mantenendo nome e storico.
-**Postcondizioni:** Specie salvata nel DB, disponibile per l'utente proponente, in attesa di approvazione o rifiutata con motivazione.
+3. L'utente compila i campi obbligatori: nome comune (in italiano), categoria
+   (lista dinamica dal DB), luce (lista dinamica dal DB), frequenza
+   annaffiatura (lista dinamica dal DB), umidità.
+4. Opzionalmente compila: nome scientifico, temperatura, tossicità, note, foto.
+5. Tocca "Salva specie".
+6. Il backend verifica se la specie è già presente in `species_import_raw`
+   (catalogo importato: CSV in dev, Trefle in prod):
+   - **Se trovata:** propone all'utente di usare quella (con i dati Trefle
+     già disponibili) invece di crearne una privata duplicata.
+   - **Se non trovata:** crea la riga in `Species` con `fonte='utente'`,
+     `stato='attivo'` da subito (nessuna revisione) e proprietario
+     (`propostoDao` = l'utente) — la ricerca specie (§12.1) la restituisce
+     **solo per richieste fatte da quello stesso utente**, mai per gli altri.
+7. L'utente può usarla immediatamente per la pianta corrente e per qualsiasi
+   pianta futura propria.
+**Postcondizioni:** Specie salvata nel DB, utilizzabile solo dal proponente,
+attiva da subito.
  
-**Errori:** `VALIDATION_ERROR` (campi obbligatori mancanti), `SPECIES_ALREADY_EXISTS`.
+**Errori:** `VALIDATION_ERROR` (campi obbligatori mancanti).
+ 
+**Nota tecnica — vista aggregata per analisi futura:** tutte le specie
+`fonte='utente'` di tutti gli utenti restano interrogabili (query diretta o
+endpoint interno, non un'area UI di moderazione) per capire in un secondo
+momento se alcune di esse — proposte in modo simile da più utenti indipendenti
+— vadano promosse manualmente al catalogo curato interno. Non è un flusso
+prodotto, resta uno strumento di analisi per chi sviluppa. Vedi §14.
  
 ---
  
@@ -1233,70 +1284,34 @@ Le opzioni vengono caricate dall'app all'avvio e cachate localmente per 24 ore. 
  
 ---
  
-## 14. Area admin — moderazione specie
+## 14. Specie proposte dagli utenti — vista di analisi
  
-**Stato: 📋 Fase 9** — nessuna schermata admin esiste. Il campo `role` su User è già
-presente (creato in Fase 4.5 insieme agli altri campi utente) ma non è ancora usato.
+**Stato: 📋 Fase 9** · Riferimento: §12.3
  
-### 14.1 Visualizzazione specie in revisione
+**Revisione 2026-08-18:** questa sezione si chiamava "Area admin — moderazione
+specie" e descriveva un'area UI con ruolo `admin` per approvare/rifiutare le
+proposte (coda di revisione, notifiche push, promozione al catalogo curato).
+Rimossa insieme alla moderazione in §12.3: senza coda da smaltire, non serve
+un'area prodotto dedicata. Il campo `role` su `User` (Fase 4.5) resta
+inutilizzato — non c'è più un motivo interno all'app che lo richieda.
  
-**Descrizione:** L'amministratore vede le specie proposte dagli utenti in attesa di approvazione.
- 
-**Attori:** Utente con ruolo `admin`.
- 
-**Precondizioni:** Esistono specie con `stato = 'in_revisione'`.
- 
-**Flusso principale:**
-1. L'admin accede alla sezione admin (accessibile solo da utenti con ruolo admin).
-2. Vede la lista delle specie in revisione con: nome, categoria, utente proponente, data proposta.
-3. Tocca una specie per vederne i dettagli completi.
----
- 
-### 14.2 Approvazione specie
- 
-**Descrizione:** L'admin approva una specie proposta rendendola disponibile a tutti gli utenti.
- 
-**Flusso principale:**
-1. L'admin visualizza il dettaglio della specie in revisione.
-2. Verifica i dati inseriti dall'utente.
-3. Può modificare i campi se necessario.
-4. Tocca "Approva".
-5. Il backend aggiorna `stato = 'attivo'`, `approvato_da = admin_id`.
-6. La specie diventa disponibile nel catalogo condiviso per tutti gli utenti.
-7. Il backend invia una notifica all'utente proponente ("La tua specie è stata approvata").
-**Postcondizioni:** Specie attiva nel catalogo condiviso.
- 
----
- 
-### 14.3 Rifiuto specie
- 
-**Descrizione:** L'admin rifiuta una specie proposta perché errata o duplicata.
- 
-**Flusso principale:**
-1. L'admin visualizza il dettaglio della specie.
-2. Tocca "Rifiuta".
-3. Inserisce una nota di motivazione (obbligatoria).
-4. Il backend aggiorna `stato = 'rifiutata'`.
-5. Il backend invia una notifica all'utente proponente con la nota di motivazione.
-6. La specie rimane visibile solo all'utente proponente come "non approvata".
----
- 
-### 14.4 Promozione specie da livello 3 a livello 1
- 
-**Descrizione:** L'admin promuove una specie verificata dagli utenti al catalogo curato interno.
- 
-**Flusso principale:**
-1. L'admin individua una specie con molti utilizzi o rilevante per il target.
-2. Tocca "Promuovi a catalogo curato".
-3. Il backend aggiorna `fonte = 'curato'`.
-4. La specie è ora parte del catalogo interno, disponibile offline e prioritaria nelle ricerche.
+**Cosa resta:** le specie `fonte='utente'` proposte da ogni utente restano
+tutte in `Species`, ciascuna privata al proprio proponente (§12.3). Non esiste
+una schermata per consultarle in aggregato — è un'interrogazione diretta al DB
+(query SQL o script, non un endpoint applicativo) per capire in futuro se
+alcune di esse, proposte in modo simile da più utenti indipendenti, meritino
+una promozione **manuale** al catalogo curato interno (`fonte='curato'`),
+decisa da chi sviluppa il prodotto, non da un flusso applicativo con ruoli.
+Se in futuro il volume di proposte giustificasse un'area dedicata, andrebbe
+ripensata da capo su basi diverse da questa versione — non c'è debito da
+recuperare qui, la versione precedente non è mai stata implementata.
 ---
  
 ## 15. Notifiche
  
 **Stato: 🚧** — implementate in Fase 8 (2026-07-13) **solo per i reminder da calendario**.
 Le notifiche legate ai sensori (alert umidità/temperatura, vaso offline, batteria scarica)
-sono 📋 Fase 7; quella di specie approvata è 📋 Fase 9.
+sono 📋 Fase 7.
  
 ### 15.1 Strategia di invio — digest + singola smart
  
@@ -1325,7 +1340,6 @@ il `pushToken` dell'utente, disattivando di fatto le notifiche fino a un nuovo c
 | Alert temperatura | "Attenzione a {{nome_pianta}}" | "La temperatura è troppo bassa/alta" | Alta | 📋 F7 |
 | Vaso disconnesso | "Vaso smart offline" | "Il vaso di {{nome_pianta}} non è raggiungibile" | Normale | 📋 F7 |
 | Batteria scarica | "Batteria vaso scarica" | "Il vaso di {{nome_pianta}} ha bisogno di essere ricaricato" | Normale | 📋 F7 |
-| Specie approvata | "Specie approvata" | "La tua proposta {{nome_specie}} è ora disponibile a tutti" | Bassa | 📋 F9 |
 | Bouquet in scadenza | "Il tuo bouquet sta appassendo" | "{{nome_bouquet}} ha bisogno di attenzione" | Normale | 📋 |
  
 ---
