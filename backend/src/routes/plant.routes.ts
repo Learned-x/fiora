@@ -49,10 +49,14 @@ function handleError(res: Response, err: any): void {
  *               fotoUrl: { type: string, maxLength: 500 }
  *               statoBouquet: { type: string, enum: [fresco, in_cura, appassendo, concluso] }
  *               dataRicezione: { type: string, format: date }
+ *               luceCura: { type: string, enum: [bassa, media, alta], description: "obbligatorio per tipo=pianta senza speciesId" }
+ *               annaffiaturaCura: { type: string, enum: [poca, media, frequente] }
+ *               umiditaCura: { type: string, enum: [bassa, media, alta] }
  *     responses:
  *       201: { description: Pianta creata }
  *       400: { description: Errore di validazione }
  *       404: { description: Specie non trovata }
+ *       422: { description: "Pianta senza specie: luce/annaffiatura/umidità mancanti (PLANT_CURA_INCOMPLETA)" }
  */
 // ── POST /plants ──────────────────────────────────────────────────────────────
 
@@ -68,6 +72,9 @@ router.post(
     body('statoBouquet').optional().isIn(['fresco', 'in_cura', 'appassendo', 'concluso']).withMessage('statoBouquet non valido'),
     body('dataRicezione').optional().isISO8601().withMessage('dataRicezione non valida'),
     body('giaInAcqua').optional().isBoolean().withMessage('giaInAcqua non valido'),
+    body('luceCura').optional().isIn(['bassa', 'media', 'alta']).withMessage('luceCura non valida'),
+    body('annaffiaturaCura').optional().isIn(['poca', 'media', 'frequente']).withMessage('annaffiaturaCura non valida'),
+    body('umiditaCura').optional().isIn(['bassa', 'media', 'alta']).withMessage('umiditaCura non valida'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
@@ -175,9 +182,13 @@ router.get(
  *               sogliaLuceMax: { type: integer, nullable: true }
  *               sogliaTempMin: { type: integer, nullable: true, description: "°C — richiede vaso collegato" }
  *               sogliaTempMax: { type: integer, nullable: true }
+ *               luceCura: { type: string, enum: [bassa, media, alta], nullable: true, description: "null valido solo se la pianta ha una specie" }
+ *               annaffiaturaCura: { type: string, enum: [poca, media, frequente], nullable: true }
+ *               umiditaCura: { type: string, enum: [bassa, media, alta], nullable: true }
  *     responses:
  *       200: { description: Pianta aggiornata }
  *       404: { description: Pianta non trovata }
+ *       422: { description: "Pianta senza specie: luce/annaffiatura/umidità mancanti (PLANT_CURA_INCOMPLETA)" }
  */
 // ── PATCH /plants/:id ─────────────────────────────────────────────────────────
 
@@ -200,6 +211,9 @@ router.patch(
     body('sogliaLuceMax').optional({ nullable: true }).isInt({ min: 0 }).withMessage('sogliaLuceMax non valida'),
     body('sogliaTempMin').optional({ nullable: true }).isFloat({ min: -50, max: 80 }).withMessage('sogliaTempMin non valida'),
     body('sogliaTempMax').optional({ nullable: true }).isFloat({ min: -50, max: 80 }).withMessage('sogliaTempMax non valida'),
+    body('luceCura').optional({ nullable: true }).isIn(['bassa', 'media', 'alta']).withMessage('luceCura non valida'),
+    body('annaffiaturaCura').optional({ nullable: true }).isIn(['poca', 'media', 'frequente']).withMessage('annaffiaturaCura non valida'),
+    body('umiditaCura').optional({ nullable: true }).isIn(['bassa', 'media', 'alta']).withMessage('umiditaCura non valida'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;

@@ -43,13 +43,14 @@ export function calcolaProssimaScadenza(
 }
 
 // Genera i task 'annaffiatura' di sorgente 'calendario' per le piante che ne hanno bisogno.
-// Una pianta è idonea se: attiva, ha una specie collegata, e non ha già un task
-// di annaffiatura pending (calendario o manuale — evita duplicati se l'utente ne ha creato uno a mano).
+// Una pianta è idonea se: attiva, ha una fonte di annaffiatura (override manuale
+// sulla pianta o specie di catalogo — l'override vince se presente, stesso ordine
+// usato per le soglie sensore in plant.service.ts), e non ha già un task pending.
 export async function generateWateringReminders(now: Date = new Date()) {
   const plants = await prisma.plant.findMany({
     where: {
       stato: 'attivo',
-      speciesId: { not: null },
+      OR: [{ speciesId: { not: null } }, { annaffiaturaCura: { not: null } }],
     },
     include: {
       species: { select: { annaffiatura: true } },
@@ -65,7 +66,7 @@ export async function generateWateringReminders(now: Date = new Date()) {
   let created = 0;
 
   for (const plant of plants) {
-    const annaffiatura = plant.species?.annaffiatura ?? '';
+    const annaffiatura = plant.annaffiaturaCura ?? plant.species?.annaffiatura ?? '';
     if (!INTERVALLO_ANNAFFIATURA_GIORNI[annaffiatura]) continue;
 
     const ultimoTask = plant.tasks[0];
@@ -250,7 +251,7 @@ export async function ricalcolaScadenzeClima(userId: string, nuovoClima: string)
   let aggiornati = 0;
 
   for (const task of tasks) {
-    const annaffiatura = task.plant.species?.annaffiatura;
+    const annaffiatura = task.plant.annaffiaturaCura ?? task.plant.species?.annaffiatura;
     if (!annaffiatura) continue;
 
     const nuovaScadenza = calcolaProssimaScadenza(task.createdAt, annaffiatura, nuovoClima);

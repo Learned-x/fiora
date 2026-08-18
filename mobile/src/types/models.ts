@@ -42,6 +42,11 @@ export interface Plant {
   // Decimal lato Prisma → JSON le serializza come stringa (stesso motivo di SensorReading.temperatura).
   sogliaTempMin: string | null;
   sogliaTempMax: string | null;
+  // Dati di cura: null = usa il default della specie collegata. Uniche fonti
+  // possibili se la pianta non ha una specie (obbligatori in quel caso).
+  luceCura: 'bassa' | 'media' | 'alta' | null;
+  annaffiaturaCura: 'poca' | 'media' | 'frequente' | null;
+  umiditaCura: 'bassa' | 'media' | 'alta' | null;
   _count?: { tasks: number };
 }
 

@@ -22,8 +22,10 @@ import { ScreenHeader } from '../src/components/ScreenHeader';
 import { StepTransition } from '../src/components/StepTransition';
 import { Card } from '../src/components/Card';
 import { SpeciesPickerModal } from '../src/components/SpeciesPickerModal';
+import { CuraPickerRow } from '../src/components/CuraPickerRow';
 import { createPlant } from '../src/services/plants.api';
 import type { Species } from '../src/types/models';
+import { ANNAFFIATURA_OPZIONI, LUCE_OPZIONI, UMIDITA_OPZIONI } from '../src/lib/plantUi';
 
 type AddType = 'pianta' | 'bouquet' | null;
 
@@ -33,6 +35,9 @@ export default function AddPlantScreen() {
   const [nome, setNome] = useState('');
   const [posizione, setPosizione] = useState('');
   const [species, setSpecies] = useState<Species | null>(null);
+  const [luceCura, setLuceCura] = useState<'bassa' | 'media' | 'alta' | null>(null);
+  const [annaffiaturaCura, setAnnaffiaturaCura] = useState<'poca' | 'media' | 'frequente' | null>(null);
+  const [umiditaCura, setUmiditaCura] = useState<'bassa' | 'media' | 'alta' | null>(null);
   const [giaInAcqua, setGiaInAcqua] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -44,9 +49,16 @@ export default function AddPlantScreen() {
     prevAddTypeRef.current = addType;
   }
 
+  const curaManualeRichiesta = addType === 'pianta' && !species;
+  const curaManualeCompleta = !!luceCura && !!annaffiaturaCura && !!umiditaCura;
+
   async function handleSave() {
     if (!nome.trim()) {
       Alert.alert('Nome mancante', 'Inserisci un nome.');
+      return;
+    }
+    if (curaManualeRichiesta && !curaManualeCompleta) {
+      Alert.alert('Dati di cura mancanti', 'Senza una specie dal catalogo, indica luce, annaffiatura e umidità.');
       return;
     }
     setSaving(true);
@@ -55,6 +67,7 @@ export default function AddPlantScreen() {
         nome: nome.trim(),
         tipo: addType!,
         ...(addType === 'pianta' && species ? { speciesId: species.id } : {}),
+        ...(curaManualeRichiesta ? { luceCura: luceCura!, annaffiaturaCura: annaffiaturaCura!, umiditaCura: umiditaCura! } : {}),
         ...(posizione.trim() ? { posizione: posizione.trim() } : {}),
         ...(addType === 'bouquet' ? { dataRicezione: new Date().toISOString(), giaInAcqua } : {}),
       });
@@ -153,6 +166,36 @@ export default function AddPlantScreen() {
               </>
             )}
 
+            {curaManualeRichiesta && (
+              <>
+                <Text style={[styles.hint, { color: theme.onSurfaceVariant, marginBottom: spacing.sm12 }]}>
+                  Senza una specie dal catalogo, indica tu di cosa ha bisogno questa pianta — servono anche a
+                  generare i promemoria di annaffiatura.
+                </Text>
+                <CuraPickerRow
+                  label="LUCE"
+                  options={LUCE_OPZIONI}
+                  value={luceCura}
+                  onChange={setLuceCura}
+                  requiredHint="Campo obbligatorio"
+                />
+                <CuraPickerRow
+                  label="ANNAFFIATURA"
+                  options={ANNAFFIATURA_OPZIONI}
+                  value={annaffiaturaCura}
+                  onChange={setAnnaffiaturaCura}
+                  requiredHint="Campo obbligatorio"
+                />
+                <CuraPickerRow
+                  label="UMIDITÀ"
+                  options={UMIDITA_OPZIONI}
+                  value={umiditaCura}
+                  onChange={setUmiditaCura}
+                  requiredHint="Campo obbligatorio"
+                />
+              </>
+            )}
+
             <Text style={[styles.fieldLabel, { color: theme.onSurfaceVariant }]}>POSIZIONE</Text>
             <TextInput
               value={posizione}
@@ -199,6 +242,7 @@ export default function AddPlantScreen() {
                 label={addType === 'pianta' ? 'Salva pianta' : 'Salva bouquet'}
                 onPress={handleSave}
                 loading={saving}
+                disabled={curaManualeRichiesta && !curaManualeCompleta}
               />
             </View>
           </ScrollView>

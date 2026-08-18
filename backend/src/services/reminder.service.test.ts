@@ -124,14 +124,56 @@ describe('reminder.service generateWateringReminders', () => {
     expect(prisma.task.create).not.toHaveBeenCalled();
   });
 
-  it('filtra piante attive con specie a livello query', async () => {
+  it('genera task per pianta senza specie ma con annaffiaturaCura manuale', async () => {
+    const vecchiaData = new Date();
+    vecchiaData.setDate(vecchiaData.getDate() - 10);
+
+    (prisma.plant.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: PLANT_ID,
+        userId: USER_ID,
+        createdAt: vecchiaData,
+        species: null,
+        annaffiaturaCura: 'media',
+        user: { clima: 'temperato' },
+        tasks: [],
+      },
+    ]);
+
+    const result = await generateWateringReminders();
+
+    expect(result.created).toBe(1);
+  });
+
+  it('annaffiaturaCura sulla pianta vince sul valore della specie', async () => {
+    const vecchiaData = new Date();
+    vecchiaData.setDate(vecchiaData.getDate() - 3); // oltre i 2gg di 'frequente', non i 10gg di 'poca'
+
+    (prisma.plant.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: PLANT_ID,
+        userId: USER_ID,
+        createdAt: vecchiaData,
+        species: { annaffiatura: 'poca' },
+        annaffiaturaCura: 'frequente',
+        user: { clima: 'temperato' },
+        tasks: [],
+      },
+    ]);
+
+    const result = await generateWateringReminders();
+
+    expect(result.created).toBe(1);
+  });
+
+  it('filtra piante attive con specie o cura manuale a livello query', async () => {
     (prisma.plant.findMany as jest.Mock).mockResolvedValue([]);
 
     await generateWateringReminders();
 
     expect(prisma.plant.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { stato: 'attivo', speciesId: { not: null } },
+        where: { stato: 'attivo', OR: [{ speciesId: { not: null } }, { annaffiaturaCura: { not: null } }] },
       })
     );
   });

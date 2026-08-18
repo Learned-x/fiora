@@ -132,6 +132,13 @@ model Plant {
   sogliaLuceMax  Int?      @map("soglia_luce_max")
   sogliaTempMin  Decimal?  @map("soglia_temp_min") @db.Decimal(4, 1) // °C — stessa precisione di SensorReading.temperatura
   sogliaTempMax  Decimal?  @map("soglia_temp_max") @db.Decimal(4, 1)
+  // Dati di cura: null = usa il default della specie collegata. Su una pianta
+  // senza specie sono l'unica fonte possibile — obbligatori lato applicazione
+  // (non a DB, per non spezzare le piante già esistenti create prima di questa
+  // colonna), pilotano anche il reminder engine (vedi reminder.service.ts).
+  luceCura       String?   @map("luce_cura") @db.VarChar(50)        // 'bassa' | 'media' | 'alta'
+  annaffiaturaCura String? @map("annaffiatura_cura") @db.VarChar(50) // 'poca' | 'media' | 'frequente'
+  umiditaCura    String?   @map("umidita_cura") @db.VarChar(50)     // 'bassa' | 'media' | 'alta'
   note           String?   @db.Text
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz()

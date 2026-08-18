@@ -22,6 +22,9 @@ export interface CreatePlantInput {
   statoBouquet?: StatoBouquet;
   dataRicezione?: string;
   giaInAcqua?: boolean;
+  luceCura?: 'bassa' | 'media' | 'alta';
+  annaffiaturaCura?: 'poca' | 'media' | 'frequente';
+  umiditaCura?: 'bassa' | 'media' | 'alta';
 }
 
 export async function createPlant(input: CreatePlantInput): Promise<Plant> {
@@ -43,6 +46,9 @@ export interface UpdatePlantInput {
   sogliaLuceMax?: number | null;
   sogliaTempMin?: number | null;
   sogliaTempMax?: number | null;
+  luceCura?: 'bassa' | 'media' | 'alta' | null;
+  annaffiaturaCura?: 'poca' | 'media' | 'frequente' | null;
+  umiditaCura?: 'bassa' | 'media' | 'alta' | null;
 }
 
 export async function updatePlant(id: string, input: UpdatePlantInput): Promise<Plant> {

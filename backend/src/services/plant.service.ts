@@ -27,6 +27,9 @@ export interface CreatePlantInput {
   statoBouquet?: string;
   dataRicezione?: string; // ISO date, solo per bouquet
   giaInAcqua?: boolean; // solo bouquet: se false, crea task iniziale "metti in acqua"
+  luceCura?: string;
+  annaffiaturaCura?: string;
+  umiditaCura?: string;
 }
 
 export interface UpdatePlantInput {
@@ -45,6 +48,9 @@ export interface UpdatePlantInput {
   sogliaLuceMax?: number | null;
   sogliaTempMin?: number | null;
   sogliaTempMax?: number | null;
+  luceCura?: string | null;
+  annaffiaturaCura?: string | null;
+  umiditaCura?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -91,6 +97,26 @@ function assertSoglieValide(input: UpdatePlantInput, vasoIdEffettivo: string | n
   }
 }
 
+// Senza una specie di catalogo non c'è nessun'altra fonte per luce/annaffiatura/
+// umidità: servono per la guida cura e annaffiatura pilota il reminder engine,
+// quindi diventano obbligatori (solo per tipo 'pianta' — i bouquet non hanno
+// questi concetti, seguono un ciclo di vita diverso).
+function assertCuraCompleta(tipo: string, speciesIdEffettivo: string | null | undefined, cura: {
+  luceCura?: string | null;
+  annaffiaturaCura?: string | null;
+  umiditaCura?: string | null;
+}): void {
+  if (tipo !== 'pianta' || speciesIdEffettivo) return;
+
+  if (!cura.luceCura || !cura.annaffiaturaCura || !cura.umiditaCura) {
+    throw {
+      code: 'PLANT_CURA_INCOMPLETA',
+      status: 422,
+      message: 'Senza una specie di catalogo, luce, annaffiatura e umidità sono obbligatorie',
+    };
+  }
+}
+
 // Ownership: la pianta deve appartenere all'utente e non essere eliminata
 export async function findOwnedPlant(userId: string, plantId: string) {
   const plant = await prisma.plant.findFirst({
@@ -117,6 +143,7 @@ export async function createPlant(userId: string, input: CreatePlantInput) {
   if (input.speciesId) {
     await assertSpeciesExists(input.speciesId);
   }
+  assertCuraCompleta(input.tipo, input.speciesId, input);
 
   const plant = await prisma.plant.create({
     data: {
@@ -129,6 +156,11 @@ export async function createPlant(userId: string, input: CreatePlantInput) {
       fotoUrl: input.fotoUrl,
       statoBouquet: input.tipo === 'bouquet' ? input.statoBouquet ?? 'fresco' : null,
       dataRicezione: input.tipo === 'bouquet' && input.dataRicezione ? new Date(input.dataRicezione) : null,
+      ...(input.tipo === 'pianta' && {
+        luceCura: input.luceCura,
+        annaffiaturaCura: input.annaffiaturaCura,
+        umiditaCura: input.umiditaCura,
+      }),
     },
     include: { species: { select: speciesSelect } },
   });
@@ -201,6 +233,13 @@ export async function updatePlant(userId: string, plantId: string, input: Update
   const vasoIdEffettivo = input.vasoId !== undefined ? input.vasoId : existing.vasoId;
   assertSoglieValide(input, vasoIdEffettivo);
 
+  const speciesIdEffettivo = input.speciesId !== undefined ? input.speciesId : existing.speciesId;
+  assertCuraCompleta(existing.tipo, speciesIdEffettivo, {
+    luceCura: input.luceCura !== undefined ? input.luceCura : existing.luceCura,
+    annaffiaturaCura: input.annaffiaturaCura !== undefined ? input.annaffiaturaCura : existing.annaffiaturaCura,
+    umiditaCura: input.umiditaCura !== undefined ? input.umiditaCura : existing.umiditaCura,
+  });
+
   const updated = await prisma.$transaction(async (tx: typeof prisma) => {
     // Cambio pianta: il vaso può essere collegato a una sola pianta alla volta,
     // scollegare quella precedente fa parte dell'operazione, non è un conflitto.
@@ -224,6 +263,9 @@ export async function updatePlant(userId: string, plantId: string, input: Update
         ...(input.dataRicezione !== undefined && {
           dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
         }),
+        ...(input.luceCura !== undefined && { luceCura: input.luceCura }),
+        ...(input.annaffiaturaCura !== undefined && { annaffiaturaCura: input.annaffiaturaCura }),
+        ...(input.umiditaCura !== undefined && { umiditaCura: input.umiditaCura }),
         ...(input.vasoId !== undefined && { vasoId: input.vasoId }),
         // Scollegare il vaso azzera anche le soglie: senza vaso non hanno più
         // senso (nessuna lettura reale con cui confrontarle), altrimenti

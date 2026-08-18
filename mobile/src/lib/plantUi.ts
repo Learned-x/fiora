@@ -39,12 +39,50 @@ const ANNAFFIATURA_LABELS: Record<string, string> = {
   frequente: 'Frequente, terreno umido',
 };
 
+const UMIDITA_CATEGORIA_LABELS: Record<string, string> = {
+  bassa: 'Bassa',
+  media: 'Media',
+  alta: 'Alta, serve nebulizzazione',
+};
+
 export function luceLabel(luce: string | undefined): string {
   return LUCE_LABELS[luce ?? ''] ?? '—';
 }
 
 export function annaffiaturaLabel(annaffiatura: string | undefined): string {
   return ANNAFFIATURA_LABELS[annaffiatura ?? ''] ?? '—';
+}
+
+export function umiditaCategoriaLabel(umidita: string | null | undefined): string {
+  return UMIDITA_CATEGORIA_LABELS[umidita ?? ''] ?? '—';
+}
+
+// Etichette brevi per i chip di selezione (form aggiungi/modifica pianta) —
+// diverse da quelle sopra, pensate per una card informativa, non per un chip stretto.
+export const LUCE_OPZIONI: { value: 'bassa' | 'media' | 'alta'; label: string }[] = [
+  { value: 'bassa', label: 'Bassa' },
+  { value: 'media', label: 'Media' },
+  { value: 'alta', label: 'Alta' },
+];
+
+export const ANNAFFIATURA_OPZIONI: { value: 'poca' | 'media' | 'frequente'; label: string }[] = [
+  { value: 'poca', label: 'Poca' },
+  { value: 'media', label: 'Media' },
+  { value: 'frequente', label: 'Frequente' },
+];
+
+export const UMIDITA_OPZIONI: { value: 'bassa' | 'media' | 'alta'; label: string }[] = [
+  { value: 'bassa', label: 'Bassa' },
+  { value: 'media', label: 'Media' },
+  { value: 'alta', label: 'Alta' },
+];
+
+// Valore effettivo con fallback pianta → specie, stesso ordine delle soglie sensore.
+export function curaEffettiva<K extends string>(
+  overridePianta: K | null | undefined,
+  daSpecie: K | null | undefined
+): K | null {
+  return overridePianta ?? daSpecie ?? null;
 }
 
 export function formatDay(iso: string): string {

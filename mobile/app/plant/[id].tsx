@@ -22,6 +22,7 @@ import type { SensorReading, SmartVase } from '../../src/services/vases.api';
 import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import {
   annaffiaturaLabel,
+  curaEffettiva,
   formatDay,
   luceLabel,
   luceSensoreLabel,
@@ -30,6 +31,7 @@ import {
   temperaturaLabel,
   temperaturaStatus,
   TASK_LABELS,
+  umiditaCategoriaLabel,
   umiditaLabel,
   umiditaStatus,
 } from '../../src/lib/plantUi';
@@ -174,6 +176,9 @@ export default function PlantDetailScreen() {
     min: plant.sogliaTempMin !== null ? Number(plant.sogliaTempMin) : null,
     max: plant.sogliaTempMax !== null ? Number(plant.sogliaTempMax) : null,
   };
+  const luceEffettiva = curaEffettiva(plant.luceCura, plant.species?.luce);
+  const annaffiaturaEffettiva = curaEffettiva(plant.annaffiaturaCura, plant.species?.annaffiatura);
+  const umiditaEffettiva = curaEffettiva(plant.umiditaCura, plant.species?.umidita);
   const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
   const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
   const temperaturaHistory = readings24h
@@ -405,39 +410,51 @@ export default function PlantDetailScreen() {
         )}
 
         {/* Guida alla cura */}
-        {plant.species && (
+        {!isBouquet && (luceEffettiva || annaffiaturaEffettiva || umiditaEffettiva) && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: theme.onSurfaceVariant }]}>Guida alla cura</Text>
-            <Card variant="elevated" style={styles.cardList}>
+            <View style={styles.sensorHeader}>
+              <Text style={[styles.sectionLabel, { marginBottom: 0, color: theme.onSurfaceVariant }]}>Guida alla cura</Text>
+              {!plant.species && (
+                <Text style={[styles.sensorStatusText, { color: theme.onSurfaceVariant }]}>Personalizzata</Text>
+              )}
+            </View>
+            <Card variant="elevated" style={[styles.cardList, { marginTop: spacing.sm12 - 2 }]}>
               <View style={[styles.careRow, { borderBottomColor: theme.outlineVariant }]}>
                 <Text style={styles.careEmoji}>☀️</Text>
                 <Text style={[styles.careKey, { color: theme.onSurfaceVariant }]}>Luce</Text>
-                <Text style={[styles.careVal, { color: theme.onSurface }]}>{luceLabel(plant.species.luce)}</Text>
+                <Text style={[styles.careVal, { color: theme.onSurface }]}>{luceLabel(luceEffettiva ?? undefined)}</Text>
               </View>
               <View style={[styles.careRow, { borderBottomColor: theme.outlineVariant }]}>
                 <Text style={styles.careEmoji}>💧</Text>
                 <Text style={[styles.careKey, { color: theme.onSurfaceVariant }]}>Annaffiatura</Text>
-                <Text style={[styles.careVal, { color: theme.onSurface }]}>{annaffiaturaLabel(plant.species.annaffiatura)}</Text>
+                <Text style={[styles.careVal, { color: theme.onSurface }]}>{annaffiaturaLabel(annaffiaturaEffettiva ?? undefined)}</Text>
               </View>
-              <View style={[styles.careRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.careEmoji}>⚠️</Text>
-                <Text style={[styles.careKey, { color: theme.onSurfaceVariant }]}>Tossicità</Text>
-                <View
-                  style={[
-                    styles.toxBadge,
-                    { backgroundColor: plant.species.tossicita ? theme.errorContainer : theme.primaryContainer },
-                  ]}
-                >
-                  <Text
+              <View style={[styles.careRow, { borderBottomColor: theme.outlineVariant }]}>
+                <Text style={styles.careEmoji}>💦</Text>
+                <Text style={[styles.careKey, { color: theme.onSurfaceVariant }]}>Umidità</Text>
+                <Text style={[styles.careVal, { color: theme.onSurface }]}>{umiditaCategoriaLabel(umiditaEffettiva)}</Text>
+              </View>
+              {plant.species && (
+                <View style={[styles.careRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.careEmoji}>⚠️</Text>
+                  <Text style={[styles.careKey, { color: theme.onSurfaceVariant }]}>Tossicità</Text>
+                  <View
                     style={[
-                      styles.toxBadgeText,
-                      { color: plant.species.tossicita ? theme.onErrorContainer : theme.onPrimaryContainer },
+                      styles.toxBadge,
+                      { backgroundColor: plant.species.tossicita ? theme.errorContainer : theme.primaryContainer },
                     ]}
                   >
-                    {plant.species.tossicita ? 'Tossica per animali' : 'Non tossica'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.toxBadgeText,
+                        { color: plant.species.tossicita ? theme.onErrorContainer : theme.onPrimaryContainer },
+                      ]}
+                    >
+                      {plant.species.tossicita ? 'Tossica per animali' : 'Non tossica'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
             </Card>
           </View>
         )}

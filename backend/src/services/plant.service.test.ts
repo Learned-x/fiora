@@ -3,25 +3,46 @@ jest.mock('../lib/prisma');
 import * as plantService from './plant.service';
 import { prisma } from '../lib/prisma';
 
+// speciesId valorizzato di default: la maggior parte dei test updatePlant non
+// riguarda la cura manuale, e senza specie la validazione PLANT_CURA_INCOMPLETA
+// la richiederebbe per ogni test. I test specifici sulla cura manuale usano
+// il proprio mock con speciesId: null.
 const mockPlant = {
   id: 'plant-1',
   userId: 'user-1',
   nome: 'Monstera',
   tipo: 'pianta',
   stato: 'attivo',
+  speciesId: 'species-1',
+  vasoId: null,
+  luceCura: null,
+  annaffiaturaCura: null,
+  umiditaCura: null,
 };
 
 beforeEach(() => jest.clearAllMocks());
 
 describe('plant.service', () => {
   describe('createPlant', () => {
-    it('crea una pianta senza specie', async () => {
+    it('crea una pianta senza specie con cura manuale completa', async () => {
       (prisma.plant.create as jest.Mock).mockResolvedValue(mockPlant);
 
-      const result = await plantService.createPlant('user-1', { nome: 'Monstera', tipo: 'pianta' });
+      const result = await plantService.createPlant('user-1', {
+        nome: 'Monstera',
+        tipo: 'pianta',
+        luceCura: 'alta',
+        annaffiaturaCura: 'media',
+        umiditaCura: 'media',
+      });
 
       expect(result.nome).toBe('Monstera');
       expect(prisma.species.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta una pianta senza specie e senza cura manuale completa', async () => {
+      await expect(
+        plantService.createPlant('user-1', { nome: 'Monstera', tipo: 'pianta' })
+      ).rejects.toMatchObject({ code: 'PLANT_CURA_INCOMPLETA' });
     });
 
     it('rifiuta se la specie indicata non esiste', async () => {
@@ -44,7 +65,14 @@ describe('plant.service', () => {
     it('non imposta statoBouquet per le piante', async () => {
       (prisma.plant.create as jest.Mock).mockResolvedValue({});
 
-      await plantService.createPlant('user-1', { nome: 'Monstera', tipo: 'pianta', statoBouquet: 'fresco' });
+      await plantService.createPlant('user-1', {
+        nome: 'Monstera',
+        tipo: 'pianta',
+        statoBouquet: 'fresco',
+        luceCura: 'alta',
+        annaffiaturaCura: 'media',
+        umiditaCura: 'media',
+      });
 
       const args = (prisma.plant.create as jest.Mock).mock.calls[0][0];
       expect(args.data.statoBouquet).toBeNull();

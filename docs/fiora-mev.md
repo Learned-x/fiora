@@ -31,8 +31,9 @@ migliorare.
 | **MEV-06** | Empty state con suggerimenti | Prima schermata vuota per un utente nuovo | Mobile | Bassa |
 | **MEV-07** | Esportazione dei dati utente | Obbligo GDPR alla portabilità | Backend | Bassa |
 | **MEV-08** | Soglie sensori personalizzabili per pianta + alert configurabili | Le soglie oggi sono fisse per specie, non per pianta/vaso reale; nessun alert esiste ancora | Backend + mobile (+ Fase 7) | 🚧 Step 1 (soglie) ✅ completo e testato (2026-08-18); step 2 (alert) da valutare |
+| **MEV-09** | Dati di cura (luce/annaffiatura/umidità) manuali per pianta | Senza specie di catalogo non c'è modo di avere reminder; con specie non c'è modo di correggere un valore inadatto alla pianta reale | Backend + mobile | ✅ completo (2026-08-18), da testare su device |
 
-**Ordine consigliato:** MEV-02 → MEV-01 → MEV-05 → MEV-08 → MEV-04 → MEV-03 → MEV-06 → MEV-07.
+**Ordine consigliato:** MEV-02 → MEV-01 → MEV-05 → MEV-08 → MEV-09 → MEV-04 → MEV-03 → MEV-06 → MEV-07.
 MEV-02 per prima perché è l'unica che oggi provoca una **perdita definitiva di accesso**;
 MEV-01 subito dopo perché è la lamentela più probabile sulle notifiche. MEV-03 spostata
 in fondo: in pausa dal 2026-08-18 per il problema UI di riordino, non bloccante per le
@@ -442,18 +443,58 @@ soglie sia il debounce/generazione alert, che sono la parte davvero delicata.
 
 ---
 
-## MEV-09 — Reminder da valori di cura inseriti manualmente (idea, senza vaso)
+## MEV-09 — Dati di cura manuali per pianta (luce/annaffiatura/umidità)
 
-**Stato: 💡 idea, non ancora specificata** (2026-08-18)
+**Stato: ✅ completo** (2026-08-18), da testare su device · Riferimento: `Species.luce/annaffiatura/umidita`
 
-Emersa durante la discussione di MEV-08: per piante **senza** vaso smart non esistono
-letture reali da confrontare a nessuna soglia, ma l'utente potrebbe comunque inserire
-a mano quanto vorrebbe annaffiare/quanta luce dare alla pianta. Concettualmente è
-diverso da MEV-08 (soglia-vs-lettura-reale): assomiglierebbe più al reminder engine
-calendario esistente (§3, `reminder.service.ts`) — soglia-vs-tempo-trascorso, non
-soglia-vs-sensore. Tenuta volutamente fuori da MEV-08 per non mischiare due
-meccanismi diversi nello stesso intervento. Da specificare quando si arriva a
-pianificarla.
+Emersa durante la discussione di MEV-08, poi implementata subito dopo (non solo
+specificata): per piante **senza** vaso smart, il reminder engine calendario
+(§3, `reminder.service.ts`) dipendeva finora esclusivamente da `Species` — una
+pianta senza specie di catalogo non riceveva mai promemoria di annaffiatura.
+Concettualmente diversa da MEV-08 (soglia-vs-lettura-sensore-reale): qui è
+soglia-vs-tempo-trascorso, stesso meccanismo del reminder esistente ma con la
+fonte del dato spostata da specie a pianta quando serve.
+
+### Comportamento implementato
+
+- **Pianta senza specie**: `luceCura`, `annaffiaturaCura`, `umiditaCura` diventano
+  **obbligatorie** in fase di creazione e modifica (stesse categorie di `Species`:
+  bassa/media/alta per luce e umidità, poca/media/frequente per annaffiatura).
+  Senza, l'endpoint rifiuta con `PLANT_CURA_INCOMPLETA` (422).
+- **Pianta con specie**: i 3 campi restano `null` di default (si usa il valore
+  della specie), ma l'utente può impostarli — override privato, valido solo per
+  quella pianta, la riga `Species` non viene mai toccata. Mobile: toggle
+  "Personalizza per questa pianta" in `edit-plant.tsx`, disattivarlo reinvia
+  `null` esplicito (torna al default specie, non lascia un valore vecchio agganciato).
+- **Reminder engine**: `generateWateringReminders` e `ricalcolaScadenzeClima`
+  (`reminder.service.ts`) leggono `plant.annaffiaturaCura ?? plant.species?.annaffiatura`
+  — l'override vince quando presente. La query di eleggibilità non richiede più
+  `speciesId non null`, ma `speciesId non null` **oppure** `annaffiaturaCura non null`.
+- **Concimazione non toccata**: `generateFertilizingReminders` resta legata solo
+  a `speciesId` — fuori scope, la richiesta riguardava luce/annaffiatura/umidità.
+- **"Guida alla cura"** in `plant/[id].tsx` ora mostra il valore effettivo
+  (override o specie) invece di nascondersi del tutto senza specie; badge
+  "Personalizzata" quando la pianta non ha una specie collegata. La riga
+  "Tossicità" resta visibile solo con specie (dato solo di catalogo, nessun
+  equivalente manuale — fuori scope).
+
+### Note di implementazione
+
+- Migration: 3 campi nullable `VARCHAR(50)` su `Plant` (`luce_cura`,
+  `annaffiatura_cura`, `umidita_cura`), nessuna riga `Species` creata — deciso
+  esplicitamente di non riusare `Species.fonte='utente'` (pensato per Fase 9,
+  proposta specie pubbliche con moderazione): questi valori sono privati per
+  pianta, non un catalogo condiviso.
+- Validazione obbligatorietà lato service (`assertCuraCompleta`), non a livello
+  di colonna DB — le piante esistenti create prima di questa migration restano
+  valide senza backfill.
+- Mobile: nuovo componente condiviso `CuraPickerRow.tsx` (etichetta + riga di
+  `Chip`), riusato identico in `add-plant.tsx` ed `edit-plant.tsx`.
+- Test backend: 3 nuovi/modificati in `plant.service.test.ts` (crea con cura
+  completa, rifiuta senza) e 2 nuovi in `reminder.service.test.ts` (genera da
+  `annaffiaturaCura` senza specie, override vince su specie). 162/162 passano.
+- **Non ancora testato su device reale** (solo typecheck + suite backend) —
+  verificare form add/edit-plant, generazione reminder per pianta senza specie.
 
 ---
 
