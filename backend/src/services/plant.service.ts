@@ -39,6 +39,12 @@ export interface UpdatePlantInput {
   statoBouquet?: string | null;
   dataRicezione?: string | null;
   vasoId?: string | null;
+  sogliaUmiditaMin?: number | null;
+  sogliaUmiditaMax?: number | null;
+  sogliaLuceMin?: number | null;
+  sogliaLuceMax?: number | null;
+  sogliaTempMin?: number | null;
+  sogliaTempMax?: number | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -47,6 +53,41 @@ async function assertSpeciesExists(speciesId: string): Promise<void> {
   const species = await prisma.species.findUnique({ where: { id: speciesId } });
   if (!species) {
     throw { code: 'SPECIES_NOT_FOUND', status: 404, message: 'Specie non trovata' };
+  }
+}
+
+const SOGLIA_PAIRS = [
+  ['sogliaUmiditaMin', 'sogliaUmiditaMax'],
+  ['sogliaLuceMin', 'sogliaLuceMax'],
+  ['sogliaTempMin', 'sogliaTempMax'],
+] as const;
+
+// Le soglie sensore hanno senso solo su una pianta con vaso collegato: senza,
+// non esiste nessuna lettura reale con cui confrontarle.
+function assertSoglieValide(input: UpdatePlantInput, vasoIdEffettivo: string | null): void {
+  const haSoglie = SOGLIA_PAIRS.some(
+    ([min, max]) => input[min] !== undefined || input[max] !== undefined
+  );
+  if (!haSoglie) return;
+
+  if (!vasoIdEffettivo) {
+    throw {
+      code: 'PLANT_NO_VASE',
+      status: 422,
+      message: 'Le soglie sensore richiedono una pianta con vaso collegato',
+    };
+  }
+
+  for (const [minKey, maxKey] of SOGLIA_PAIRS) {
+    const min = input[minKey];
+    const max = input[maxKey];
+    if (min != null && max != null && min > max) {
+      throw {
+        code: 'VALIDATION_ERROR',
+        status: 422,
+        message: `${minKey} non può essere maggiore di ${maxKey}`,
+      };
+    }
   }
 }
 
@@ -144,7 +185,7 @@ export async function getPlant(userId: string, plantId: string) {
 // ── Update ────────────────────────────────────────────────────────────────────
 
 export async function updatePlant(userId: string, plantId: string, input: UpdatePlantInput) {
-  await findOwnedPlant(userId, plantId);
+  const existing = await findOwnedPlant(userId, plantId);
 
   if (input.speciesId) {
     await assertSpeciesExists(input.speciesId);
@@ -156,6 +197,9 @@ export async function updatePlant(userId: string, plantId: string, input: Update
       throw { code: 'VASE_NOT_FOUND', status: 404, message: 'Vaso non trovato' };
     }
   }
+
+  const vasoIdEffettivo = input.vasoId !== undefined ? input.vasoId : existing.vasoId;
+  assertSoglieValide(input, vasoIdEffettivo);
 
   const updated = await prisma.$transaction(async (tx: typeof prisma) => {
     // Cambio pianta: il vaso può essere collegato a una sola pianta alla volta,
@@ -181,6 +225,26 @@ export async function updatePlant(userId: string, plantId: string, input: Update
           dataRicezione: input.dataRicezione ? new Date(input.dataRicezione) : null,
         }),
         ...(input.vasoId !== undefined && { vasoId: input.vasoId }),
+        // Scollegare il vaso azzera anche le soglie: senza vaso non hanno più
+        // senso (nessuna lettura reale con cui confrontarle), altrimenti
+        // resterebbero orfane finché non se ne collega uno nuovo.
+        ...(input.vasoId === null
+          ? {
+              sogliaUmiditaMin: null,
+              sogliaUmiditaMax: null,
+              sogliaLuceMin: null,
+              sogliaLuceMax: null,
+              sogliaTempMin: null,
+              sogliaTempMax: null,
+            }
+          : {
+              ...(input.sogliaUmiditaMin !== undefined && { sogliaUmiditaMin: input.sogliaUmiditaMin }),
+              ...(input.sogliaUmiditaMax !== undefined && { sogliaUmiditaMax: input.sogliaUmiditaMax }),
+              ...(input.sogliaLuceMin !== undefined && { sogliaLuceMin: input.sogliaLuceMin }),
+              ...(input.sogliaLuceMax !== undefined && { sogliaLuceMax: input.sogliaLuceMax }),
+              ...(input.sogliaTempMin !== undefined && { sogliaTempMin: input.sogliaTempMin }),
+              ...(input.sogliaTempMax !== undefined && { sogliaTempMax: input.sogliaTempMax }),
+            }),
       },
       include: { species: { select: speciesSelect } },
     });

@@ -15,6 +15,7 @@ import type { SensorStatus as TileStatus } from '../../src/components/SensorTile
 import { SensorChart } from '../../src/components/SensorChart';
 import { Toast } from '../../src/components/Toast';
 import type { ToastTrigger } from '../../src/components/Toast';
+import { SoglieVaseModal } from '../../src/components/SoglieVaseModal';
 import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
 import { getVase, getVaseReadings24h, refreshVase } from '../../src/services/vases.api';
 import type { SensorReading, SmartVase } from '../../src/services/vases.api';
@@ -58,6 +59,7 @@ export default function PlantDetailScreen() {
   const [sensorWindow, setSensorWindow] = useState<'24h' | '7d' | '30d'>('24h');
   const [toast, setToast] = useState<ToastTrigger | null>(null);
   const [refreshingVase, setRefreshingVase] = useState(false);
+  const [soglieModalVisible, setSoglieModalVisible] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -166,6 +168,12 @@ export default function PlantDetailScreen() {
   const pendingTasks = plant.tasks.filter((t) => t.stato === 'pending');
   const isBouquet = plant.tipo === 'bouquet';
   const stageIdx = isBouquet ? BOUQUET_STAGES.findIndex((s) => s.key === plant.statoBouquet) : -1;
+  const umiditaSoglia = { min: plant.sogliaUmiditaMin, max: plant.sogliaUmiditaMax };
+  const luceSoglia = { min: plant.sogliaLuceMin, max: plant.sogliaLuceMax };
+  const tempSoglia = {
+    min: plant.sogliaTempMin !== null ? Number(plant.sogliaTempMin) : null,
+    max: plant.sogliaTempMax !== null ? Number(plant.sogliaTempMax) : null,
+  };
   const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
   const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
   const temperaturaHistory = readings24h
@@ -254,33 +262,38 @@ export default function PlantDetailScreen() {
               {vase.ultimaLettura.umidita !== null && (
                 <View style={styles.sensorTileWrap}>
                   <SensorTile
+                    title="Umidità"
                     value={`${vase.ultimaLettura.umidita}%`}
-                    label={umiditaLabel(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita)}
-                    status={toTileStatus(umiditaStatus(vase.ultimaLettura.umidita, plant.species?.sogliaUmidita))}
+                    label={umiditaLabel(vase.ultimaLettura.umidita, umiditaSoglia, plant.species?.sogliaUmidita)}
+                    status={toTileStatus(umiditaStatus(vase.ultimaLettura.umidita, umiditaSoglia, plant.species?.sogliaUmidita))}
                   />
                 </View>
               )}
               {vase.ultimaLettura.luce !== null && (
                 <View style={styles.sensorTileWrap}>
                   <SensorTile
+                    title="Luce"
                     value={`${vase.ultimaLettura.luce} lux`}
-                    label={luceSensoreLabel(vase.ultimaLettura.luce)}
-                    status={toTileStatus(luceSensoreStatus(vase.ultimaLettura.luce))}
+                    label={luceSensoreLabel(vase.ultimaLettura.luce, luceSoglia)}
+                    status={toTileStatus(luceSensoreStatus(vase.ultimaLettura.luce, luceSoglia))}
                   />
                 </View>
               )}
               {vase.ultimaLettura.temperatura !== null && (
                 <View style={styles.sensorTileWrap}>
                   <SensorTile
+                    title="Temperatura"
                     value={`${vase.ultimaLettura.temperatura}°`}
                     label={temperaturaLabel(
                       Number(vase.ultimaLettura.temperatura),
+                      tempSoglia,
                       plant.species?.tempMin ?? null,
                       plant.species?.tempMax ?? null
                     )}
                     status={toTileStatus(
                       temperaturaStatus(
                         Number(vase.ultimaLettura.temperatura),
+                        tempSoglia,
                         plant.species?.tempMin ?? null,
                         plant.species?.tempMax ?? null
                       )
@@ -289,6 +302,16 @@ export default function PlantDetailScreen() {
                 </View>
               )}
             </View>
+
+            <Pressable
+              onPress={() => setSoglieModalVisible(true)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.soglieBtn, { marginTop: spacing.sm12, opacity: pressed ? 0.6 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Personalizza soglie sensori"
+            >
+              <Text style={[styles.sensorStatusText, { color: theme.primary }]}>Personalizza soglie</Text>
+            </Pressable>
 
             <View style={{ marginTop: spacing.sm12 }}>
               <Collapsible title="Andamento sensori">
@@ -502,6 +525,18 @@ export default function PlantDetailScreen() {
         </View>
       </ScrollView>
       <Toast trigger={toast} />
+      {vase && (
+        <SoglieVaseModal
+          visible={soglieModalVisible}
+          plant={plant}
+          onClose={() => setSoglieModalVisible(false)}
+          onSaved={(updated) => {
+            setPlant((prev) => (prev ? { ...prev, ...updated } : prev));
+            setToast({ text: 'Soglie aggiornate ✓', id: Date.now() });
+          }}
+          onError={() => Alert.alert('Errore', 'Salvataggio soglie non riuscito, riprova.')}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -523,6 +558,7 @@ const styles = StyleSheet.create({
   sensorStatusText: { ...typography.labelMedium },
   sensorTiles: { flexDirection: 'row', gap: spacing.sm12 - 2 },
   sensorTileWrap: { flex: 1 },
+  soglieBtn: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingVertical: spacing.xs8 },
   segTrack: { flexDirection: 'row', gap: spacing.xs8, paddingBottom: spacing.sm12 },
   chartsList: { gap: spacing.sm12 },
   sectionLabel: {

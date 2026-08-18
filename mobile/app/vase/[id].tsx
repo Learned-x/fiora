@@ -28,6 +28,11 @@ function toTileStatus(status: 'ok' | 'warning'): TileStatus {
   return status === 'ok' ? 'ok' : 'warn';
 }
 
+// Dettaglio vaso non conosce le soglie della pianta collegata (endpoint /vases
+// restituisce solo id/nome in `plants[]`) — usa i default hardcoded, la
+// personalizzazione si fa dal dettaglio pianta.
+const NESSUNA_SOGLIA = { min: undefined, max: undefined };
+
 function statoColor(stato: SmartVase['stato'], theme: ThemeColors) {
   if (stato === 'connesso') return theme.primary;
   if (stato === 'batteria_scarica') return theme.warning;
@@ -263,23 +268,26 @@ export default function VaseDetailScreen() {
             <View style={styles.tilesRow}>
               <View style={styles.tile}>
                 <SensorTile
+                  title="Umidità"
                   value={lettura.umidita !== null ? `${lettura.umidita}%` : '—'}
-                  label={lettura.umidita !== null ? umiditaLabel(lettura.umidita, undefined) : 'Umidità'}
-                  status={lettura.umidita !== null ? toTileStatus(umiditaStatus(lettura.umidita, undefined)) : 'ok'}
+                  label={lettura.umidita !== null ? umiditaLabel(lettura.umidita, NESSUNA_SOGLIA, undefined) : '—'}
+                  status={lettura.umidita !== null ? toTileStatus(umiditaStatus(lettura.umidita, NESSUNA_SOGLIA, undefined)) : 'ok'}
                 />
               </View>
               <View style={styles.tile}>
                 <SensorTile
+                  title="Luce"
                   value={lettura.luce !== null ? `${lettura.luce} lux` : '—'}
-                  label={lettura.luce !== null ? luceSensoreLabel(lettura.luce) : 'Luce'}
-                  status={lettura.luce !== null ? toTileStatus(luceSensoreStatus(lettura.luce)) : 'ok'}
+                  label={lettura.luce !== null ? luceSensoreLabel(lettura.luce, NESSUNA_SOGLIA) : '—'}
+                  status={lettura.luce !== null ? toTileStatus(luceSensoreStatus(lettura.luce, NESSUNA_SOGLIA)) : 'ok'}
                 />
               </View>
               <View style={styles.tile}>
                 <SensorTile
+                  title="Temperatura"
                   value={temperaturaNum !== null ? `${temperaturaNum}°C` : '—'}
-                  label={temperaturaNum !== null ? temperaturaLabel(temperaturaNum, null, null) : 'Temperatura'}
-                  status={temperaturaNum !== null ? toTileStatus(temperaturaStatus(temperaturaNum, null, null)) : 'ok'}
+                  label={temperaturaNum !== null ? temperaturaLabel(temperaturaNum, NESSUNA_SOGLIA, null, null) : '—'}
+                  status={temperaturaNum !== null ? toTileStatus(temperaturaStatus(temperaturaNum, NESSUNA_SOGLIA, null, null)) : 'ok'}
                 />
               </View>
             </View>

@@ -37,6 +37,12 @@ export interface UpdatePlantInput {
   stato?: PlantStato;
   statoBouquet?: StatoBouquet;
   vasoId?: string | null;
+  sogliaUmiditaMin?: number | null;
+  sogliaUmiditaMax?: number | null;
+  sogliaLuceMin?: number | null;
+  sogliaLuceMax?: number | null;
+  sogliaTempMin?: number | null;
+  sogliaTempMax?: number | null;
 }
 
 export async function updatePlant(id: string, input: UpdatePlantInput): Promise<Plant> {

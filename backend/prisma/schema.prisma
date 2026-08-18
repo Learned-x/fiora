@@ -126,6 +126,12 @@ model Plant {
   statoBouquetManuale Boolean @default(false) @map("stato_bouquet_manuale")
   dataRicezione  DateTime? @map("data_ricezione") @db.Date  // per i bouquet
   vasoId         String?   @map("vaso_id") @db.Uuid
+  sogliaUmiditaMin Int?    @map("soglia_umidita_min") // % — null = usa il default della specie
+  sogliaUmiditaMax Int?    @map("soglia_umidita_max")
+  sogliaLuceMin  Int?      @map("soglia_luce_min")     // lux
+  sogliaLuceMax  Int?      @map("soglia_luce_max")
+  sogliaTempMin  Decimal?  @map("soglia_temp_min") @db.Decimal(4, 1) // °C — stessa precisione di SensorReading.temperatura
+  sogliaTempMax  Decimal?  @map("soglia_temp_max") @db.Decimal(4, 1)
   note           String?   @db.Text
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz()

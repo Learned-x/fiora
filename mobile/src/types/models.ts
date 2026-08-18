@@ -35,6 +35,13 @@ export interface Plant {
   createdAt: string;
   species: SpeciesSummary | null;
   vasoId: string | null;
+  sogliaUmiditaMin: number | null;
+  sogliaUmiditaMax: number | null;
+  sogliaLuceMin: number | null;
+  sogliaLuceMax: number | null;
+  // Decimal lato Prisma → JSON le serializza come stringa (stesso motivo di SensorReading.temperatura).
+  sogliaTempMin: string | null;
+  sogliaTempMax: string | null;
   _count?: { tasks: number };
 }
 

@@ -169,6 +169,12 @@ router.get(
  *               stato: { type: string, enum: [attivo, archiviato] }
  *               statoBouquet: { type: string, enum: [fresco, in_cura, appassendo, concluso], nullable: true }
  *               dataRicezione: { type: string, format: date, nullable: true }
+ *               sogliaUmiditaMin: { type: integer, nullable: true, description: "% — richiede vaso collegato" }
+ *               sogliaUmiditaMax: { type: integer, nullable: true }
+ *               sogliaLuceMin: { type: integer, nullable: true, description: "lux — richiede vaso collegato" }
+ *               sogliaLuceMax: { type: integer, nullable: true }
+ *               sogliaTempMin: { type: integer, nullable: true, description: "°C — richiede vaso collegato" }
+ *               sogliaTempMax: { type: integer, nullable: true }
  *     responses:
  *       200: { description: Pianta aggiornata }
  *       404: { description: Pianta non trovata }
@@ -188,6 +194,12 @@ router.patch(
     body('statoBouquet').optional({ nullable: true }).isIn(['fresco', 'in_cura', 'appassendo', 'concluso']).withMessage('statoBouquet non valido'),
     body('dataRicezione').optional({ nullable: true }).isISO8601().withMessage('dataRicezione non valida'),
     body('vasoId').optional({ nullable: true }).custom((v) => v === null || /^[0-9a-f-]{36}$/i.test(v)).withMessage('vasoId non valido'),
+    body('sogliaUmiditaMin').optional({ nullable: true }).isInt({ min: 0, max: 100 }).withMessage('sogliaUmiditaMin non valida'),
+    body('sogliaUmiditaMax').optional({ nullable: true }).isInt({ min: 0, max: 100 }).withMessage('sogliaUmiditaMax non valida'),
+    body('sogliaLuceMin').optional({ nullable: true }).isInt({ min: 0 }).withMessage('sogliaLuceMin non valida'),
+    body('sogliaLuceMax').optional({ nullable: true }).isInt({ min: 0 }).withMessage('sogliaLuceMax non valida'),
+    body('sogliaTempMin').optional({ nullable: true }).isFloat({ min: -50, max: 80 }).withMessage('sogliaTempMin non valida'),
+    body('sogliaTempMax').optional({ nullable: true }).isFloat({ min: -50, max: 80 }).withMessage('sogliaTempMax non valida'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;

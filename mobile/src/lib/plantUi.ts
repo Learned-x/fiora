@@ -70,36 +70,73 @@ export function formatTodayLong(): string {
 
 export type SensorStatus = 'ok' | 'warning';
 
-export function umiditaStatus(umidita: number, sogliaUmidita: number | null | undefined): SensorStatus {
-  const soglia = sogliaUmidita ?? 30;
-  if (umidita < soglia) return 'warning';
-  if (umidita > 70) return 'warning';
+// Default hardcoded usati quando né la pianta né la specie hanno una soglia:
+// stessi valori già in uso prima dell'introduzione delle soglie per-pianta.
+const DEFAULT_UMIDITA_MIN = 30;
+const DEFAULT_UMIDITA_MAX = 70;
+const DEFAULT_LUCE_MIN = 200;
+
+// Soglia effettiva con fallback a cascata pianta → specie → default hardcoded.
+// Stesso ordine ovunque: l'override esplicito dell'utente vince sempre.
+function sogliaEffettiva(
+  pianta: number | null | undefined,
+  specie: number | null | undefined,
+  fallback: number | null
+): number | null {
+  if (pianta != null) return pianta;
+  if (specie != null) return specie;
+  return fallback;
+}
+
+export interface SogliaCoppia {
+  min: number | null | undefined;
+  max: number | null | undefined;
+}
+
+export function umiditaStatus(umidita: number, piantaSoglia: SogliaCoppia, specieSoglia: number | null | undefined): SensorStatus {
+  const min = sogliaEffettiva(piantaSoglia.min, specieSoglia, DEFAULT_UMIDITA_MIN);
+  const max = sogliaEffettiva(piantaSoglia.max, null, DEFAULT_UMIDITA_MAX);
+  if (min !== null && umidita < min) return 'warning';
+  if (max !== null && umidita > max) return 'warning';
   return 'ok';
 }
 
-export function umiditaLabel(umidita: number, sogliaUmidita: number | null | undefined): string {
-  const soglia = sogliaUmidita ?? 30;
-  if (umidita < soglia) return 'Asciutto';
-  if (umidita > 70) return 'Saturo';
+export function umiditaLabel(umidita: number, piantaSoglia: SogliaCoppia, specieSoglia: number | null | undefined): string {
+  const min = sogliaEffettiva(piantaSoglia.min, specieSoglia, DEFAULT_UMIDITA_MIN);
+  const max = sogliaEffettiva(piantaSoglia.max, null, DEFAULT_UMIDITA_MAX);
+  if (min !== null && umidita < min) return 'Asciutto';
+  if (max !== null && umidita > max) return 'Saturo';
   return 'Umido';
 }
 
-export function luceSensoreStatus(lux: number): SensorStatus {
-  return lux < 200 ? 'warning' : 'ok';
-}
-
-export function luceSensoreLabel(lux: number): string {
-  return lux < 200 ? 'Scarsa' : 'Sufficiente';
-}
-
-export function temperaturaStatus(temp: number, tempMin: number | null, tempMax: number | null): SensorStatus {
-  if (tempMin !== null && temp < tempMin) return 'warning';
-  if (tempMax !== null && temp > tempMax) return 'warning';
+export function luceSensoreStatus(lux: number, piantaSoglia: SogliaCoppia): SensorStatus {
+  const min = sogliaEffettiva(piantaSoglia.min, null, DEFAULT_LUCE_MIN);
+  const max = sogliaEffettiva(piantaSoglia.max, null, null);
+  if (min !== null && lux < min) return 'warning';
+  if (max !== null && lux > max) return 'warning';
   return 'ok';
 }
 
-export function temperaturaLabel(temp: number, tempMin: number | null, tempMax: number | null): string {
-  if (tempMin !== null && temp < tempMin) return 'Bassa';
-  if (tempMax !== null && temp > tempMax) return 'Alta';
+export function luceSensoreLabel(lux: number, piantaSoglia: SogliaCoppia): string {
+  const min = sogliaEffettiva(piantaSoglia.min, null, DEFAULT_LUCE_MIN);
+  const max = sogliaEffettiva(piantaSoglia.max, null, null);
+  if (min !== null && lux < min) return 'Scarsa';
+  if (max !== null && lux > max) return 'Eccessiva';
+  return 'Sufficiente';
+}
+
+export function temperaturaStatus(temp: number, piantaSoglia: SogliaCoppia, specieMin: number | null, specieMax: number | null): SensorStatus {
+  const min = sogliaEffettiva(piantaSoglia.min, specieMin, null);
+  const max = sogliaEffettiva(piantaSoglia.max, specieMax, null);
+  if (min !== null && temp < min) return 'warning';
+  if (max !== null && temp > max) return 'warning';
+  return 'ok';
+}
+
+export function temperaturaLabel(temp: number, piantaSoglia: SogliaCoppia, specieMin: number | null, specieMax: number | null): string {
+  const min = sogliaEffettiva(piantaSoglia.min, specieMin, null);
+  const max = sogliaEffettiva(piantaSoglia.max, specieMax, null);
+  if (min !== null && temp < min) return 'Bassa';
+  if (max !== null && temp > max) return 'Alta';
   return 'Ottimale';
 }
