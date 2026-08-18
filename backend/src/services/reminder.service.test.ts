@@ -8,6 +8,7 @@ import {
   recalcolaStatoBouquet,
   calcolaProssimaScadenza,
   ricalcolaScadenzeClima,
+  ricalcolaScadenzaAnnaffiaturaPianta,
 } from './reminder.service';
 
 const PLANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -392,5 +393,49 @@ describe('reminder.service ricalcolaScadenzeClima', () => {
         }),
       })
     );
+  });
+});
+
+describe('reminder.service ricalcolaScadenzaAnnaffiaturaPianta', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('ricalcola la scadenza del task pending usando oggi come riferimento', async () => {
+    const taskId = '44444444-4444-4444-8444-444444444444';
+    (prisma.task.findFirst as jest.Mock).mockResolvedValue({
+      id: taskId,
+      createdAt: new Date('2020-01-01T00:00:00.000Z'),
+    });
+
+    const now = new Date('2026-08-18T10:00:00.000Z');
+    const result = await ricalcolaScadenzaAnnaffiaturaPianta(PLANT_ID, 'media', 'temperato', now);
+
+    expect(result).toBe(true);
+    const attesa = new Date(now);
+    attesa.setDate(attesa.getDate() + 5); // media=5gg, fattore temperato=1.0
+    expect(prisma.task.update).toHaveBeenCalledWith({
+      where: { id: taskId },
+      data: { scadenza: attesa },
+    });
+  });
+
+  it('non fa nulla se non esiste un task pending annaffiatura/calendario', async () => {
+    (prisma.task.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const result = await ricalcolaScadenzaAnnaffiaturaPianta(PLANT_ID, 'media', 'temperato');
+
+    expect(result).toBe(false);
+    expect(prisma.task.update).not.toHaveBeenCalled();
+  });
+
+  it('cerca solo task pending di sorgente calendario per la pianta', async () => {
+    (prisma.task.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await ricalcolaScadenzaAnnaffiaturaPianta(PLANT_ID, 'media', 'temperato');
+
+    expect(prisma.task.findFirst).toHaveBeenCalledWith({
+      where: { plantId: PLANT_ID, tipo: 'annaffiatura', sorgente: 'calendario', stato: 'pending' },
+    });
   });
 });

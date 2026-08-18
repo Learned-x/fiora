@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { audit } from '../lib/audit';
+import { ricalcolaScadenzaAnnaffiaturaPianta } from './reminder.service';
 
 // Campi specie restituiti insieme alla pianta (sottoinsieme leggero del catalogo)
 const speciesSelect = {
@@ -55,11 +56,12 @@ export interface UpdatePlantInput {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function assertSpeciesExists(speciesId: string): Promise<void> {
+async function assertSpeciesExists(speciesId: string) {
   const species = await prisma.species.findUnique({ where: { id: speciesId } });
   if (!species) {
     throw { code: 'SPECIES_NOT_FOUND', status: 404, message: 'Specie non trovata' };
   }
+  return species;
 }
 
 const SOGLIA_PAIRS = [
@@ -108,11 +110,16 @@ function assertCuraCompleta(tipo: string, speciesIdEffettivo: string | null | un
 }): void {
   if (tipo !== 'pianta' || speciesIdEffettivo) return;
 
-  if (!cura.luceCura || !cura.annaffiaturaCura || !cura.umiditaCura) {
+  const mancanti: string[] = [];
+  if (!cura.luceCura) mancanti.push('luce');
+  if (!cura.annaffiaturaCura) mancanti.push('annaffiatura');
+  if (!cura.umiditaCura) mancanti.push('umidità');
+
+  if (mancanti.length > 0) {
     throw {
       code: 'PLANT_CURA_INCOMPLETA',
       status: 422,
-      message: 'Senza una specie di catalogo, luce, annaffiatura e umidità sono obbligatorie',
+      message: `Senza una specie di catalogo sono obbligatori: ${mancanti.join(', ')}`,
     };
   }
 }
@@ -219,8 +226,9 @@ export async function getPlant(userId: string, plantId: string) {
 export async function updatePlant(userId: string, plantId: string, input: UpdatePlantInput) {
   const existing = await findOwnedPlant(userId, plantId);
 
+  let nuovaSpecies: { annaffiatura: string } | null = null;
   if (input.speciesId) {
-    await assertSpeciesExists(input.speciesId);
+    nuovaSpecies = await assertSpeciesExists(input.speciesId);
   }
 
   if (input.vasoId) {
@@ -234,11 +242,36 @@ export async function updatePlant(userId: string, plantId: string, input: Update
   assertSoglieValide(input, vasoIdEffettivo);
 
   const speciesIdEffettivo = input.speciesId !== undefined ? input.speciesId : existing.speciesId;
+  const annaffiaturaCuraEffettiva = input.annaffiaturaCura !== undefined ? input.annaffiaturaCura : existing.annaffiaturaCura;
   assertCuraCompleta(existing.tipo, speciesIdEffettivo, {
     luceCura: input.luceCura !== undefined ? input.luceCura : existing.luceCura,
-    annaffiaturaCura: input.annaffiaturaCura !== undefined ? input.annaffiaturaCura : existing.annaffiaturaCura,
+    annaffiaturaCura: annaffiaturaCuraEffettiva,
     umiditaCura: input.umiditaCura !== undefined ? input.umiditaCura : existing.umiditaCura,
   });
+
+  // D14: se cambia la fonte di annaffiatura (override o specie), il task
+  // pending in corso resta al vecchio intervallo finché non si ricalcola qui.
+  let speciesVecchia: { annaffiatura: string } | null = null;
+  if (existing.speciesId) {
+    speciesVecchia = await prisma.species.findUnique({
+      where: { id: existing.speciesId },
+      select: { annaffiatura: true },
+    });
+  }
+
+  const speciesAnnaffiaturaEffettiva = input.speciesId !== undefined
+    ? nuovaSpecies?.annaffiatura ?? null
+    : speciesVecchia?.annaffiatura ?? null;
+  const nuovaAnnaffiatura = annaffiaturaCuraEffettiva ?? speciesAnnaffiaturaEffettiva;
+
+  const vecchiaAnnaffiatura = existing.annaffiaturaCura ?? speciesVecchia?.annaffiatura ?? null;
+
+  const annaffiaturaCambiata = existing.tipo === 'pianta' && nuovaAnnaffiatura !== vecchiaAnnaffiatura;
+
+  let user: { clima: string } | null = null;
+  if (annaffiaturaCambiata && nuovaAnnaffiatura) {
+    user = await prisma.user.findUnique({ where: { id: userId }, select: { clima: true } });
+  }
 
   const updated = await prisma.$transaction(async (tx: typeof prisma) => {
     // Cambio pianta: il vaso può essere collegato a una sola pianta alla volta,
@@ -250,7 +283,7 @@ export async function updatePlant(userId: string, plantId: string, input: Update
       });
     }
 
-    return tx.plant.update({
+    const result = await tx.plant.update({
       where: { id: plantId },
       data: {
         ...(input.nome !== undefined && { nome: input.nome }),
@@ -290,6 +323,12 @@ export async function updatePlant(userId: string, plantId: string, input: Update
       },
       include: { species: { select: speciesSelect } },
     });
+
+    if (annaffiaturaCambiata && nuovaAnnaffiatura && user) {
+      await ricalcolaScadenzaAnnaffiaturaPianta(plantId, nuovaAnnaffiatura, user.clima, undefined, tx);
+    }
+
+    return result;
   });
 
   if (input.vasoId !== undefined) {

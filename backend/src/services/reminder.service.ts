@@ -267,6 +267,33 @@ export async function ricalcolaScadenzeClima(userId: string, nuovoClima: string)
   return { checked: tasks.length, aggiornati };
 }
 
+// Ricalcola la scadenza del task 'annaffiatura' pending di UNA pianta, in
+// seguito a un cambio di annaffiaturaCura o specie (D14, spec fiora-mev.md).
+// A differenza di ricalcolaScadenzeClima il riferimento è oggi (non
+// task.createdAt): il vecchio intervallo non è più valido dal momento del
+// cambio, non da quando il task era stato creato.
+export async function ricalcolaScadenzaAnnaffiaturaPianta(
+  plantId: string,
+  annaffiatura: string,
+  clima: string,
+  now: Date = new Date(),
+  client: typeof prisma = prisma
+): Promise<boolean> {
+  const task = await client.task.findFirst({
+    where: { plantId, tipo: 'annaffiatura', sorgente: 'calendario', stato: 'pending' },
+  });
+  if (!task) return false;
+
+  const nuovaScadenza = calcolaProssimaScadenza(now, annaffiatura, clima);
+  if (!nuovaScadenza) return false;
+
+  await client.task.update({
+    where: { id: task.id },
+    data: { scadenza: nuovaScadenza },
+  });
+  return true;
+}
+
 // Aggregatore: esegue tutto il reminder engine in ordine. Il ricalcolo dello
 // statoBouquet va prima della generazione task bouquet, per rispettare il
 // filtro statoBouquet != 'concluso' con il valore aggiornato.

@@ -45,6 +45,44 @@ describe('plant.service', () => {
       ).rejects.toMatchObject({ code: 'PLANT_CURA_INCOMPLETA' });
     });
 
+    it('D16: elenca solo i campi cura mancanti nel messaggio (un campo)', async () => {
+      await expect(
+        plantService.createPlant('user-1', {
+          nome: 'Monstera',
+          tipo: 'pianta',
+          annaffiaturaCura: 'media',
+          umiditaCura: 'media',
+        })
+      ).rejects.toMatchObject({
+        code: 'PLANT_CURA_INCOMPLETA',
+        message: expect.stringContaining('luce'),
+      });
+    });
+
+    it('D16: elenca tutti i campi mancanti nel messaggio (nessuno impostato)', async () => {
+      try {
+        await plantService.createPlant('user-1', { nome: 'Monstera', tipo: 'pianta' });
+        throw new Error('doveva lanciare');
+      } catch (err: any) {
+        expect(err.message).toContain('luce');
+        expect(err.message).toContain('annaffiatura');
+        expect(err.message).toContain('umidità');
+      }
+    });
+
+    it('D16: non elenca campi già presenti', async () => {
+      try {
+        await plantService.createPlant('user-1', {
+          nome: 'Monstera',
+          tipo: 'pianta',
+          luceCura: 'alta',
+        });
+        throw new Error('doveva lanciare');
+      } catch (err: any) {
+        expect(err.message).toBe('Senza una specie di catalogo sono obbligatori: annaffiatura, umidità');
+      }
+    });
+
     it('rifiuta se la specie indicata non esiste', async () => {
       (prisma.species.findUnique as jest.Mock).mockResolvedValue(null);
 
@@ -169,6 +207,109 @@ describe('plant.service', () => {
 
       const args = (prisma.plant.update as jest.Mock).mock.calls[0][0];
       expect(args.data.statoBouquetManuale).toBe(true);
+    });
+
+    describe('D14 — ricalcolo scadenza su cambio annaffiatura', () => {
+      const taskPendingId = 'task-annaffiatura-1';
+
+      it('ricalcola la scadenza del task pending quando annaffiaturaCura cambia', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          annaffiaturaCura: 'poca',
+        });
+        (prisma.species.findUnique as jest.Mock).mockResolvedValue({ annaffiatura: 'media' });
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+        (prisma.task.findFirst as jest.Mock).mockResolvedValue({ id: taskPendingId });
+        (prisma.task.update as jest.Mock).mockResolvedValue({});
+
+        await plantService.updatePlant('user-1', 'plant-1', { annaffiaturaCura: 'frequente' });
+
+        expect(prisma.task.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: taskPendingId } })
+        );
+        const scadenzaArgs = (prisma.task.update as jest.Mock).mock.calls[0][0];
+        const scadenzaImpostata: Date = scadenzaArgs.data.scadenza;
+        const oggi = new Date();
+        // Riferimento = oggi, non il vecchio createdAt del task (spec D14).
+        expect(Math.abs(scadenzaImpostata.getTime() - oggi.getTime())).toBeLessThan(5 * 24 * 60 * 60 * 1000);
+      });
+
+      it('non ricalcola se annaffiaturaCura non cambia il valore effettivo', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          annaffiaturaCura: 'media',
+        });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+
+        await plantService.updatePlant('user-1', 'plant-1', { annaffiaturaCura: 'media' });
+
+        expect(prisma.user.findUnique).not.toHaveBeenCalled();
+        expect(prisma.task.update).not.toHaveBeenCalled();
+      });
+
+      it('non ricalcola se cambia un campo non legato alla cura (es. nome)', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          annaffiaturaCura: 'media',
+        });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+
+        await plantService.updatePlant('user-1', 'plant-1', { nome: 'Nuovo nome' });
+
+        expect(prisma.task.update).not.toHaveBeenCalled();
+      });
+
+      it('ricalcola quando cambia la specie e la nuova ha annaffiatura diversa (senza override)', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          speciesId: 'species-1',
+          annaffiaturaCura: null,
+        });
+        // prima chiamata species.findUnique = specie vecchia (existing.speciesId),
+        // assertSpeciesExists fa la sua chiamata per la specie nuova.
+        (prisma.species.findUnique as jest.Mock)
+          .mockResolvedValueOnce({ annaffiatura: 'poca' }) // assertSpeciesExists(nuova specie)
+          .mockResolvedValueOnce({ annaffiatura: 'poca' }); // fetch specie vecchia
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+        (prisma.task.findFirst as jest.Mock).mockResolvedValue({ id: taskPendingId });
+        (prisma.task.update as jest.Mock).mockResolvedValue({});
+
+        await plantService.updatePlant('user-1', 'plant-1', { speciesId: 'species-2' });
+
+        expect(prisma.task.update).not.toHaveBeenCalled();
+      });
+
+      it('non fa nulla se non esiste un task annaffiatura pending', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          annaffiaturaCura: 'poca',
+        });
+        (prisma.species.findUnique as jest.Mock).mockResolvedValue({ annaffiatura: 'poca' });
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ clima: 'temperato' });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+        (prisma.task.findFirst as jest.Mock).mockResolvedValue(null);
+
+        await plantService.updatePlant('user-1', 'plant-1', { annaffiaturaCura: 'frequente' });
+
+        expect(prisma.task.update).not.toHaveBeenCalled();
+      });
+
+      it('non ricalcola per i bouquet', async () => {
+        (prisma.plant.findFirst as jest.Mock).mockResolvedValue({
+          ...mockPlant,
+          tipo: 'bouquet',
+          speciesId: null,
+          annaffiaturaCura: null,
+        });
+        (prisma.plant.update as jest.Mock).mockResolvedValue({});
+
+        await plantService.updatePlant('user-1', 'plant-1', { nome: 'Rose nuove' });
+
+        expect(prisma.user.findUnique).not.toHaveBeenCalled();
+        expect(prisma.task.update).not.toHaveBeenCalled();
+      });
     });
   });
 

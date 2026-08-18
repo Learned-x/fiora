@@ -16,9 +16,9 @@ Cinque documenti, ognuno con un ruolo distinto. **Non crearne altri**: aggiornar
 Le specifiche descrivono il **target**: dove il firmware è indietro, la differenza è marcata nel documento e tracciata come debito nella roadmap.
 
 ## Stato attuale sviluppo
-**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro) + **Fase 6 in corso** (pairing BLE vaso smart, 2026-07-24; schermate Vasi/dettaglio vaso + sensori in dettaglio pianta, 2026-07-25).
-Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Decisione (2026-07-24): niente TestFlight per ora, build di test installate manualmente via Xcode+cavo (iOS) o `expo run:android --device` (Android) su device reale; staging gira su server Ubuntu locale (stessa rete LAN di casa).
-**Aggiornamento 2026-08-04**: comprato abbonamento Apple Developer Program, primo tentativo TestFlight in corso (vedi "Bundle ID" e "Sign in with Apple" sotto). Fino a qui vale ancora la decisione sopra per Android; per iOS si sta valutando anche EAS submit.
+**Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 6 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro).
+Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Staging gira su server Ubuntu locale (stessa rete LAN di casa).
+**Aggiornamento 2026-08-18**: build EAS `staging` su bundle nuovo (`app.fiora.mobile`) fatta, Google+Apple Sign-In verificati su device reale. Prossimo passo verso TestFlight: `production`/EAS submit.
 
 ### ⚠️ Bundle ID cambiato: `com.fiora.app` → `app.fiora.mobile`
 `com.fiora.app` (iOS **e** Android, `mobile/app.json`) dava "Invalid string" creando l'App ID su developer.apple.com, pur non risultando registrato né sul nostro account né altrove — residuo del vecchio setup a personal team (pre-abbonamento) mai propagato bene sul portale, non risolto nemmeno eliminando profili/certificati locali. Bundle cambiato in `app.fiora.mobile` (commit `64b12d5`), che si è creato senza problemi. Client OAuth Google (iOS e Android) aggiornati **in-place** sullo stesso bundle nuovo — nessun nuovo Client ID, nessun cambio di codice lato Google. **Ogni build EAS/locale già installata prima di questo commit ha il bundle vecchio**: va disinstallata e rifatta da zero, non aggiornabile in-place (bundle ID diverso = app diversa per iOS/Android).
@@ -125,14 +125,41 @@ Il firmware è stato riscritto e modularizzato (commit `c146237`, 2026-07-31 cir
   - **Conferma eliminazione account** (2026-08-04): `requestAccountDeletion` (esisteva già lato backend, mai notificava) ora invia email riepilogativa con data eliminazione; aggiunto anche il trigger UI mancante in Impostazioni ("Elimina account", conferma nativa) — prima esisteva solo l'annullamento di una richiesta già in corso, non il modo di avviarla dall'app.
   - Mittente sandbox Resend (`onboarding@resend.dev`) consegna solo alla casella dell'account Resend, non a utenti reali — da sostituire quando c'è un dominio verificato (SPF/DKIM/DMARC), vale per tutte le email di questa MEV
 
+### MEV-09 completa (2026-08-18): cura manuale per pianta + revisione Fase 9
+`Plant.luceCura/annaffiaturaCura/umiditaCura` (nullable): obbligatori senza specie, override opzionale privato con specie. Form add/edit-plant sempre mostrano i 3 selettori pre-compilati (niente toggle "Personalizza" — rimosso dopo test utente), editabili liberamente; l'override si salva solo se diverso dal default specie. Bottone "Rimuovi specie" aggiunto anche in `add-plant.tsx` (mancava). Reminder engine legge `annaffiaturaCura ?? species.annaffiatura`.
+**Fase 9 §12.3 rivista** (stessa sessione, decisione esplicita): via la moderazione admin (coda/approva/rifiuta/notifiche) — proposta specie ora attiva subito ma **visibile solo al proponente**, riusabile per le sue piante future, mai da altri utenti. Nessuna area admin, solo interrogazione diretta futura per eventuale promozione manuale al catalogo curato. Specifiche funzionali/tecniche/roadmap aggiornate di conseguenza.
+
+### ✅ D14/D15/D16 chiusi (MEV-09, 2026-08-18)
+- **D14**: nuova `ricalcolaScadenzaAnnaffiaturaPianta` in `reminder.service.ts` (riferimento = oggi, non `createdAt`, a differenza di `ricalcolaScadenzeClima`), chiamata dentro la transazione unica di `updatePlant` (`plant.service.ts`) quando cambia l'annaffiatura effettiva (override `annaffiaturaCura` o specie); skip bouquet, skip se nessun task `annaffiatura` pending. 8 test nuovi.
+- **D15**: badge "Personalizzata" (`mobile/app/plant/[id].tsx`) ora su `haOverrideCura` (senza specie, sempre vero; con specie, vero se almeno un campo `luceCura`/`annaffiaturaCura`/`umiditaCura` non-null) invece di solo `!plant.species`.
+- **D16**: `assertCuraCompleta` costruisce array campi mancanti, messaggio `PLANT_CURA_INCOMPLETA` li elenca (es. "Senza una specie di catalogo sono obbligatori: luce") invece di frase fissa generica. 3 test nuovi.
+- Suite backend: 174/174 verdi dopo le tre fix.
+
+### ✅ Fase 9 §12.3 implementata: proposta nuova specie (2026-08-18)
+Schema DB già pronto dal seed (`fonte`, `propostoDao` su `Species`), nessuna migration nuova. Backend: `POST /species` (`species.service.ts::proposeSpecies`) — check duplicati solo contro `Species WHERE fonte='curato'` (species_import_raw è vuota, script CSV mai lanciato con dati), match trovato → 200 + suggerimento senza creare, altrimenti crea `fonte='utente'`+`propostoDao=userId` (201); `forzaCrea:true` bypassa il check. `listSpecies` ora filtra per proponente (`OR: [{fonte:{not:'utente'}}, {propostoDao:userId}]`) — specie di altri utenti mai visibili. `categoria` validata come stringa libera (non enum), non solo i 5 valori standard — vedi nota "Altro" sotto. 17 test nuovi, 187/187 suite verde.
+
+Mobile: nuovo `ProposeSpeciesModal.tsx` (riusa `CuraPickerRow`/opzioni cura esistenti), due punti di ingresso — bottone "Aggiungi specie mancante" **sempre visibile in cima** a `SpeciesPickerModal` (non solo su risultati vuoti, richiesta esplicita utente) e bottone "Proponi come specie" in `plant/[id].tsx` su piante generiche (precompila nome+cura già inseriti, collega automaticamente la specie creata alla pianta via `updatePlant`). Categoria "Altro" → campo testo libero opzionale, se compilato **sostituisce** il valore `'altro'` salvato (non lo affianca). Testato end-to-end dall'utente, funzionante.
+
+**Bug risolto in corsa**: due `<Modal>` React Native annidati (`SpeciesPickerModal` + `ProposeSpeciesModal` al suo interno) che si chiudevano nello stesso tick bloccavano l'app (la riga in DB veniva comunque creata correttamente, solo la UI si impallava). Fix: `setTimeout(300ms)` tra la chiusura del modal interno e la callback che chiude quello esterno, per lasciare finire l'animazione di unmount prima di richiudere il genitore. Vale in generale per qualunque coppia di `Modal` RN annidati in questo progetto.
+
+**Non fatto** (fuori scope, rimandato): backfill `propostoDao`/`approvatoDa` = utente admin sulle specie del seed esistenti (`fonte='curato'`) — richiede prima creare/decidere un utente admin reale, oggi non esiste.
+
+### ✅ Risolto: pairing BLE end-to-end su hardware reale (Fase 6, 2026-08-18)
+Testato su device Android reale: pairing completo, firmware nuovo (modulare) flashato su ESP32 reale, utente MQTT condiviso verificato con permessi corretti su HiveMQ Cloud per publish/subscribe su `fiora/vaso/+/...`. **Fase 6 considerata completa** — nessun test end-to-end pendente.
+
+### ✅ Risolto: TestFlight — build EAS staging su bundle nuovo (2026-08-18)
+Errore "Failed to create Apple distribution certificate" risolto (problema lato certificato Apple, ora sistemato). Build EAS `staging` su bundle `app.fiora.mobile` completata, Google Sign-In e Apple Sign-In verificati su device reale.
+
+### ✅ Fatto: script import CSV specie
+Script import CSV → `species_import_raw` scritto e testato (path esatto non tracciato qui, verificare in `backend/src/scripts` se serve).
+
 ### Prossimi passi
 - **MEV-08 step 2** (alert da sensore, = Fase 7): decidere se e quando affrontarlo, vedi `fiora-mev.md`
-- **Da testare (Fase 6)**: pairing BLE end-to-end su device Android reale (non ancora provato, solo iOS-dev-client testato in build); build locale Android (`npx expo run:android --device`, richiede `ANDROID_HOME` in `.zshrc`); flash firmware nuovo su hardware ESP32 reale (finora solo la versione vecchia con credenziali hardcoded ha girato); verificare che l'utente MQTT condiviso (quello del backend, restituito dal pairing) abbia permessi corretti su HiveMQ Cloud per publish/subscribe sui topic `fiora/vaso/+/...`
-- **Ambiente staging** (in corso, 2026-07-24): backend in Docker su server Ubuntu locale (LAN casa), Postgres+Redis dedicati staging, `.env.staging`, `docker-compose.staging.yml`; mobile build EAS profilo `staging` puntata a IP LAN del server, installata su iPhone via Xcode+cavo (no TestFlight, manca account Apple Developer)
-- Script import CSV specie in `species_import_raw` (da scrivere, dentro /backend)
+- Verifica manuale D15 su device/simulatore (badge "Personalizzata"): 3 casi — senza specie, con specie senza override, con specie + 1 override
+- **Ambiente staging** (in corso, 2026-07-24): backend in Docker su server Ubuntu locale (LAN casa), Postgres+Redis dedicati staging, `.env.staging`, `docker-compose.staging.yml`; mobile build EAS profilo `staging` puntata a IP LAN del server
 - Rimandati: Fase 5 (foto MinIO), Fase 7 (alert sensori), fiori bouquet, empty state suggerimenti
 - QA push su device reale: token iOS, ricezione notifiche, tap → deep link
-- **TestFlight** (2026-08-04, in corso): abbonamento Developer Program attivo, Apple Sign-In collegato lato mobile (vedi nota bundle ID sopra). Prossimo passo: build EAS `staging` sul bundle nuovo (`app.fiora.mobile`) per verificare Google+Apple Sign-In su device reale prima di tentare `production`/EAS submit. Primo tentativo build `staging` falliva su "Failed to create Apple distribution certificate" (causa non ancora isolata, riprovare in modalità interattiva e leggere il log completo)
+- **TestFlight**: Google+Apple Sign-In verificati su build staging (vedi sopra). Prossimo passo: tentare `production`/EAS submit.
 - ~~npm test backend rotto~~ — **risolto/non riproducibile** (verificato 2026-07-31): 153/153 test passano puliti su questa macchina (`node v20.20.2`, `jest 30.4.2`, `ts-jest 29.4.11`). Probabile causa originale un `node_modules` incompleto su un'altra macchina — se ricompare, `rm -rf node_modules && npm install` prima di indagare oltre.
 
 ### Note build iOS locale (npx expo run:ios)
@@ -298,10 +325,10 @@ eas build --profile staging --platform ios
 - **Fase 4** ✅ App mobile UI (schermate principali)
 - **Fase 4.5** ✅ backend + mobile (2026-07-13)
 - **Fase 5** Foto diario (MinIO) — rimandata (decisione 2026-07-13)
-- **Fase 6** Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE) — **in corso** (2026-07-24): backend pairing+telemetria ✅, firmware BLE provisioning ✅ (mai testato su hardware), mobile schermata pairing ✅ (mai testata su device reale). Manca: test end-to-end reale, schermata dettaglio vaso/dati sensori in tempo reale (solo pairing fatto finora)
+- **Fase 6** ✅ Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE) — completa (2026-08-18): backend pairing+telemetria ✅, firmware BLE provisioning ✅, mobile schermata pairing ✅, test end-to-end su hardware reale (Android + ESP32) ✅
 - **Fase 7** Alert sensori (+ push per alert, esclusi da Fase 8) — rimandata
 - **Fase 8** ✅ Notifiche push Expo (2026-07-13, solo reminder calendario)
-- **Fase 9** Catalogo esteso: in dev/test import CSV manuale in `species_import_raw` (`fonte='csv'`, set ridotto — script da scrivere); in prod import massivo Trefle (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm, proposta specie + area admin. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
+- **Fase 9** Catalogo esteso — 🚧 parziale: proposta specie utente (§12.3) ✅ fatta 2026-08-18 (vedi sopra), niente area admin (decisione presa). Manca ancora: script import CSV mai lanciato con dati (species_import_raw vuota), import massivo Trefle in prod (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
 - **Fase 10** rifinitura UI (fiori bouquet, empty state suggerimenti) — inversione onboarding + pagina intro ✅ fatte il 2026-07-13; Apple Sign-In ✅ fatto 2026-08-04 (vedi sopra)
 - **Post-MVP** Email transazionali, offline SQLite, cambio email
 

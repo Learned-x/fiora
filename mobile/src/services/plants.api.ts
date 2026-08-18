@@ -118,3 +118,26 @@ export async function listSpecies(search?: string): Promise<Species[]> {
   });
   return res.data.data.items;
 }
+
+export interface ProposeSpeciesInput {
+  nomeComune: string;
+  categoria?: string; // libera — una delle categorie standard o un valore custom dell'utente
+  luce: 'bassa' | 'media' | 'alta';
+  annaffiatura: 'poca' | 'media' | 'frequente';
+  umidita: 'bassa' | 'media' | 'alta';
+  nomeScientifico?: string;
+  tempMin?: number;
+  tempMax?: number;
+  tossicita?: boolean;
+  noteCura?: string;
+  forzaCrea?: boolean;
+}
+
+export type ProposeSpeciesResult =
+  | { creata: true; species: Species }
+  | { creata: false; suggerimento: Species };
+
+export async function proposeSpecies(input: ProposeSpeciesInput): Promise<ProposeSpeciesResult> {
+  const res = await api.post<{ data: ProposeSpeciesResult }>('/species', input);
+  return res.data.data;
+}

@@ -30,7 +30,9 @@ export const prisma: any = {
   },
   species: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
+    create: jest.fn(),
     count: jest.fn(),
   },
   actionLog: {

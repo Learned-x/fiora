@@ -6,6 +6,8 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { TextInput } from './TextInput';
+import { Button } from './Button';
+import { ProposeSpeciesModal } from './ProposeSpeciesModal';
 import { listSpecies } from '../services/plants.api';
 import type { Species } from '../types/models';
 
@@ -19,6 +21,7 @@ export function SpeciesPickerModal({ visible, onClose, onSelect }: SpeciesPicker
   const theme = useTheme();
   const [search, setSearch] = useState('');
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [proposeVisible, setProposeVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -42,6 +45,9 @@ export function SpeciesPickerModal({ visible, onClose, onSelect }: SpeciesPicker
         </View>
         <View style={{ paddingHorizontal: spacing.md16, paddingVertical: spacing.xs8 }}>
           <TextInput value={search} onChangeText={setSearch} placeholder="Cerca per nome…" autoFocus />
+        </View>
+        <View style={{ paddingHorizontal: spacing.md16, paddingBottom: spacing.sm12 }}>
+          <Button label="Aggiungi specie mancante" variant="outline" onPress={() => setProposeVisible(true)} />
         </View>
         <FlatList
           data={speciesList}
@@ -72,6 +78,19 @@ export function SpeciesPickerModal({ visible, onClose, onSelect }: SpeciesPicker
           }
         />
       </SafeAreaView>
+      <ProposeSpeciesModal
+        visible={proposeVisible}
+        onClose={() => setProposeVisible(false)}
+        onCreated={(species) => {
+          // Due <Modal> RN annidati (questo picker + il form propose) che si
+          // chiudono nello stesso tick bloccano l'app: si chiude prima il modal
+          // interno e si aspetta che l'animazione di unmount finisca prima di
+          // richiudere anche quello esterno tramite onSelect.
+          setProposeVisible(false);
+          setTimeout(() => onSelect(species), 300);
+        }}
+        initial={{ nomeComune: search.trim() || undefined }}
+      />
     </Modal>
   );
 }

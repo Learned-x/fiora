@@ -16,10 +16,11 @@ import { SensorChart } from '../../src/components/SensorChart';
 import { Toast } from '../../src/components/Toast';
 import type { ToastTrigger } from '../../src/components/Toast';
 import { SoglieVaseModal } from '../../src/components/SoglieVaseModal';
-import { completeTask, createTask, getPlant } from '../../src/services/plants.api';
+import { ProposeSpeciesModal } from '../../src/components/ProposeSpeciesModal';
+import { completeTask, createTask, getPlant, updatePlant } from '../../src/services/plants.api';
 import { getVase, getVaseReadings24h, refreshVase } from '../../src/services/vases.api';
 import type { SensorReading, SmartVase } from '../../src/services/vases.api';
-import type { Plant, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
+import type { Plant, Species, StatoBouquet, Task, TaskTipo } from '../../src/types/models';
 import {
   annaffiaturaLabel,
   curaEffettiva,
@@ -62,6 +63,7 @@ export default function PlantDetailScreen() {
   const [toast, setToast] = useState<ToastTrigger | null>(null);
   const [refreshingVase, setRefreshingVase] = useState(false);
   const [soglieModalVisible, setSoglieModalVisible] = useState(false);
+  const [proposeModalVisible, setProposeModalVisible] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -179,6 +181,9 @@ export default function PlantDetailScreen() {
   const luceEffettiva = curaEffettiva(plant.luceCura, plant.species?.luce);
   const annaffiaturaEffettiva = curaEffettiva(plant.annaffiaturaCura, plant.species?.annaffiatura);
   const umiditaEffettiva = curaEffettiva(plant.umiditaCura, plant.species?.umidita);
+  // D15: badge "Personalizzata" — senza specie la cura manuale è sempre presente
+  // (obbligatoria), con specie va mostrato solo se almeno un campo è overridato.
+  const haOverrideCura = !plant.species || plant.luceCura != null || plant.annaffiaturaCura != null || plant.umiditaCura != null;
   const umiditaHistory = readings24h.filter((r) => r.umidita !== null).map((r) => r.umidita as number);
   const luceHistory = readings24h.filter((r) => r.luce !== null).map((r) => r.luce as number);
   const temperaturaHistory = readings24h
@@ -414,7 +419,7 @@ export default function PlantDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sensorHeader}>
               <Text style={[styles.sectionLabel, { marginBottom: 0, color: theme.onSurfaceVariant }]}>Guida alla cura</Text>
-              {!plant.species && (
+              {haOverrideCura && (
                 <Text style={[styles.sensorStatusText, { color: theme.onSurfaceVariant }]}>Personalizzata</Text>
               )}
             </View>
@@ -454,6 +459,17 @@ export default function PlantDetailScreen() {
                     </Text>
                   </View>
                 </View>
+              )}
+              {!plant.species && (
+                <Pressable
+                  onPress={() => setProposeModalVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Proponi come specie"
+                  style={[styles.careRow, { borderTopWidth: 1, borderTopColor: theme.outlineVariant, borderBottomWidth: 0 }]}
+                >
+                  <Text style={styles.careEmoji}>➕</Text>
+                  <Text style={[styles.careKey, { color: theme.primary, flex: 1 }]}>Proponi come specie</Text>
+                </Pressable>
               )}
             </Card>
           </View>
@@ -554,6 +570,26 @@ export default function PlantDetailScreen() {
           onError={() => Alert.alert('Errore', 'Salvataggio soglie non riuscito, riprova.')}
         />
       )}
+      <ProposeSpeciesModal
+        visible={proposeModalVisible}
+        onClose={() => setProposeModalVisible(false)}
+        onCreated={async (species: Species) => {
+          setProposeModalVisible(false);
+          try {
+            const updated = await updatePlant(plant.id, { speciesId: species.id });
+            setPlant((prev) => (prev ? { ...prev, ...updated } : prev));
+            setToast({ text: 'Specie collegata ✓', id: Date.now() });
+          } catch {
+            Alert.alert('Errore', 'Specie creata ma collegamento alla pianta non riuscito, riprova da "Cambia specie".');
+          }
+        }}
+        initial={{
+          nomeComune: plant.nome,
+          luceCura: plant.luceCura,
+          annaffiaturaCura: plant.annaffiaturaCura,
+          umiditaCura: plant.umiditaCura,
+        }}
+      />
     </SafeAreaView>
   );
 }
