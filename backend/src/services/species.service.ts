@@ -15,7 +15,7 @@ export async function listSpecies(userId: string, filters: ListSpeciesFilters = 
 
   const where = {
     stato: 'attivo',
-    OR: [{ fonte: { not: 'utente' } }, { propostoDao: userId }],
+    OR: [{ fonte: { not: 'utente' } }, { propostoDa: userId }],
     ...(filters.categoria && { categoria: filters.categoria }),
     ...(filters.search && {
       AND: [
@@ -111,7 +111,7 @@ export async function proposeSpecies(userId: string, input: ProposeSpeciesInput)
       noteCura: input.noteCura,
       fonte: 'utente',
       stato: 'attivo',
-      propostoDao: userId,
+      propostoDa: userId,
     },
   });
 

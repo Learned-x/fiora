@@ -19,6 +19,7 @@ Le specifiche descrivono il **target**: dove il firmware è indietro, la differe
 **Fase 0 ✅ — Fase 1 ✅ — Fase 2 ✅ — Fase 3 ✅ — Fase 4 ✅ — Fase 4.5 ✅ — Fase 6 ✅ — Fase 8 ✅** (push calendario, 2026-07-13) + **Fase 10 parziale** (onboarding invertito + pagina intro).
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6. Staging gira su server Ubuntu locale (stessa rete LAN di casa).
 **Aggiornamento 2026-08-18**: build EAS `staging` su bundle nuovo (`app.fiora.mobile`) fatta, Google+Apple Sign-In verificati su device reale. Prossimo passo verso TestFlight: `production`/EAS submit.
+**Aggiornamento 2026-08-20**: audit 2026-08-18 chiuso (docs riallineati). Trefle rimosso dal codice, nuovo punto di partenza per il catalogo esteso: import grezzo CSV giardinaggio in `piante_csv_raw` (4655 righe, mapping/traduzione ancora da fare).
 
 ### ⚠️ Bundle ID cambiato: `com.fiora.app` → `app.fiora.mobile`
 `com.fiora.app` (iOS **e** Android, `mobile/app.json`) dava "Invalid string" creando l'App ID su developer.apple.com, pur non risultando registrato né sul nostro account né altrove — residuo del vecchio setup a personal team (pre-abbonamento) mai propagato bene sul portale, non risolto nemmeno eliminando profili/certificati locali. Bundle cambiato in `app.fiora.mobile` (commit `64b12d5`), che si è creato senza problemi. Client OAuth Google (iOS e Android) aggiornati **in-place** sullo stesso bundle nuovo — nessun nuovo Client ID, nessun cambio di codice lato Google. **Ogni build EAS/locale già installata prima di questo commit ha il bundle vecchio**: va disinstallata e rifatta da zero, non aggiornabile in-place (bundle ID diverso = app diversa per iOS/Android).
@@ -53,6 +54,86 @@ Motivo: UI cresciuta screen-per-screen senza sistema condiviso — "tutto piccol
   - Scala titoli ancora incoerente nonostante i token: 4 valori diversi in uso (34 tabs, 32 auth, 28 change-password/email/plant-history, 26 reset-password/vase-pair/plant-name) — `typography.ts` definisce `h1:30`/`h2:22` ma **nessuna schermata li usa ancora**, tutte hardcodano il proprio valore.
   - `paddingHorizontal: 4` ripetuto 11 volte per allineare le `fieldLabel` agli input sottostanti (aggiustamento a occhio, non derivato dal padding reale dell'input) — fragile a cambi futuri.
 - **Debito UX più ampio, non ancora affrontato** (audit separato): 0 `accessibilityLabel` su 59 `Pressable` in tutta l'app, 0 feedback al tocco (`android_ripple`/`pressed`), 6 schermate con `catch {}` silenzioso su errori di rete (nessun segnale visivo, solo commento nel codice), nessuno stato di loading iniziale distinto dall'empty state (skeleton assente ovunque), `Alert.alert` di sistema usato per 37 casi invece del pattern `ActionSheet` già adottato in `vase/[id].tsx`, nessun update ottimistico sulle azioni task (tocco "completa" aspetta `await` + reload completo prima di mostrare cambiamento).
+
+## ✅ Audit 2026-08-18 chiuso (2026-08-20)
+Vedi `docs/fiora-analisi-2026-08-18.md` per i dettagli originali (congelato, non
+aggiornato). Tutti i punti non-firmware risolti in questa sessione:
+
+1. **Stato Fase 6 confermato completa e testata** (l'utente ha confermato di persona:
+   "testato e funzionante") — propagato a `fiora-roadmap.md` (tabella + corpo) e
+   `fiora-specifiche-funzionali.md` §10/§10.4 (anche riconfigurazione WiFi, MEV-05).
+2. **`fiora-specifiche-tecniche.md`** (§4 schema: aggiunti campi `Plant` per soglie
+   MEV-08 e cura manuale MEV-09, mancavano dal doc; §6 vaso smart: D1/D3/D4/D7/D9
+   aggiornati da "aperto/bloccante" a chiuso+verificato hardware) e
+   `fiora-roadmap.md` (tabella stato, sezione Fase 6, debito D2/D9/D10, tabella MEV
+   +MEV-09 mancante) riallineati allo stato vero del codice.
+3. **§16 OTA**: decisione esplicita dell'utente — resta nel doc tecnico, aggiunta come
+   **Fase 16 in roadmap**, da fare prima del rilascio in produzione. Lavoro firmware,
+   non prioritario ora (prototipo su cavo).
+4. Cosmetico chiuso: rinominato `Species.propostoDao`→`propostoDa` in
+   `schema.prisma`+`species.service.ts`+`species.service.test.ts` (+ `prisma generate`,
+   187/187 test verdi), bundle ID corretto in `fiora-manuale-ambienti.md` §4.2
+   (`com.tangifiori.app`→`app.fiora.mobile`). Commento stale su `Species.stato` era
+   già stato sistemato in una sessione precedente (verificato, non serviva altro).
+
+**Nota**: il debito firmware (D8, D12, D13, D17/D18/D19) resta com'era — fuori scope,
+l'utente non si occupa di firmware direttamente (usa un simulatore per testare la
+scheda lato backend/mobile).
+
+## Catalogo esteso — import grezzo CSV piante da giardino (2026-08-20)
+Punto di partenza per arricchire il catalogo Fase 9, in alternativa/complemento a
+Trefle. **Trefle rimosso dal codice** in questa sessione (`trefle.service.ts`,
+`trefle-sync.service.ts`, `trefle-sync.job.ts`, `import-trefle-catalog.ts`, coda
+BullMQ `trefle-sync`, comando npm `trefle:import`, riferimenti in `index.ts`) — non
+aveva dati di cura utilizzabili (verificato: `growth` quasi sempre null anche su
+specie comuni), ridondante rispetto al nuovo CSV che invece li ha.
+
+**Sorgente**: `template_specie/piante.csv` (committato, ~1.6MB) — dataset
+giardinaggio/paesaggistica Australia (Queensland), 4655 righe con nome botanico
+valido su 4663 totali. Campi cura reali: `Water Needs` (mm pioggia/anno),
+`Light Needs`, `Climate Zones`, `Maintenance`, `Soil Type`. **Non è un dataset per
+piante da vaso interno** — è outdoor/giardino, va tenuto a mente nel mapping futuro.
+
+**Import fatto**: 1:1 grezzo, zero interpretazione, in nuova tabella
+`piante_csv_raw` (model `PianteCsvRaw`, migration `20260820194943_add_piante_csv_raw`)
+— tutte le 40 colonne originali come stringa nullable, nessun mapping verso
+`Species`. Script `backend/prisma/import-piante-csv-raw.ts` (comando
+`npm run piante-csv:import`), tokenizer CSV scritto a mano (RFC 4180, stato
+dentro/fuori virgolette carattere per carattere) invece della libreria `csv-parse`:
+il file ha 9 righe "spazzatura" a fine CSV (righe vuote + una riga-istruzione
+`"Only insert new rows directly ABOVE this line"`) con quoting malformato che manda
+`csv-parse` in errore anche con i flag di tolleranza (`relax_quotes` fondeva
+erroneamente le righe successive in un unico record enorme invece di isolare solo
+quelle malformate) — vedi lezione sotto. 4655 righe importate, verificato via query
+diretta.
+
+**Tentato e abbandonato in questa sessione**: arricchimento GBIF (nome vernacolare
+IT/EN + validazione tassonomica) e mapping euristico diretto verso `Species`
+(`gbif.service.ts`, `species-catalog-sync.service.ts`, rimossi). Copertura italiana
+GBIF verificata **troppo bassa per essere utile** (7.5% su campione di 40 specie
+ornamentali/da vivaio — buona solo su flora mediterranea comune tipo Lavanda/Rosa/
+Olivo, quasi assente su esotiche e cultivar). Confermato anche da analisi esterna
+(Comet): limite strutturale delle fonti che GBIF aggrega (Catalogue of Life, GRIN),
+non risolvibile con altri endpoint/parametri. Non riprovare GBIF come fonte primaria
+di traduzione — al massimo arricchimento opportunistico quando/se si riprende in mano
+il mapping.
+
+**Decisione esplicita utente**: niente traduzione/mapping ora — solo import grezzo,
+analisi di come tradurre/usare i dati rimandata a una sessione futura.
+
+**Lezione**: `csv-parse` (libreria) in modalità strict può rompersi su righe malformate
+in modi difficili da diagnosticare — i flag `relax_quotes`/`relax_column_count` non
+isolano la riga incriminata, possono far collassare tutte le righe successive in un
+solo record. Un tokenizer manuale (poche righe, stato quote in/out) è più robusto e
+prevedibile su CSV di provenienza esterna non garantita.
+
+**Incidente da ricordare**: durante il cleanup, un `TRUNCATE species_import_raw
+CASCADE` (necessario per il vincolo FK `Species.externalId`) ha svuotato a cascata
+anche `species`, `plants`, `tasks`, `sensor_readings` — non solo la tabella target.
+Erano dati di test locali (confermato dall'utente, nessuna perdita reale), ma **verificare
+sempre l'albero delle foreign key prima di un CASCADE**, non solo la tabella diretta.
+Le 12 specie curate del seed sono state ripristinate con `npm run seed` (idempotente,
+usa ID deterministici).
 
 ## Setup ambiente Android su altro Mac (es. lavoro fuori casa)
 Fatto il 2026-07-24 su questo Mac, da rifare se si lavora da un Mac diverso (SDK/cache non sincronizzati via git):
@@ -150,10 +231,8 @@ Testato su device Android reale: pairing completo, firmware nuovo (modulare) fla
 ### ✅ Risolto: TestFlight — build EAS staging su bundle nuovo (2026-08-18)
 Errore "Failed to create Apple distribution certificate" risolto (problema lato certificato Apple, ora sistemato). Build EAS `staging` su bundle `app.fiora.mobile` completata, Google Sign-In e Apple Sign-In verificati su device reale.
 
-### ✅ Fatto: script import CSV specie
-Script import CSV → `species_import_raw` scritto e testato (path esatto non tracciato qui, verificare in `backend/src/scripts` se serve).
-
 ### Prossimi passi
+- **Catalogo esteso da CSV** (2026-08-20, vedi sezione dedicata sopra): `piante_csv_raw` popolata (4655 righe grezze), da analizzare/mappare/tradurre verso `Species` — nessun piano deciso ancora, prossima sessione
 - **MEV-08 step 2** (alert da sensore, = Fase 7): decidere se e quando affrontarlo, vedi `fiora-mev.md`
 - Verifica manuale D15 su device/simulatore (badge "Personalizzata"): 3 casi — senza specie, con specie senza override, con specie + 1 override
 - **Ambiente staging** (in corso, 2026-07-24): backend in Docker su server Ubuntu locale (LAN casa), Postgres+Redis dedicati staging, `.env.staging`, `docker-compose.staging.yml`; mobile build EAS profilo `staging` puntata a IP LAN del server
@@ -180,8 +259,8 @@ Script import CSV → `species_import_raw` scritto e testato (path esatto non tr
 - **Dark mode**: `userInterfaceStyle: "automatic"` in app.json (era "light", bloccava il tema scuro; richiede rebuild nativa perché finisce in Info.plist)
 - **Guard auth nelle tabs**: `app/(tabs)/_layout.tsx` fa `Redirect` a `/(auth)/climate` se non autenticato; NON esiste `app/index.tsx` (creava conflitto di route con `(tabs)/index.tsx`, entrambi risolvono `/`)
 - **SpeciesPickerModal condiviso** tra add-plant ed edit-plant, ricerca con debounce 250ms su `/species`
-- **Trefle** (deciso dopo verifica live API): import completo indice in DB locale (437k specie, ~3-4h, rate limit 120 req/min), sync SETTIMANALE (non giornaliero: dataset stabile, scan costoso), ricerca pg_trgm. Trefle NON ha dati di cura → i reminder restano basati sulle nostre specie curate
-- **Catalogo grezzo generico** (2026-07-13): tabella `trefle_species_raw` rinominata in **`species_import_raw`** (model `SpeciesImportRaw`) con campi generici `externalId` (era trefleId), `updatedAtSource` e nuova colonna `fonte` (`'csv'|'trefle'`, default csv); anche `Species.trefleId` → `Species.externalId`. Motivo: in dev/test il catalogo esteso si popola via **import CSV manuale** con poche specie, Trefle resta il meccanismo di produzione (Fase 9). Migration `rinomina_catalogo_import_generico`. Script import CSV da scrivere (dentro /backend, vedi lezione ts-node)
+- **Trefle rimosso** (2026-08-20): dopo verifica live API, dati di cura (`growth`) risultati quasi sempre null anche su specie comuni — inutilizzabile per l'obiettivo del catalogo. Codice tolto (`trefle.service.ts`, `trefle-sync.service.ts`, `trefle-sync.job.ts`, `import-trefle-catalog.ts`, coda BullMQ `trefle-sync`). `species_import_raw` (model `SpeciesImportRaw`, ex `trefle_species_raw`) resta nello schema per un futuro import CSV curato manualmente, ma non è la via scelta per l'arricchimento in corso (vedi `piante_csv_raw` sotto)
+- **Catalogo esteso, nuovo punto di partenza CSV giardinaggio** (2026-08-20): tabella dedicata `piante_csv_raw` (non `species_import_raw`, per non mischiare con lo schema pensato per import curati) — import 1:1 grezzo di `template_specie/piante.csv`, nessuna interpretazione. GBIF scartato come fonte di traduzione italiana (copertura 7.5% su campione, limite strutturale delle fonti aggregate, non dell'API). Mapping/traduzione verso `Species` rimandato, nessuna decisione presa
 - **docs/ e CLAUDE.md versionati** in git (tolti da .gitignore, repo privato)
 - **Build iOS**: EAS come via principale; build locale accantonata per bug path con spazi (vedi sopra)
 - **Push notifications (Fase 8, 2026-07-13)**: stile "digest + singola smart" (1 task → notifica specifica con deep link pianta, N → digest); notifiche attive = `pushToken != null` (nessuna colonna `enable_notifications`); orario invio per-utente da `orarioReminder` (cron unico `0 9,15,19 * * *`, worker filtra per fascia); niente polling receipts Expo (solo errori ticket, `DeviceNotRegistered` → token azzerato); alert sensori esclusi (Fase 7)
@@ -273,6 +352,7 @@ npm run dev                                    # avvia con hot reload
 npx prisma generate                            # rigenera client Prisma
 npx prisma migrate dev --name <nome>           # crea nuova migration
 npx prisma studio                              # GUI database
+npm run piante-csv:import                      # import grezzo template_specie/piante.csv → piante_csv_raw
 
 # Mobile (da /mobile)
 npx expo start -c                              # avvia con cache pulita
@@ -328,8 +408,9 @@ eas build --profile staging --platform ios
 - **Fase 6** ✅ Integrazione vaso smart (MQTT → DB, schermate Vasi, pairing BLE) — completa (2026-08-18): backend pairing+telemetria ✅, firmware BLE provisioning ✅, mobile schermata pairing ✅, test end-to-end su hardware reale (Android + ESP32) ✅
 - **Fase 7** Alert sensori (+ push per alert, esclusi da Fase 8) — rimandata
 - **Fase 8** ✅ Notifiche push Expo (2026-07-13, solo reminder calendario)
-- **Fase 9** Catalogo esteso — 🚧 parziale: proposta specie utente (§12.3) ✅ fatta 2026-08-18 (vedi sopra), niente area admin (decisione presa). Manca ancora: script import CSV mai lanciato con dati (species_import_raw vuota), import massivo Trefle in prod (`fonte='trefle'`, 437k specie, ~3-4h una tantum), arricchimento dettagli on-demand, sync settimanale, ricerca pg_trgm. NB: Trefle NON ha dati di cura (verificato: growth null anche per Monstera) — serve solo per ricerca/nomi/immagini
+- **Fase 9** Catalogo esteso — 🚧 parziale: proposta specie utente (§12.3) ✅ fatta 2026-08-18 (vedi sopra), niente area admin (decisione presa). Trefle **rimosso dal codice** (2026-08-20, non aveva dati di cura utilizzabili). Nuovo punto di partenza: `piante_csv_raw` popolata con 4655 righe grezze da CSV giardinaggio (2026-08-20, vedi sezione dedicata sopra) — import fatto, mapping/traduzione verso `Species` non ancora deciso. Manca ancora: ricerca pg_trgm
 - **Fase 10** rifinitura UI (fiori bouquet, empty state suggerimenti) — inversione onboarding + pagina intro ✅ fatte il 2026-07-13; Apple Sign-In ✅ fatto 2026-08-04 (vedi sopra)
+- **Fase 16** Aggiornamento firmware OTA — 📋 pianificata (specifica completa in `fiora-specifiche-tecniche.md` §16, zero codice), lavoro firmware da fare prima del rilascio in produzione, non prioritario ora
 - **Post-MVP** Email transazionali, offline SQLite, cambio email
 
 ## Note importanti

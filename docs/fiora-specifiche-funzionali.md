@@ -750,9 +750,10 @@ oggi tutti i task hanno sorgente `calendario` o `manuale`.
  
 ## 10. Vaso smart — pairing e gestione
  
-**Stato: 🚧 Fase 6 in corso.** Pairing BLE, lista vasi, dettaglio vaso, dati sensori e
-collega/scollega pianta sono implementati **ma mai testati end-to-end su hardware reale**.
-La riconfigurazione WiFi (§10.4) è 📋: dipende dal pulsante fisico, non gestito nel firmware.
+**Stato: ✅ Fase 6 completa (2026-08-18).** Pairing BLE, lista vasi, dettaglio vaso, dati
+sensori e collega/scollega pianta sono implementati e **testati end-to-end su hardware
+reale** (Android + ESP32). La riconfigurazione WiFi (§10.4) è ✅ anch'essa testata
+end-to-end (MEV-05, 2026-08-14/18).
  
 > **Credenziali MQTT — dev/staging vs produzione.** Questo capitolo descrive credenziali
 > dedicate per vaso (`vaso-{device_id}`), che restano il modello di **produzione** con
@@ -938,17 +939,17 @@ all'utente come un pairing perfettamente riuscito.
  
 ### 10.4 Riconfigurazione WiFi vaso
  
-**Stato: 📋 non implementato.** Richiede la gestione del pulsante fisico nel firmware
-(assente) e una voce "Riconfigura WiFi" nel dettaglio vaso (assente). Finché mancano
-entrambe, un vaso che perde la rete di casa va rimosso e ri-appaiato da zero.
+**Stato: ✅ completo e testato end-to-end su hardware reale (MEV-05, 2026-08-14/18).**
+Nessuna riga `smart_vases` duplicata, pianta collegata e storico letture intatti dopo
+la riconnessione.
  
 **Descrizione:** L'utente deve riconfigurare il WiFi del vaso (es. rete cambiata o password modificata).
  
 **Flusso principale:**
-1. L'utente tiene premuto il pulsante fisico sul vaso per 5 secondi → il vaso cancella le credenziali salvate e torna in modalità BLE advertising.
-2. Dal dettaglio vaso nell'app, l'utente tocca "Riconfigura WiFi".
-3. Il flusso BLE riparte dallo step 3 della sezione 10.1 (scansione e selezione del vaso).
-4. Le credenziali MQTT e il `device_id` rimangono invariati — solo il WiFi viene riconfigurato.
+1. Reset innescato in due modi: pulsante fisico sul vaso (pin GPIO13 a GND, sia a runtime via interrupt sia tenuto premuto al boot) oppure da remoto, senza accesso fisico, con "Riconfigura WiFi" nel dettaglio vaso → comando MQTT `"reset"` sul topic `config` (`POST /vases/:id/reset-wifi`). In entrambi i casi il vaso cancella le credenziali WiFi salvate e torna in modalità BLE advertising.
+2. Dal dettaglio vaso nell'app, l'utente conferma "Riconfigura WiFi" → `app/vase/reconnect-wifi.tsx` (riusa la meccanica BLE di `vase/pair.tsx`, estratta in `src/lib/bleProvisioning.ts`).
+3. Scansione e selezione del vaso, poi nuove credenziali WiFi via `GET /vases/:id/reconnect-credentials`.
+4. Le credenziali MQTT e il `device_id` rimangono invariati — stesso vaso, nessun nuovo pairing o riga duplicata.
 ---
  
 ### 10.5 Rimozione vaso smart
@@ -1126,7 +1127,7 @@ solo da lui — non è mai visibile né riusabile da altri utenti.
      già disponibili) invece di crearne una privata duplicata.
    - **Se non trovata:** crea la riga in `Species` con `fonte='utente'`,
      `stato='attivo'` da subito (nessuna revisione) e proprietario
-     (`propostoDao` = l'utente) — la ricerca specie (§12.1) la restituisce
+     (`propostoDa` = l'utente) — la ricerca specie (§12.1) la restituisce
      **solo per richieste fatte da quello stesso utente**, mai per gli altri.
 7. L'utente può usarla immediatamente per la pianta corrente e per qualsiasi
    pianta futura propria.

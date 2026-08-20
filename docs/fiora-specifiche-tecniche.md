@@ -366,9 +366,21 @@ CREATE TABLE plants (
   foto_url        VARCHAR(500),
   stato           VARCHAR(50) NOT NULL DEFAULT 'attivo',  -- 'attivo' | 'archiviato' | 'eliminato'
   stato_bouquet   VARCHAR(50),            -- 'fresco' | 'in_cura' | 'appassendo' | 'concluso'
+  stato_bouquet_manuale BOOLEAN NOT NULL DEFAULT false,  -- true = cron non ricalcola più lo stato bouquet
   data_ricezione  DATE,                   -- per i bouquet
   vaso_id         UUID REFERENCES smart_vases(id),
   note            TEXT,
+  -- MEV-09 (2026-08-18): cura manuale, obbligatoria senza species_id, override opzionale con specie
+  luce_cura          VARCHAR(50),         -- override 'bassa' | 'media' | 'alta'
+  annaffiatura_cura  VARCHAR(50),         -- override 'poca' | 'media' | 'frequente'
+  umidita_cura       VARCHAR(50),         -- override 'bassa' | 'media' | 'alta'
+  -- MEV-08 step 1 (2026-08-18): soglie sensori per-pianta, richiedono vaso_id, azzerate se il vaso viene scollegato
+  soglia_umidita_min INTEGER,             -- %
+  soglia_umidita_max INTEGER,             -- %
+  soglia_luce_min    INTEGER,             -- lux
+  soglia_luce_max    INTEGER,             -- lux
+  soglia_temp_min    DECIMAL(4,1),        -- °C, un decimale
+  soglia_temp_max    DECIMAL(4,1),        -- °C, un decimale
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -789,10 +801,14 @@ La frequenza è configurabile dal backend in tempo reale pubblicando sul topic `
 }
 ```
  
-> **Non ancora implementato (debito D3, D4).** Il firmware pubblica ogni 3 secondi
-> anziché ogni 15 minuti, e pur essendo iscritto al topic `config` non registra
-> alcuna callback: i comandi di `sampling_interval_seconds` vengono ignorati.
-> Lato backend `publishToVase()` esiste ma nessun endpoint la richiama.
+> **D4 — chiuso, valore diverso dalla specifica.** Il firmware campiona ogni 30 minuti
+> (`config.cpp`), non ogni 15/5 come sopra — la specifica va allineata al codice o il
+> codice alla specifica, decisione ancora da prendere.
+>
+> **D3 — parziale.** `mqttCallback` in `mqtt_handler.cpp` esiste e gestisce il comando
+> `"check"` (forza una lettura immediata) e `"reset"` (riconfigurazione WiFi, vedi
+> sotto). Non gestisce ancora `sampling_interval_seconds` da remoto: resta da
+> aggiungere se serve cambiare l'intervallo senza reflash.
  
 ### Flusso di provisioning WiFi (BLE — prima configurazione)
  
@@ -840,14 +856,13 @@ Servizio BLE `6e400001-b5a3-f393-e0a9-e50e24dcca9e`, characteristic in scrittura
 }
 ```
  
-> **Disallineamento aperto (debito D1, bloccante).** L'app invia `mqtt_user` e
-> `mqtt_pass`; il firmware legge `mqtt_username` e `mqtt_password`, quindi non li
-> trova e resta senza credenziali MQTT. **Il firmware va allineato ai nomi qui sopra**
-> prima del primo test su hardware reale.
+> **D1 — chiuso.** `ble_provisioning.cpp` legge `mqtt_user`/`mqtt_pass`, allineato
+> all'app. Verificato su hardware reale (2026-08-18).
 >
-> **Debito D9:** `broker_host` e `broker_port` sono parte del contratto ma oggi l'app
-> non li invia e il firmware ha host e porta hardcoded. Vanno implementati: senza,
-> la migrazione a Mosquitto in produzione richiederebbe il reflash di ogni vaso.
+> **D9 — chiuso e verificato su hardware (2026-08-18).** `broker_host`/`broker_port`
+> sono trasmessi dall'app (estratti da `brokerUrl`) e ricevuti/salvati in NVS dal
+> firmware, usati in `connectMQTT()` al posto delle costanti hardcoded. La migrazione
+> a Mosquitto in produzione non richiede più il reflash di ogni vaso.
  
 **Codifica:** il payload va codificato in **base64 UTF-8-safe**. `btoa` non basta —
 SSID e password italiani possono contenere caratteri accentati fuori dal range Latin1,
@@ -890,11 +905,19 @@ che verrebbero corrotti silenziosamente.
  
 ### Riconfigurazione WiFi (rete cambiata)
  
-Se l'utente cambia rete WiFi, il vaso deve essere riconfigurato. Il flusso è identico al primo avvio: tenere premuto il pulsante di reset sul vaso per 5 secondi per riportarlo in modalità BLE advertising. Le credenziali MQTT e il `device_id` rimangono invariati — solo il WiFi viene riconfigurato.
+Se l'utente cambia rete WiFi, il vaso deve essere riconfigurato. Il reset si innesca in
+due modi: pulsante fisico (GPIO13 a GND, sia a runtime via interrupt sia tenuto a
+massa al boot) oppure da remoto senza accesso fisico, con comando MQTT `"reset"` sul
+topic `config` (`POST /vases/:id/reset-wifi`). In entrambi i casi il vaso torna in
+modalità BLE advertising. Le credenziali MQTT e il `device_id` rimangono invariati —
+solo il WiFi viene riconfigurato, nessun nuovo pairing o riga duplicata in
+`smart_vases`.
  
-> **Non implementato (debito D7).** Il firmware non gestisce il pulsante fisico e
-> l'app non ha una voce "Riconfigura WiFi": oggi un vaso che perde la rete va rimosso
-> e ri-appaiato da zero.
+> **D7 — chiuso (2026-08-14, chiude anche MEV-05), testato end-to-end su hardware
+> reale (2026-08-18).** Lato app: dettaglio vaso → "Riconfigura WiFi" → conferma →
+> `app/vase/reconnect-wifi.tsx` (riusa la meccanica BLE di `vase/pair.tsx`, estratta in
+> `src/lib/bleProvisioning.ts`) → scan → nuove credenziali via
+> `GET /vases/:id/reconnect-credentials`.
  
 ### Fallimento della connessione dopo il provisioning
  
@@ -914,9 +937,9 @@ tentativi infinito:
  
 **Perché cancellare le credenziali.** Un vaso che le conserva e continua a ritentare
 resta invisibile: non è più raggiungibile via BLE (non fa advertising) e non parla col
-backend (non ha rete). Sarebbe recuperabile solo col pulsante fisico di reset, che oggi
-il firmware non gestisce (debito D7): un solo errore di battitura nella password
-renderebbe il vaso inutilizzabile.
+backend (non ha rete). Recuperabile col pulsante fisico di reset o col comando MQTT
+remoto `"reset"` (D7, chiuso — vedi sopra): un errore di battitura nella password non
+rende più il vaso inutilizzabile.
  
 Le credenziali salvate da un provisioning **andato a buon fine** non vanno invece mai
 cancellate per una disconnessione successiva: in quel caso il vaso ritenta
@@ -1051,6 +1074,13 @@ async function handleTelemetry(deviceId: string, data: SensorPayload) {
 ### Logica soglie sensori (backend only)
  
 Tutta la valutazione delle soglie e la traduzione dei valori avviene nel backend. L'app riceve solo le etichette già pronte.
+
+> **MEV-08 step 1 (2026-08-18, completo e testato).** Le soglie non vivono più solo su
+> `Species` come sotto: `Plant` ha 6 campi nullable `sogliaUmiditaMin/Max`,
+> `sogliaLuceMin/Max`, `sogliaTempMin/Max` (override per pianta reale, non per specie).
+> Fallback pianta → specie → default hardcoded (`plantUi.ts`). `PATCH /plants/:id` li
+> accetta, richiede `vasoId` valorizzato, valida min≤max. Step 2 (alert da sensore) è
+> la Fase 7, ancora 📋.
  
 | Sensore | Valore grezzo | Etichetta restituita | Campo `stato` |
 |---|---|---|---|

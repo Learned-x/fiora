@@ -1,6 +1,6 @@
 # 🌿 Fiora — Roadmap di sviluppo
 
-**Versione 2.0 · aggiornato al 2026-07-27**
+**Versione 2.1 · aggiornato al 2026-08-20**
 
 Stato di avanzamento del progetto, fase per fase, con il debito noto da recuperare.
 Sostituisce `fiora-roadmap-dettagliata.md` e `fiora-roadmap-sviluppo.txt`, che avevano
@@ -25,15 +25,19 @@ Documenti collegati:
 | 4 | App mobile — schermate principali | ✅ |
 | 4.5 | Consolidamento backend + mobile | ✅ 2026-07-13 |
 | 5 | Diario fotografico (MinIO) | ⏸️ rimandata |
-| **6** | **Integrazione vaso smart (MQTT, pairing BLE, schermate)** | 🚧 **in corso** |
+| **6** | **Integrazione vaso smart (MQTT, pairing BLE, schermate)** | ✅ **completa (2026-08-18)** |
 | 7 | Alert da sensore | ⏸️ rimandata |
 | 8 | Notifiche push Expo | ✅ 2026-07-13 |
-| 9 | Catalogo specie esteso (CSV in dev, Trefle in prod) | 📋 |
+| 9 | Catalogo specie esteso (CSV in dev, Trefle in prod) | 🚧 parziale — proposta specie utente ✅ |
 | 10 | Apple Sign-In + rifinitura UI | 🚧 parziale |
+| 16 | Aggiornamento firmware OTA | 📋 pianificata, da fare prima del rilascio in produzione |
 | Post-MVP | Offline SQLite | 📋 parcheggio |
-| MEV | Interventi evolutivi su funzioni esistenti — vedi `fiora-mev.md` | 📋 8 voci |
+| MEV | Interventi evolutivi su funzioni esistenti — vedi `fiora-mev.md` | 📋 9 voci |
 
 Tag `v0.1.0` su `main` (2026-07-24) = baseline pre-Fase 6.
+Fase 6 dichiarata completa il 2026-08-18: pairing BLE testato end-to-end su hardware
+reale (Android + ESP32), firmware modulare, credenziali MQTT verificate su HiveMQ
+Cloud. Nessun test end-to-end pendente — vedi dettaglio più sotto.
 
 Le email transazionali e il cambio email, prima parcheggiate a post-MVP, sono diventate
 **MEV-02** con priorità alta: senza, chi dimentica la password perde l'account.
@@ -95,9 +99,12 @@ stati spostati in Fase 7 perché presuppongono le soglie, che non esistono ancor
 
 ---
 
-## Fase 6 — Integrazione vaso smart 🚧 (in corso)
+## Fase 6 — Integrazione vaso smart ✅ (completa, 2026-08-18)
 
-Fase attiva. Backend e app sono scritti; **manca la validazione su hardware reale**.
+Backend, app e firmware scritti e **validati su hardware reale**: pairing BLE
+end-to-end su device Android reale + ESP32 fisico, utente MQTT condiviso verificato
+con permessi corretti su HiveMQ Cloud (publish/subscribe su `fiora/vaso/+/...`).
+Nessun test end-to-end pendente per questa fase.
 
 ### Fatto
 
@@ -114,17 +121,18 @@ Fase attiva. Backend e app sono scritti; **manca la validazione su hardware real
 - **Schermate Vasi e sensori nel dettaglio pianta** (2026-07-25): lista vasi reale,
   dettaglio vaso, tile umidità/luce/temperatura e sparkline umidità 24 h.
 
-### Da fare prima di chiudere la fase
+### Chiusura fase (2026-08-18)
 
-1. ~~Test end-to-end su hardware reale~~ — **fatto** (2026-07-31): primo pairing
-   completato su ESP32 fisico con il firmware riscritto. Da ripetere dopo l'aggiunta
-   di `mqtt_host`/`mqtt_port` (D9, non ancora verificata su hardware).
+1. ~~Test end-to-end su hardware reale~~ — **fatto** (2026-08-18): pairing completo
+   ripetuto dopo l'aggiunta di `mqtt_host`/`mqtt_port` (D9), su ESP32 fisico + Android
+   reale. Esito positivo.
 2. ~~Allineare i nomi dei campi nel payload BLE~~ — **fatto**, vedi D1 (chiuso).
-3. **Verificare i permessi dell'utente MQTT** su HiveMQ Cloud per publish e subscribe
-   sui topic `fiora/vaso/+/...`.
+3. ~~Verificare i permessi dell'utente MQTT~~ — **fatto** (2026-08-18): publish e
+   subscribe su `fiora/vaso/+/...` verificati su HiveMQ Cloud.
 4. ~~Investigare il bug collega/scollega pianta~~ — **fatto**, vedi D2 (chiuso).
 5. Ordinamento della collezione "per prossima azione" e filtro "con vaso smart"
-   (§3.1 funzionali), rinviati qui perché richiedono l'esistenza dei vasi.
+   (§3.1 funzionali) restano da fare ma non bloccano la chiusura della fase — spostati
+   come lavoro autonomo, non hanno altre dipendenze non soddisfatte.
 
 ---
 
@@ -132,10 +140,12 @@ Fase attiva. Backend e app sono scritti; **manca la validazione su hardware real
 
 Raccolto nell'audit del 2026-07-27 confrontando documentazione e codice, **rivisto il
 2026-07-31** dopo la riscrittura del firmware (commit `c146237`, non documentata al
-momento). Il firmware non è più un unico `vaso.ino` monolitico ma modulare: entry
-point **`firmware/vaso/vaso-testnale.ino`** (nome non allineato, probabile refuso —
-verificare se va rinominato) + `config.h/.cpp`, `ble_provisioning.h/.cpp`,
-`wifi_manager.h/.cpp`, `mqtt_handler.h/.cpp`, `sensors.h/.cpp`, `sleep_manager.h/.cpp`.
+momento) e **di nuovo il 2026-08-18** dopo il test end-to-end su hardware reale che ha
+chiuso D2/D9/D10 (dettagli sotto). Il firmware non è più un unico `vaso.ino`
+monolitico ma modulare: entry point **`firmware/vaso/vaso-testnale.ino`** (nome non
+allineato, probabile refuso — verificare se va rinominato) + `config.h/.cpp`,
+`ble_provisioning.h/.cpp`, `wifi_manager.h/.cpp`, `mqtt_handler.h/.cpp`,
+`sensors.h/.cpp`, `sleep_manager.h/.cpp`.
 
 ### Chiuse dalla riscrittura firmware (2026-07-31)
 
@@ -175,7 +185,7 @@ resta più bloccato irraggiungibile con credenziali sbagliate.
 
 ### Bloccanti per la Fase 6 rimasti aperti
 
-Nessuno al momento — vedi D2 chiuso sotto.
+Nessuno — fase chiusa il 2026-08-18.
 
 ### Chiuse dopo l'audit del 2026-07-31
 
@@ -205,14 +215,13 @@ rimuovere o chiarire se un domani si vuole davvero leggere l'umidità dell'aria.
 
 **D8 — Buffer offline.** Non implementato: i dati raccolti senza WiFi sono persi.
 
-**D9 — Endpoint del broker non trasmessi nel pairing.** 🚧 Implementato il 2026-07-31,
-non ancora testato su hardware. `mobile/app/vase/pair.tsx` ora estrae host e porta da
-`brokerUrl` (già restituito da `startPairing()`) e li aggiunge al payload BLE
+**D9 — Endpoint del broker non trasmessi nel pairing.** ✅ Risolto e verificato su
+hardware (2026-08-18). `mobile/app/vase/pair.tsx` estrae host e porta da `brokerUrl`
+(già restituito da `startPairing()`) e li aggiunge al payload BLE
 (`mqtt_host`/`mqtt_port`); il firmware (`config.h/.cpp`, `ble_provisioning.cpp`,
 `wifi_manager.cpp`, `mqtt_handler.cpp`) li riceve, salva in NVS e usa in
-`connectMQTT()` al posto delle costanti hardcoded. Verificare al prossimo pairing
-reale che il campo numerico `mqtt_port` sia deserializzato correttamente da
-ArduinoJson lato firmware.
+`connectMQTT()` al posto delle costanti hardcoded. Pairing reale ripetuto con esito
+positivo, `mqtt_port` deserializzato correttamente da ArduinoJson.
 
 ### Altro
 
@@ -271,6 +280,14 @@ Già fatto il 2026-07-13: inversione dell'onboarding e pagina intro a 3 slide.
 Restano: Apple Sign-In (richiede un account Apple Developer), "fiori nel bouquet",
 empty state con suggerimenti.
 
+### Fase 16 — Aggiornamento firmware OTA 📋
+
+Specifica di progetto completa in `fiora-specifiche-tecniche.md` §16 (modello dati,
+protocollo MQTT, API backend, flusso app, rollback), **zero codice scritto**. Lavoro
+firmware, va pianificato e fatto **prima del rilascio in produzione**: senza OTA ogni
+fix richiede di smontare il vaso e riflasharlo via USB, insostenibile con vasi in mano
+a utenti reali. Non prioritario finché si lavora su un solo prototipo via cavo.
+
 ### Post-MVP 📋
 
 - **Offline / cache locale SQLite** — fuori scope MVP: per il prototipo bastano
@@ -297,6 +314,7 @@ Fase 6. Specifiche complete in **`fiora-mev.md`**.
 | MEV-06 | Empty state con suggerimenti | Bassa |
 | MEV-07 | Esportazione dei dati utente (portabilità GDPR) | Bassa |
 | MEV-08 | Soglie sensori personalizzabili per pianta + alert configurabili | 🚧 Step 1 (soglie per-pianta) ✅ completo e testato (2026-08-18); step 2 (alert, = Fase 7) da valutare — dettagli in `fiora-mev.md` |
+| MEV-09 | Cura manuale per pianta (senza/con specie) + proposta specie utente | ✅ completa (2026-08-18) |
 
 ---
 

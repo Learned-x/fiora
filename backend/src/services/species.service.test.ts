@@ -16,7 +16,7 @@ describe('species.service listSpecies', () => {
     await speciesService.listSpecies(USER_ID, { search: 'monstera' });
 
     const args = (prisma.species.findMany as jest.Mock).mock.calls[0][0];
-    expect(args.where.OR).toEqual([{ fonte: { not: 'utente' } }, { propostoDao: USER_ID }]);
+    expect(args.where.OR).toEqual([{ fonte: { not: 'utente' } }, { propostoDa: USER_ID }]);
   });
 });
 
@@ -38,7 +38,7 @@ describe('species.service proposeSpecies', () => {
       id: 'species-nuova',
       nomeComune: 'Pianta rara del vicino',
       fonte: 'utente',
-      propostoDao: USER_ID,
+      propostoDa: USER_ID,
     });
 
     const result = await speciesService.proposeSpecies(USER_ID, {
@@ -51,7 +51,7 @@ describe('species.service proposeSpecies', () => {
     expect(result.creata).toBe(true);
     expect(prisma.species.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ fonte: 'utente', stato: 'attivo', propostoDao: USER_ID }),
+        data: expect.objectContaining({ fonte: 'utente', stato: 'attivo', propostoDa: USER_ID }),
       })
     );
   });
@@ -111,7 +111,7 @@ describe('species.service proposeSpecies', () => {
     expect(prisma.species.create).toHaveBeenCalled();
   });
 
-  it('la specie creata da un utente è privata (propostoDao=quell\'utente, non altri)', async () => {
+  it('la specie creata da un utente è privata (propostoDa=quell\'utente, non altri)', async () => {
     (prisma.species.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.species.create as jest.Mock).mockResolvedValue({});
 
@@ -123,6 +123,6 @@ describe('species.service proposeSpecies', () => {
     });
 
     const args = (prisma.species.create as jest.Mock).mock.calls[0][0];
-    expect(args.data.propostoDao).toBe(OTHER_USER_ID);
+    expect(args.data.propostoDa).toBe(OTHER_USER_ID);
   });
 });

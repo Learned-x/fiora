@@ -52,7 +52,7 @@ model User {
 
 model SpeciesImportRaw {
   externalId       Int       @id @map("external_id")
-  fonte            String    @default("csv") @db.VarChar(50) // 'csv' | 'trefle'
+  fonte            String    @default("csv") @db.VarChar(50) // 'csv'
   slug             String    @db.Text
   scientificName   String    @map("scientific_name") @db.Text
   commonName       String?   @map("common_name") @db.Text
@@ -73,6 +73,58 @@ model SpeciesImportRaw {
   @@map("species_import_raw")
 }
 
+// Import grezzo 1:1 di template_specie/piante.csv (dataset giardinaggio/paesaggistica,
+// non piante da vaso interno) — nessuna interpretazione/mapping, tutte le colonne come
+// stringa così come sono nel CSV. Da analizzare/tradurre/mappare in un secondo momento
+// prima di un eventuale sync verso Species.
+model PianteCsvRaw {
+  id                   String   @id @default(uuid()) @db.Uuid
+  plantId              String?  @map("plant_id") @db.Text
+  plantCode            String?  @map("plant_code") @db.Text
+  botanicalName        String?  @map("botanical_name") @db.Text
+  commonName           String?  @map("common_name") @db.Text
+  previousName         String?  @map("previous_name") @db.Text
+  plantType            String?  @map("plant_type") @db.Text
+  waterNeeds           String?  @map("water_needs") @db.Text
+  climateZones         String?  @map("climate_zones") @db.Text
+  lightNeeds           String?  @map("light_needs") @db.Text
+  soilType             String?  @map("soil_type") @db.Text
+  soilAdditional       String?  @map("soil_additional") @db.Text
+  maintenance          String?  @db.Text
+  abcission            String?  @db.Text
+  heightRanges         String?  @map("height_ranges") @db.Text
+  spreadRanges         String?  @map("spread_ranges") @db.Text
+  flowerColour         String?  @map("flower_colour") @db.Text
+  foliageColour        String?  @map("foliage_colour") @db.Text
+  perfume              String?  @db.Text
+  aromatic             String?  @db.Text
+  edible               String?  @db.Text
+  birdAttracting       String?  @map("bird_attracting") @db.Text
+  birdAttractant       String?  @map("bird_attractant") @db.Text
+  boreWaterTolerance   String?  @map("bore_water_tolerance") @db.Text
+  frostTolerance       String?  @map("frost_tolerance") @db.Text
+  greywaterTolerance   String?  @map("greywater_tolerance") @db.Text
+  native               String?  @db.Text
+  butterflyAttracting  String?  @map("butterfly_attracting") @db.Text
+  butterflyType        String?  @map("butterfly_type") @db.Text
+  image                String?  @db.Text
+  imageLocation        String?  @map("image_location") @db.Text
+  imageOwner           String?  @map("image_owner") @db.Text
+  herbExternalHave     String?  @map("herb_external_have") @db.Text
+  herbImagesChangeTo   String?  @map("herb_images_change_to") @db.Text
+  notes                String?  @db.Text
+  whyPhotoRemoved      String?  @map("why_photo_removed") @db.Text
+  whyPlantRemoved      String?  @map("why_plant_removed") @db.Text
+  actionedBy           String?  @map("actioned_by") @db.Text
+  dateActioned         String?  @map("date_actioned") @db.Text
+  status               String?  @db.Text
+
+  importedAt           DateTime @default(now()) @map("imported_at") @db.Timestamptz()
+
+  @@index([botanicalName], name: "idx_piante_csv_raw_botanical_name")
+  @@map("piante_csv_raw")
+}
+
 // ─── Species ─────────────────────────────────────────────────────────────────
 
 model Species {
@@ -88,7 +140,7 @@ model Species {
   tossicita            Boolean?
   noteCura             String?  @map("note_cura") @db.Text
   sogliaUmidita        Int?     @map("soglia_umidita")
-  fonte                String   @db.VarChar(50)   // 'curato' | 'trefle' | 'utente'
+  fonte                String   @db.VarChar(50)   // 'curato' | 'csv' | 'utente'
   stato                String   @default("attivo") @db.VarChar(50) // 'attivo' | 'in_revisione'
 
   // Collegamento al catalogo grezzo importato (CSV in dev, Trefle in prod)
@@ -96,14 +148,14 @@ model Species {
   immaginePrincipaleUrl String? @map("immagine_principale_url") @db.VarChar(500)
 
   // Moderazione (solo se fonte='utente')
-  propostoDao          String?  @map("proposto_da") @db.Uuid
+  propostoDa          String?  @map("proposto_da") @db.Uuid
   approvatoDa          String?  @map("approvato_da") @db.Uuid
 
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   importRaw    SpeciesImportRaw? @relation(fields: [externalId], references: [externalId])
-  proposedBy   User?             @relation("ProposedBy", fields: [propostoDao], references: [id])
+  proposedBy   User?             @relation("ProposedBy", fields: [propostoDa], references: [id])
   approvedBy   User?             @relation("ApprovedBy", fields: [approvatoDa], references: [id])
   plants       Plant[]
 

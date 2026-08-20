@@ -1362,11 +1362,11 @@ Prima di ogni release, aggiornare `mobile/app.json`:
     "slug": "fiora",
     "version": "1.4.0",
     "ios": {
-      "bundleIdentifier": "com.tangifiori.app",
+      "bundleIdentifier": "app.fiora.mobile",
       "buildNumber": "14"
     },
     "android": {
-      "package": "com.tangifiori.app",
+      "package": "app.fiora.mobile",
       "versionCode": 14
     }
   }
