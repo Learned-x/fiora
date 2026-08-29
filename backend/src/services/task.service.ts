@@ -17,15 +17,27 @@ export const TASK_TYPES = [
 
 const GIORNI_IN_RITARDO = 3;
 
-export function isTaskLate(task: { stato: string; scadenza: Date }): boolean {
+// Tetto di sicurezza su GET /tasks: senza, la rotta restituisce tutto lo storico
+// dell'utente (misurato: 762 KB e 678 ms per un utente con 6 mesi di task). Il
+// default è generoso perché i chiamanti reali filtrano già per data — serve a
+// impedire il caso degenere, non a paginare l'uso normale.
+const TASKS_LIMIT_DEFAULT = 200;
+const TASKS_LIMIT_MAX = 500;
+
+export function isTaskLate(task: { stato: string; scadenza: Date }, now: number = Date.now()): boolean {
   return (
     task.stato === 'pending' &&
-    task.scadenza.getTime() < Date.now() - GIORNI_IN_RITARDO * 24 * 60 * 60 * 1000
+    task.scadenza.getTime() < now - GIORNI_IN_RITARDO * 24 * 60 * 60 * 1000
   );
 }
 
-function serializeTask<T extends { stato: string; scadenza: Date }>(task: T): T & { inRitardo: boolean } {
-  return { ...task, inRitardo: isTaskLate(task) };
+// `now` passato dall'esterno quando si serializza una lista: altrimenti ogni
+// elemento richiama Date.now().
+function serializeTask<T extends { stato: string; scadenza: Date }>(
+  task: T,
+  now: number = Date.now()
+): T & { inRitardo: boolean } {
+  return { ...task, inRitardo: isTaskLate(task, now) };
 }
 
 export interface CreateTaskInput {
@@ -39,6 +51,13 @@ export interface ListTasksFilters {
   stato?: string;
   from?: string; // ISO datetime, filtro su scadenza
   to?: string;
+  // Filtro su completatoA, non su scadenza: un task scaduto giorni fa ma
+  // completato oggi deve rientrare in "completati oggi", e con il filtro su
+  // scadenza verrebbe perso.
+  completatoFrom?: string;
+  completatoTo?: string;
+  limit?: number;
+  offset?: number;
 }
 
 const plantSelect = { id: true, nome: true, fotoUrl: true } as const;
@@ -65,6 +84,9 @@ export async function createTask(userId: string, plantId: string, input: CreateT
 // ── List ──────────────────────────────────────────────────────────────────────
 
 export async function listTasks(userId: string, filters: ListTasksFilters = {}) {
+  const take = Math.min(filters.limit ?? TASKS_LIMIT_DEFAULT, TASKS_LIMIT_MAX);
+  const skip = filters.offset ?? 0;
+
   const tasks = await prisma.task.findMany({
     where: {
       userId,
@@ -76,11 +98,21 @@ export async function listTasks(userId: string, filters: ListTasksFilters = {}) 
           ...(filters.to && { lte: new Date(filters.to) }),
         },
       }),
+      ...((filters.completatoFrom || filters.completatoTo) && {
+        completatoA: {
+          ...(filters.completatoFrom && { gte: new Date(filters.completatoFrom) }),
+          ...(filters.completatoTo && { lte: new Date(filters.completatoTo) }),
+        },
+      }),
     },
     orderBy: { scadenza: 'asc' },
     include: { plant: { select: plantSelect } },
+    take,
+    skip,
   });
-  return tasks.map(serializeTask);
+
+  const now = Date.now();
+  return tasks.map((t: { stato: string; scadenza: Date }) => serializeTask(t, now));
 }
 
 // ── Ownership helper ──────────────────────────────────────────────────────────
@@ -102,15 +134,21 @@ export async function completeTask(userId: string, taskId: string, nota?: string
     throw { code: 'TASK_ALREADY_COMPLETED', status: 409, message: 'Task già completato' };
   }
 
-  const updated = await prisma.task.update({
-    where: { id: taskId },
-    data: { stato: 'completato', completatoA: new Date(), ...(nota !== undefined && { nota }) },
-    include: { plant: { select: plantSelect } },
-  });
+  // Transazione unica: prima erano due query separate e se la seconda falliva il
+  // task restava completato senza voce nello storico della pianta.
+  const updated = await prisma.$transaction(async (tx: typeof prisma) => {
+    const result = await tx.task.update({
+      where: { id: taskId },
+      data: { stato: 'completato', completatoA: new Date(), ...(nota !== undefined && { nota }) },
+      include: { plant: { select: plantSelect } },
+    });
 
-  // Storico azioni: ogni task completato genera una voce nel log della pianta
-  await prisma.actionLog.create({
-    data: { plantId: task.plantId, userId, tipo: task.tipo, nota },
+    // Storico azioni: ogni task completato genera una voce nel log della pianta
+    await tx.actionLog.create({
+      data: { plantId: task.plantId, userId, tipo: task.tipo, nota },
+    });
+
+    return result;
   });
 
   return serializeTask(updated);

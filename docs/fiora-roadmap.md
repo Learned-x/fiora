@@ -42,6 +42,10 @@ Cloud. Nessun test end-to-end pendente — vedi dettaglio più sotto.
 Le email transazionali e il cambio email, prima parcheggiate a post-MVP, sono diventate
 **MEV-02** con priorità alta: senza, chi dimentica la password perde l'account.
 
+Lo stress test del 2026-08-28 ha aperto il **debito di efficienza backend D20–D31**
+(backend CPU-bound, 4 core al 70–90% sotto carico modesto): dettaglio e ordine di
+intervento nella sezione dedicata in `## Debito di efficienza backend`.
+
 > **Nota sulla numerazione.** Nella prima stesura della roadmap il vaso smart era la
 > Fase 7 e le notifiche push la Fase 6. L'ordine è stato invertito in corso d'opera:
 > **vaso smart = Fase 6, notifiche push = Fase 8**. La numerazione di questo documento
@@ -141,7 +145,9 @@ Nessun test end-to-end pendente per questa fase.
 Raccolto nell'audit del 2026-07-27 confrontando documentazione e codice, **rivisto il
 2026-07-31** dopo la riscrittura del firmware (commit `c146237`, non documentata al
 momento) e **di nuovo il 2026-08-18** dopo il test end-to-end su hardware reale che ha
-chiuso D2/D9/D10 (dettagli sotto). Il firmware non è più un unico `vaso.ino`
+chiuso D2/D9/D10 (dettagli sotto). Il **2026-08-28** aggiunto il debito di efficienza
+backend **D20–D31**, dallo stress test (backend CPU-bound: 4 core al 70–90% sotto carico
+modesto) — vedi sezione dedicata in fondo. Il firmware non è più un unico `vaso.ino`
 monolitico ma modulare: entry point **`firmware/vaso/vaso-testnale.ino`** (nome non
 allineato, probabile refuso — verificare se va rinominato) + `config.h/.cpp`,
 `ble_provisioning.h/.cpp`, `wifi_manager.h/.cpp`, `mqtt_handler.h/.cpp`,
@@ -231,6 +237,133 @@ positivo, `mqtt_port` deserializzato correttamente da ArduinoJson.
 più su questa macchina — probabile causa originale un `node_modules` incompleto/
 corrotto, non un problema di configurazione. Se ricompare su un altro Mac, reinstallare
 le dipendenze (`rm -rf node_modules && npm install`) prima di indagare oltre.
+
+---
+
+## Debito di efficienza backend — audit 2026-08-28
+
+Dallo stress test: il backend è **CPU-bound** e satura il core del main thread già sotto
+carico modesto (4 vCPU al 70–90%). Il backend è **un singolo processo Node** → un solo
+core esegue JavaScript; gli altri core sotto carico sono Postgres, i worker-thread di
+pino e la threadpool libuv (bcrypt). Le ottimizzazioni per-richiesta abbassano il costo
+ma **non distribuiscono** il carico: per usare i core 2–N serve lo scaling orizzontale
+(D20). La CPU-per-richiesta resta la stessa su qualsiasi macchina — dimezzarla dimezza
+il costo infra e alza il tetto utenti.
+
+Riferimenti `file:riga` relativi a `backend/`. Il test attuale (5 utenti, 5 righe, sole
+letture) esalta D29 e il costo fisso per-richiesta (log, pool) e **nasconde** D23–D25 e
+D28: per misurarli serve un seed realistico (100+ utenti, storico task di mesi, decine
+di piante ciascuno) con le scritture riattivate.
+
+### Strutturale — sblocca i core oltre il primo (produzione)
+
+**D20 — Processo singolo, nessun clustering.** `Dockerfile:27` (`CMD ["node",
+"dist/index.js"]`), `src/index.ts:18`. In prod con 2–N vCPU ne usa **uno solo** per
+servire richieste. Fix: più repliche del container dietro reverse proxy (Nginx/Caddy —
+**oggi assente del tutto**), una per vCPU, oppure PM2 cluster mode. È l'unico intervento
+che distribuisce il carico. Prerequisito: D22 (dimensionare il pool per replica) e D21
+(togliere i worker dal processo API, o le repliche eseguono N volte gli stessi job).
+
+**D21 — Worker BullMQ nel processo API + reminder engine N+1 in scrittura.**
+`src/index.ts:10-14` importa 4 Worker (`reminder`, `notification`, `account-deletion`,
+`email`) nello stesso processo dell'HTTP. A regime il costo è basso (job 1×/giorno e
+3×/giorno), ma `runReminderEngine` (`src/services/reminder.service.ts:49-96` e simili)
+carica **tutte** le piante attive globali e fa `prisma.task.create` **una alla volta** in
+loop: con 5–10k piante il run delle 6:00 pinna l'event loop per secondi e stalla l'HTTP.
+Fix: (a) processo worker separato (`node dist/worker.js`, container distinto — Redis +
+BullMQ già presenti); (b) riscrivere il reminder engine con `createMany`/`updateMany`
+batch invece di N insert sequenziali.
+
+**D22 — Pool di connessioni Prisma non configurato.** `src/lib/prisma.ts:10`:
+`new PrismaPg({ connectionString })` senza opzioni. Con l'adapter `@prisma/adapter-pg`
+il parametro `?connection_limit=` nell'URL **è inefficace** (agisce sul pool del
+query-engine Rust, bypassato dal driver adapter); il pool reale è quello di `pg.Pool`,
+default `max: 10`. Va impostato esplicitamente e dimensionato su `max_connections` di
+Postgres ÷ (numero repliche D20 + worker D21):
+```ts
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 10 });
+```
+
+### Per-richiesta — abbassa il tetto, fattibile subito
+
+**D23 — Indici tasks mancanti/non allineati.** `prisma/schema.prisma:247`: unico indice
+`(user_id, scadenza)`. Le query reali filtrano `user_id + stato` e ordinano `scadenza`
+→ serve `(user_id, stato, scadenza)`. Il `_count` di `listPlants` (D25) filtra `tasks
+WHERE plant_id + stato='pending'` → serve `(plant_id, stato)`. Due migration, alto
+impatto sulle due rotte più chiamate.
+
+**D24 — `GET /tasks` senza paginazione.** `src/services/task.service.ts:67-84`:
+`listTasks` senza filtro `stato` restituisce **tutti** i task di sempre dell'utente
+(completati inclusi), ognuno con `include: { plant }`. Un utente con anni di storico →
+migliaia di righe a ogni chiamata. Fix: `take: 100` di default + cursor pagination.
+
+**D25 — `GET /plants` — `_count` con filtro = subquery correlata per riga.**
+`src/services/plant.service.ts:194-203`: `_count: { select: { tasks: { where: { stato:
+'pending' } } } }` diventa uno scalare correlato eseguito per ogni pianta. Prima prova
+**solo l'indice** `(plant_id, stato)` di D23 (rende il conteggio un index-count cheap);
+se resta lento, sostituisci con `task.groupBy({ by: ['plantId'], where: { userId, stato:
+'pending' }, _count: true })` in parallelo + merge in JS (2 query totali).
+
+**D26 — `completeTask` non atomico + round-trip multipli.**
+`src/services/task.service.ts:98-116`: `findOwnedTask` → `task.update` →
+`actionLog.create`, 3 round-trip in serie; se `actionLog.create` fallisce il task resta
+`completato` **senza log** (correttezza, non solo efficienza). Fix: `where: { id, userId
+}` nell'update (fonde l'ownership check) + `prisma.$transaction([update, actionLogCreate])`.
+Stesso pattern per `postponeTask`/`skipTask` (2→1 round-trip, togliendo `findOwnedTask`).
+
+**D27 — Logging per-richiesta a `info` in prod su 3 stream.** `src/lib/logger.ts` +
+`pino-http` in `src/app.ts:24`: ogni richiesta è loggata a `info` (default in prod) su
+file `combined` (worker-thread) + stdout — serializzazione + IPC + write su disco per
+ogni GET, health check e `/docs` inclusi. Fix: `autoLogging.ignore` per `/health` e
+`/docs*`, e valutare `LOG_LEVEL=warn` per l'access log in prod (gli errori restano sul
+loro stream dedicato).
+
+**D28 — MQTT `handleTelemetry`: nessun limite di concorrenza + 3–4 query/messaggio.**
+`src/lib/mqtt.ts:85-107`: `routeMessage` fa `handleTelemetry(...).catch(...)`
+fire-and-forget, **senza backpressure** — con molti vasi o un burst di riconnessioni
+QoS 1 le promesse concorrenti sono illimitate → query illimitate sullo **stesso pool
+dell'API** (D22) → degradazione non lineare. Inoltre per ogni messaggio:
+`smartVase.findUnique` + `plant.findFirst` + `sensorReading.create` +
+`touchVaseLastSeen` (4 round-trip). Fix: concorrenza limitata (`p-limit`, o telemetrie
+in una coda BullMQ con `concurrency` fissa); cache in memoria `deviceId → { vaseId,
+plantId }`; batch degli insert (`createMany` ogni 2–5 s); `touchVaseLastSeen` throttled.
+
+### Minori
+
+**D29 — Verifica JWT sincrona a ogni richiesta + blacklist mai controllata.**
+`src/middleware/auth.middleware.ts:26`: `jwt.verify` HS256 sull'event loop a ogni
+richiesta autenticata (~0,05–0,15 ms — contributo, non tappo principale). Cache in
+memoria opzionale (chiave = hash SHA-256 del token, TTL = `exp`). **Nello stesso punto**:
+la blacklist Redis `blacklist:${userId}` è scritta da `auth.service.ts:352` (richiesta
+eliminazione account) ma `requireAuth` **non la legge mai** — un access token resta
+valido fino a scadenza (15 min) anche dopo la richiesta. Sistemare le due cose insieme:
+cache + check blacklist sul miss.
+
+**D30 — Nessun rate-limit oltre `/auth`.** `express-rate-limit` è applicato solo in
+`src/routes/auth.routes.ts:15`. `/plants`, `/tasks`, `/species` non hanno limiti: un
+client in loop (bug mobile o abuso) può saturare la CPU senza freni. Un limiter globale
+è assicurazione a costo CPU trascurabile.
+
+**D31 — Igiene varia.** (a) `express.json()` senza `limit` (`src/app.ts:23`) — aggiungere
+`{ limit: '32kb' }`, impatto CPU ~0 ma buona pratica; (b) `BCRYPT_ROUNDS = 12`
+(`src/services/auth.service.ts:12`) → 10 è ancora sicuro nel 2026 e dimezza la CPU per
+login, utile contro burst di login post-deploy che saturano la threadpool libuv;
+(c) `tsconfig.json:3` `target: ES2020` su Node 20 → alzare a `ES2022` (downlevel
+async/await più verboso), marginale; (d) `updatePlant` (`src/services/plant.service.ts:227-274`)
+fa fino a 5 query sequenziali prima della transazione — parallelizzabili con `Promise.all`,
+PATCH è raro quindi priorità bassa; (e) ricerca specie (`src/services/species.service.ts:32-40`)
+fa `findMany` + `count` a ogni keystroke con `ILIKE '%x%'` — nullo con 12 specie, da
+sistemare quando arriva il catalogo esteso Fase 9 (indice `pg_trgm`, già previsto, +
+togliere/limitare il `count`).
+
+### Ordine consigliato
+
+Prod: **D20 → D21 → D22** (strutturale, in quest'ordine per le dipendenze).
+Subito, indipendenti: **D23** (indici) → **D25** (prova solo indice) → **D24** →
+**D26** → **D27** → **D28**. Minori a seguire.
+
+Atteso dopo D22+D23+D25 a parità di carico: CPU backend da ~72% a ~30–40%, p95 in forte
+calo. Poi rilanciare lo stress test con il seed realistico.
 
 ---
 

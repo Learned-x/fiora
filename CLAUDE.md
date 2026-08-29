@@ -80,6 +80,89 @@ aggiornato). Tutti i punti non-firmware risolti in questa sessione:
 l'utente non si occupa di firmware direttamente (usa un simulatore per testare la
 scheda lato backend/mobile).
 
+## 🚧 Efficienza backend — piano in corso (branch `feature/backend-efficiency`, 2026-08-28)
+
+**Contesto.** Uno stress test iniziale dava il backend come CPU-bound (4 core 70–90%).
+**Diagnosi sbagliata**: girava su DB di staging vuoto (8 piante, 33 task) e su una macchina
+con 12 container non tutti Fiora. Il backend è mono-processo: non può superare 1 core su 4.
+Rimisurato con dataset realistico (120 utenti, 4238 piante, **152k task**, ~6 mesi di storico —
+tutti con email `@fiora.bench`), con `EXPLAIN ANALYZE` + benchmark HTTP. Due cause vere,
+quantificate:
+
+1. **La schermata Oggi scarica tutto lo storico a ogni apertura.** `mobile/app/(tabs)/index.tsx:152`
+   chiama `listTasks({ stato: 'completato' })` senza limite di data, poi filtra a "oggi" lato
+   client. Misurato: **762 KB, 678 ms, 31 rps**. Cresce all'infinito con lo storico dell'utente.
+2. **Indice mancante `tasks(plant_id, stato)`.** Il `_count` filtrato di `listPlants` diventa
+   una subquery correlata → `Seq Scan` su 152k righe per ogni pianta. **495 ms → 0,512 ms**
+   con l'indice (~970×); Postgres da 296% (3 core) a 86%.
+
+Piano completo in `~/.claude/plans/zesty-moseying-flamingo.md`. **Declassato** D29 (cache JWT:
+misurata ~5% del costo di `/plants` — il report originale la dava come intervento #1, sbagliato;
+resta valido solo il pezzo sulla blacklist Redis mai controllata da `requireAuth`, che è
+sicurezza). **Fuori scope**: repliche + reverse proxy (D20), worker BullMQ in processo separato
+(D21) — sono capacità, non efficienza.
+
+### ✅ Fatto (committato sul branch)
+- `backend/src/services/task.service.ts`: `listTasks` accetta `completatoFrom`/`completatoTo`
+  (filtro su `completatoA`, **non** `scadenza` — un task scaduto ieri ma completato oggi deve
+  rientrare) e `limit`/`offset` (default 200, cap 500 — tetto di sicurezza, non paginazione
+  d'uso normale). `serializeTask(now)` calcola `Date.now()` una volta per lista. `completeTask`
+  ora in `$transaction` (update + `actionLog.create` atomici — era un bug di correttezza: se
+  la seconda falliva, task completato senza voce nello storico).
+- `backend/src/routes/task.routes.ts`: validazioni `query()` + blocco Swagger per i 4 parametri
+  nuovi.
+- 187/187 test verdi dopo le modifiche.
+
+### ⏳ Da fare, in ordine
+1. **`backend/prisma/schema.prisma`, model `Task`** — aggiungere:
+   ```prisma
+   @@index([plantId, stato], name: "idx_tasks_plant_stato")
+   @@index([userId, stato, scadenza], name: "idx_tasks_user_stato_scadenza")
+   ```
+   poi `npx prisma migrate dev --name efficiency_task_indexes`.
+   ⚠️ **Drift**: questi 2 indici (stessi nomi) sono già stati creati **a mano sul DB di staging**
+   durante l'analisi. Prima di `migrate deploy` in staging: o editare l'SQL generato in
+   `CREATE INDEX IF NOT EXISTS`, o droppare gli indici manuali su staging e lasciarli ricreare
+   dalla migration. Il DB dev locale non ha il problema.
+2. **Mobile** — `mobile/src/services/plants.api.ts` (`ListTasksFilters` += `completatoFrom`/
+   `completatoTo`/`limit`/`offset`) e `mobile/app/(tabs)/index.tsx:151-157`:
+   `listTasks({ stato: 'completato', completatoFrom: startOfToday().toISOString() })`, togliere
+   il `.filter()` client-side alla riga 156 (`startOfToday()` esiste già alla riga 27).
+3. **`backend/src/lib/prisma.ts`** — `new PrismaPg({ connectionString, max: 10 })` (il
+   `?connection_limit=` nell'URL **non ha effetto** con l'adapter pg). Rendere il singleton
+   incondizionato (togliere il guard `NODE_ENV !== 'production'`, altrimenti un secondo processo
+   crea pool multipli).
+4. **`backend/src/app.ts`** — `pinoHttp({ ..., autoLogging: { ignore: (req) => req.url === '/health' || req.url.startsWith('/docs') } })` e `express.json({ limit: '32kb' })`.
+5. **`docs/fiora-roadmap.md`** — riscrivere la sezione D20–D31 (già sul branch ma con i dati
+   PRE-misura: suggerisce priorità che le misure smentiscono, manca la scoperta della schermata
+   Oggi).
+
+### Come farlo
+- **Non cambiare la forma delle risposte API** (`{ success, data: [...] }`): il mobile si rompe.
+  Il `limit` è un cap interno, la risposta resta un array nudo.
+- ⚠️ **Vincolo test**: il mock `backend/src/lib/__mocks__/prisma.ts` implementa `$transaction`
+  **solo in forma callback**. Usare `prisma.$transaction(async (tx) => ...)`, mai la forma array
+  (stesso pattern di `updatePlant` in `plant.service.ts`).
+- Nuovi test in `task.service.test.ts` (blocco `listTasks`): filtro `completatoFrom`/`To`,
+  `limit` di default applicato, cap del limit.
+- **Benchmark**: N richieste concorrenti keep-alive con header `Authorization`, misura rps +
+  p50/p95 e `docker stats --no-stream` per-container (non la CPU host — fuorviante su questa
+  macchina condivisa). Baseline misurata: `/plants` 169 rps / PG 296%, `/tasks?stato=completato`
+  31 rps / 762 KB. Atteso dopo: `/plants` ~278 rps / PG <90%,
+  `/tasks?stato=completato&completatoFrom=<oggi>` >600 rps / <20 KB. Gli script del primo giro
+  sono nella scratchpad di quella sessione (`bench.js`/`bench2.js`) — se non ci sono più,
+  ricostruibili in pochi minuti.
+
+### ⚠️ Stato ambiente da ripristinare
+- **4 container fermati** durante l'analisi: `test-postgres-test-1`, `test-mongo-test-1`,
+  `prod-postgres-1`, `prod-mongo-1` → `docker start <nome>` se servono. Nota: i 2 `prod-*` erano
+  già orfani (zero reti, zero porte pubblicate, irraggiungibili) da prima — non li ho rotti io.
+- **Dati bench ancora in staging** (152k task finti). Cleanup:
+  `DELETE FROM users WHERE email LIKE '%@fiora.bench';` — le FK `onDelete: Cascade` su
+  `Plant.user`/`Task.user` puliscono il resto; i dati reali (10 utenti, 8 piante) non hanno
+  quel pattern email. Backup pre-seed salvato nella scratchpad
+  (`backup_staging_pre_bench.sql`).
+
 ## Catalogo esteso — import grezzo CSV piante da giardino (2026-08-20)
 Punto di partenza per arricchire il catalogo Fase 9, in alternativa/complemento a
 Trefle. **Trefle rimosso dal codice** in questa sessione (`trefle.service.ts`,

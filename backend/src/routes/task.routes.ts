@@ -42,6 +42,21 @@ function handleError(res: Response, err: any): void {
  *         name: to
  *         schema: { type: string, format: date-time }
  *         description: Scadenza massima
+ *       - in: query
+ *         name: completatoFrom
+ *         schema: { type: string, format: date-time }
+ *         description: Completato a partire da (filtra su completatoA, non su scadenza)
+ *       - in: query
+ *         name: completatoTo
+ *         schema: { type: string, format: date-time }
+ *         description: Completato fino a (filtra su completatoA, non su scadenza)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+ *         description: Numero massimo di task restituiti
+ *       - in: query
+ *         name: offset
+ *         schema: { type: integer, minimum: 0, default: 0 }
  *     responses:
  *       200: { description: Lista task con pianta associata }
  */
@@ -53,6 +68,10 @@ router.get(
     query('stato').optional().isIn(['pending', 'completato', 'rimandato', 'saltato']).withMessage('Stato non valido'),
     query('from').optional().isISO8601().withMessage('from non valido'),
     query('to').optional().isISO8601().withMessage('to non valido'),
+    query('completatoFrom').optional().isISO8601().withMessage('completatoFrom non valido'),
+    query('completatoTo').optional().isISO8601().withMessage('completatoTo non valido'),
+    query('limit').optional().isInt({ min: 1, max: 500 }).withMessage('limit non valido (1-500)'),
+    query('offset').optional().isInt({ min: 0 }).withMessage('offset non valido'),
   ],
   async (req: Request, res: Response) => {
     if (!handleValidation(req, res)) return;
@@ -61,6 +80,10 @@ router.get(
         stato: req.query.stato as string | undefined,
         from: req.query.from as string | undefined,
         to: req.query.to as string | undefined,
+        completatoFrom: req.query.completatoFrom as string | undefined,
+        completatoTo: req.query.completatoTo as string | undefined,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        offset: req.query.offset ? Number(req.query.offset) : undefined,
       });
       res.json({ success: true, data: tasks });
     } catch (err: any) {
