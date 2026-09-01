@@ -7,10 +7,12 @@ const PrismaClient = (PrismaPkg as unknown as {
 
 const globalForPrisma = globalThis as unknown as { prisma: InstanceType<typeof PrismaClient> };
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// `?connection_limit=` nell'URL non ha effetto con l'adapter pg: il pool va
+// configurato qui. `max: 10` = tetto di connessioni per processo.
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 10 });
 
+// Singleton incondizionato: in dev evita pool multipli sull'hot-reload di
+// ts-node-dev, in prod evita che un secondo processo (es. worker BullMQ) apra
+// un pool separato ignorando quello già istanziato.
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;

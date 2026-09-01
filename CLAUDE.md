@@ -111,31 +111,34 @@ sicurezza). **Fuori scope**: repliche + reverse proxy (D20), worker BullMQ in pr
   la seconda falliva, task completato senza voce nello storico).
 - `backend/src/routes/task.routes.ts`: validazioni `query()` + blocco Swagger per i 4 parametri
   nuovi.
-- 187/187 test verdi dopo le modifiche.
+- **Indici `tasks`** (`schema.prisma` model `Task`): `@@index([plantId, stato])` +
+  `@@index([userId, stato, scadenza])`, migration `20260829120000_efficiency_task_indexes`
+  con SQL editato a mano in `CREATE INDEX IF NOT EXISTS` (i due indici, stessi nomi, sono già
+  su staging — creati a mano in analisi). Migration **non ancora applicata a un DB locale**
+  (nessun Postgres dev su questa macchina); su staging gli indici ci sono già.
+- **Mobile**: `plants.api.ts` `ListTasksFilters` += `completatoFrom`/`completatoTo`/`limit`/
+  `offset`; `(tabs)/index.tsx` passa `completatoFrom: startOfToday().toISOString()` e non
+  filtra più lato client.
+- **`backend/src/lib/prisma.ts`**: `PrismaPg({ …, max: 10 })`, singleton incondizionato
+  (tolto il guard `NODE_ENV !== 'production'`).
+- **`backend/src/app.ts`**: `autoLogging.ignore` per `/health` e `/docs*`,
+  `express.json({ limit: '32kb' })`.
+- **`docs/fiora-roadmap.md`**: sezione "Debito di efficienza backend" riscritta con le misure
+  reali (tabella rps/PG%, le 2 cause vere, D29 declassato, D20/D21 fuori scope).
+- 190/190 test backend verdi (187 + 3 nuovi su `listTasks`: filtro `completatoFrom/To`, limit
+  di default, cap del limit). `npm run build` ok.
 
-### ⏳ Da fare, in ordine
-1. **`backend/prisma/schema.prisma`, model `Task`** — aggiungere:
-   ```prisma
-   @@index([plantId, stato], name: "idx_tasks_plant_stato")
-   @@index([userId, stato, scadenza], name: "idx_tasks_user_stato_scadenza")
-   ```
-   poi `npx prisma migrate dev --name efficiency_task_indexes`.
-   ⚠️ **Drift**: questi 2 indici (stessi nomi) sono già stati creati **a mano sul DB di staging**
-   durante l'analisi. Prima di `migrate deploy` in staging: o editare l'SQL generato in
-   `CREATE INDEX IF NOT EXISTS`, o droppare gli indici manuali su staging e lasciarli ricreare
-   dalla migration. Il DB dev locale non ha il problema.
-2. **Mobile** — `mobile/src/services/plants.api.ts` (`ListTasksFilters` += `completatoFrom`/
-   `completatoTo`/`limit`/`offset`) e `mobile/app/(tabs)/index.tsx:151-157`:
-   `listTasks({ stato: 'completato', completatoFrom: startOfToday().toISOString() })`, togliere
-   il `.filter()` client-side alla riga 156 (`startOfToday()` esiste già alla riga 27).
-3. **`backend/src/lib/prisma.ts`** — `new PrismaPg({ connectionString, max: 10 })` (il
-   `?connection_limit=` nell'URL **non ha effetto** con l'adapter pg). Rendere il singleton
-   incondizionato (togliere il guard `NODE_ENV !== 'production'`, altrimenti un secondo processo
-   crea pool multipli).
-4. **`backend/src/app.ts`** — `pinoHttp({ ..., autoLogging: { ignore: (req) => req.url === '/health' || req.url.startsWith('/docs') } })` e `express.json({ limit: '32kb' })`.
-5. **`docs/fiora-roadmap.md`** — riscrivere la sezione D20–D31 (già sul branch ma con i dati
-   PRE-misura: suggerisce priorità che le misure smentiscono, manca la scoperta della schermata
-   Oggi).
+### ⏳ Da fare
+1. **Applicare la migration a un DB dev** quando si torna sul Mac (`npx prisma migrate deploy`,
+   o `migrate dev` se serve rigenerare) — verificare che gli indici entrino. Su staging: già
+   presenti, il `CREATE INDEX IF NOT EXISTS` rende il `migrate deploy` idempotente.
+2. **Benchmark end-to-end** sulle rotte della tabella baseline (`/plants`, `/tasks?stato=
+   completato&completatoFrom=<oggi>`, `/tasks` senza filtri) e confronto con i numeri attesi
+   nel piano. Script ricostruibili (N richieste concorrenti keep-alive + `docker stats`).
+3. **Cleanup staging**: `DELETE FROM users WHERE email LIKE '%@fiora.bench';` (152k task finti),
+   `docker start` dei 4 container fermati se servono. Backup pre-seed in scratchpad sessione
+   precedente.
+4. **Merge** del branch in `develop` dopo il benchmark.
 
 ### Come farlo
 - **Non cambiare la forma delle risposte API** (`{ success, data: [...] }`): il mobile si rompe.

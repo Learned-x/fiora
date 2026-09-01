@@ -149,12 +149,10 @@ export default function OggiScreen() {
     try {
       const [pendingTasks, completedTasks] = await Promise.all([
         listTasks({ stato: 'pending', to: endOfToday() }),
-        listTasks({ stato: 'completato' }),
+        listTasks({ stato: 'completato', completatoFrom: startOfToday().toISOString() }),
       ]);
       setPending(pendingTasks);
-      setDoneToday(
-        completedTasks.filter((t) => t.completatoA && new Date(t.completatoA) >= startOfToday())
-      );
+      setDoneToday(completedTasks);
       setLoaded(true);
       setLoadError(false);
     } catch {

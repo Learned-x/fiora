@@ -66,6 +66,13 @@ export interface ListTasksFilters {
   stato?: string;
   from?: string;
   to?: string;
+  // Filtro su completatoA (non su scadenza): "completati oggi" include anche un
+  // task scaduto ieri ma spuntato oggi. Il server filtra, il client non scarica
+  // più tutto lo storico per poi filtrarlo a mano.
+  completatoFrom?: string;
+  completatoTo?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export async function listTasks(filters: ListTasksFilters = {}): Promise<Task[]> {

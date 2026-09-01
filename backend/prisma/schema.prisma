@@ -245,6 +245,11 @@ model Task {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, scadenza], name: "idx_tasks_user_scadenza")
+  // _count filtrato di listPlants: senza questo indice il filtro su (plant_id, stato)
+  // diventa una subquery correlata con Seq Scan per ogni pianta (misurato: 495 ms -> 0,5 ms).
+  @@index([plantId, stato], name: "idx_tasks_plant_stato")
+  // GET /tasks?stato=...&from/to: copre userId + stato + range su scadenza in un solo indice.
+  @@index([userId, stato, scadenza], name: "idx_tasks_user_stato_scadenza")
   @@map("tasks")
 }
 

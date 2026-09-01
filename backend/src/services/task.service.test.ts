@@ -58,6 +58,41 @@ describe('task.service', () => {
       expect(args.where.scadenza.lte).toEqual(new Date('2026-07-31T23:59:59Z'));
     });
 
+    it('filtra su completatoA (non su scadenza) con completatoFrom/completatoTo', async () => {
+      (prisma.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
+
+      await taskService.listTasks('user-1', {
+        stato: 'completato',
+        completatoFrom: '2026-08-29T00:00:00Z',
+        completatoTo: '2026-08-29T23:59:59Z',
+      });
+
+      const args = (prisma.task.findMany as jest.Mock).mock.calls[0][0];
+      expect(args.where.completatoA.gte).toEqual(new Date('2026-08-29T00:00:00Z'));
+      expect(args.where.completatoA.lte).toEqual(new Date('2026-08-29T23:59:59Z'));
+      expect(args.where.scadenza).toBeUndefined();
+    });
+
+    it('applica il limite di default (200) quando non specificato', async () => {
+      (prisma.task.findMany as jest.Mock).mockResolvedValue([]);
+
+      await taskService.listTasks('user-1');
+
+      const args = (prisma.task.findMany as jest.Mock).mock.calls[0][0];
+      expect(args.take).toBe(200);
+      expect(args.skip).toBe(0);
+    });
+
+    it('limita il take al cap massimo (500) anche se il chiamante chiede di più', async () => {
+      (prisma.task.findMany as jest.Mock).mockResolvedValue([]);
+
+      await taskService.listTasks('user-1', { limit: 5000, offset: 10 });
+
+      const args = (prisma.task.findMany as jest.Mock).mock.calls[0][0];
+      expect(args.take).toBe(500);
+      expect(args.skip).toBe(10);
+    });
+
     it('segna inRitardo:true per task pending con scadenza oltre 3 giorni fa', async () => {
       const scaduto = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
       (prisma.task.findMany as jest.Mock).mockResolvedValue([{ ...mockTask, scadenza: scaduto }]);

@@ -20,10 +20,15 @@ const app = express();
 // ── Middleware globali ────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
 app.use(
   pinoHttp({
     logger,
+    // Health check e Swagger non hanno valore nei log e sono le rotte più
+    // frequenti (probe, asset docs): la serializzazione del log è sul main thread.
+    autoLogging: {
+      ignore: (req) => req.url === '/health' || req.url.startsWith('/docs'),
+    },
     genReqId: (req, res) => {
       const existing = req.headers['x-request-id'];
       const id = typeof existing === 'string' ? existing : randomUUID();
