@@ -42,11 +42,21 @@
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "766129169137-8pmfvdtuqh8efjjrsljg8c0h10gd0if9.apps.googleusercontent.com"
       }
     },
+    "demo-testflight": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://92.4.218.109:3000",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "766129169137-gdjiobv67eij22llr46gt6ne4l8jugfa.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "766129169137-8pmfvdtuqh8efjjrsljg8c0h10gd0if9.apps.googleusercontent.com"
+      }
+    },
     "production": {
       "autoIncrement": true
     }
   },
   "submit": {
+    "demo-testflight": {},
     "production": {}
   }
 }
