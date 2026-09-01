@@ -13,7 +13,7 @@ services:
       POSTGRES_DB: fiora_staging
       POSTGRES_USER: fiora
     ports:
-      - "100.102.50.17:5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - postgres_staging:/var/lib/postgresql/data
     healthcheck:
@@ -58,6 +58,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
 
   # ─── Portainer ───────────────────────────────────────────────────────────────
   portainer:
@@ -71,7 +73,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_staging:/data
 
+  # ─── Mosquitto (MQTT broker self-hosted) ─────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: fiora-mosquitto-staging
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_staging:/mosquitto/data
+
 volumes:
   postgres_staging:
   redis_staging:
   portainer_staging:
+  mosquitto_staging:
