@@ -1,0 +1,6 @@
+# ACL Mosquitto staging.
+# Credenziale condivisa: backend e vasi usano lo stesso utente.
+# In produzione questo diventa per-vaso (vedi docs/fiora-specifiche-tecniche.md §6).
+
+user fiora-vaso
+topic readwrite fiora/vaso/#

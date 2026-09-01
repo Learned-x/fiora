@@ -5,6 +5,14 @@ import { requestVaseRefresh, requestVaseWifiReset } from '../lib/mqtt';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// URL del broker da trasmettere al vaso via BLE. Diverso da MQTT_BROKER_URL
+// (usato dal backend sulla rete Docker: mqtt://mosquitto:1883): il vaso deve
+// raggiungere il broker dall'esterno, via TLS. In dev/HiveMQ i due coincidono
+// e MQTT_PUBLIC_URL non è valorizzato.
+function deviceBrokerUrl(): string {
+  return process.env.MQTT_PUBLIC_URL || process.env.MQTT_BROKER_URL!;
+}
+
 export async function findOwnedVase(userId: string, vaseId: string) {
   const vase = await prisma.smartVase.findFirst({
     where: { id: vaseId, userId },
@@ -40,7 +48,7 @@ export async function startPairing(userId: string) {
     deviceId: vase.deviceId,
     mqttUsername: process.env.MQTT_USERNAME!,
     mqttPassword: process.env.MQTT_PASSWORD!,
-    brokerUrl: process.env.MQTT_BROKER_URL!,
+    brokerUrl: deviceBrokerUrl(),
   };
 }
 
@@ -130,7 +138,7 @@ export async function getReconnectCredentials(userId: string, vaseId: string) {
     deviceId: vase.deviceId,
     mqttUsername: process.env.MQTT_USERNAME!,
     mqttPassword: process.env.MQTT_PASSWORD!,
-    brokerUrl: process.env.MQTT_BROKER_URL!,
+    brokerUrl: deviceBrokerUrl(),
   };
 }
 

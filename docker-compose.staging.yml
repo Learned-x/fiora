@@ -79,9 +79,14 @@ services:
     container_name: fiora-mosquitto-staging
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      # 1883 NON pubblicato: lo usa solo il backend sulla rete Docker.
+      # I vasi si connettono via TLS sulla 8883.
+      - "8883:8883"
     volumes:
-      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/config/passwd:/mosquitto/config/passwd:ro
+      - ./mosquitto/config/acl:/mosquitto/config/acl:ro
+      - ./mosquitto/ssl:/mosquitto/ssl:ro
       - mosquitto_staging:/mosquitto/data
 
 volumes:

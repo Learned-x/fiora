@@ -123,7 +123,7 @@ export function connectMqtt(): MqttClient {
   });
 
   client.on('connect', () => {
-    log.info('Connesso a HiveMQ Cloud');
+    log.info({ brokerUrl }, 'Connesso al broker MQTT');
 
     // Sottoscrivi a tutti i topic dei vasi in un'unica wildcard
     client!.subscribe('fiora/vaso/+/telemetry', { qos: 1 }, (err) => {
@@ -150,7 +150,7 @@ export function connectMqtt(): MqttClient {
   });
 
   client.on('disconnect', () => {
-    log.warn('Disconnesso da HiveMQ Cloud');
+    log.warn('Disconnesso dal broker MQTT');
   });
 
   return client;

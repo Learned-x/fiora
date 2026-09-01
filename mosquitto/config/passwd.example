@@ -1,0 +1,14 @@
+# Il file reale `passwd` NON e committato (vedi .gitignore) — contiene l'hash
+# della credenziale MQTT di staging.
+#
+# Generarlo sul server dopo il primo `up`:
+#
+#   docker compose -f docker-compose.staging.yml up -d mosquitto
+#   docker exec -it fiora-mosquitto-staging \
+#     mosquitto_passwd -b -c /mosquitto/config/passwd fiora-vaso 'PASSWORD_SCELTA'
+#   docker compose -f docker-compose.staging.yml restart mosquitto
+#
+# Poi valorizzare in backend/.env.staging:
+#   MQTT_USERNAME=fiora-vaso
+#   MQTT_PASSWORD=PASSWORD_SCELTA
+# e riavviare il backend.

@@ -3,6 +3,7 @@
 .env.staging
 .env.production
 mosquitto/ssl/
+mosquitto/config/passwd
 nginx/ssl/
 node_modules/
 dist/
