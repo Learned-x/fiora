@@ -166,6 +166,53 @@ sicurezza). **Fuori scope**: repliche + reverse proxy (D20), worker BullMQ in pr
   quel pattern email. Backup pre-seed salvato nella scratchpad
   (`backup_staging_pre_bench.sql`).
 
+## ✅ Mosquitto self-hosted sicuro su server demo Oracle (branch `develop`, 2026-09-01)
+
+**Contesto.** Branch `demo` (2026-09-01) ha aggiunto profili EAS `demo`/`demo-testflight`
+puntati a un server Oracle (`92.4.218.109:3000`), per test/distribuzione fuori dalla LAN casa
+senza passare da Tailscale. In parallelo, sullo stesso server era stato aggiunto a mano (senza
+commit) un Mosquitto self-hosted, poi portato su `develop` in un primo commit (`17854f3`) — ma
+**completamente aperto**: `allow_anonymous true`, porta 1883 pubblicata su tutte le interfacce,
+nessuna ACL, nessun TLS. Un problema di sicurezza reale (non solo tecnico): il server è su IP
+pubblico, non LAN/Tailscale come lo staging Ubuntu — chiunque poteva pubblicare/leggere
+telemetria dei vasi o impersonare un device.
+
+In più, il firmware ESP32 si connette **sempre** via TLS (`WiFiClientSecure` con CA hardcoded,
+prima ISRG Root X1 per HiveMQ) — contro un Mosquitto in chiaro su 1883 l'handshake TLS avrebbe
+fallito sempre, il vaso non si sarebbe mai connesso. Nessun pairing è mai stato testato contro
+questo broker (solo contro HiveMQ, vedi Fase 6).
+
+**Fix** (commit `dadb9bd`, stesso giorno):
+- **Due listener Mosquitto**: `1883` interno (solo backend, sulla rete Docker — **non più
+  pubblicato** da `docker-compose.staging.yml`) e `8883` TLS pubblico (solo per i vasi ESP32).
+  Il backend non ha bisogno di TLS/CA per parlare col broker: passa dalla rete Docker interna.
+- **Auth obbligatoria**: `allow_anonymous false` + `password_file` (utente condiviso
+  `fiora-vaso`, stesso modello di HiveMQ) + `acl_file` che limita quell'utente a
+  `readwrite fiora/vaso/#` — vedi `mosquitto/config/acl`.
+- **TLS**: CA privata self-signed (`mosquitto/ssl/ca.crt`, validità 10 anni) + certificato
+  server con SAN sull'IP pubblico del server. File in `mosquitto/ssl/` **mai committati**
+  (gitignored) — solo `ca.crt` va incollato nel firmware (è pubblico, serve al client per
+  validare il server, non è la chiave privata).
+- **`MQTT_PUBLIC_URL` distinta da `MQTT_BROKER_URL`** (`vase.service.ts`,
+  `deviceBrokerUrl()`): il backend usa l'interno (`mqtt://mosquitto:1883`), i vasi ricevono via
+  BLE il pubblico (`mqtts://<IP>:8883`) al momento del pairing. In dev/HiveMQ coincidono
+  (`MQTT_PUBLIC_URL` non valorizzata → fallback su `MQTT_BROKER_URL`).
+- **Firmware**: `ca_cert` in `mqtt_handler.cpp` sostituito con la CA Fiora staging (era ISRG
+  Root X1) → **richiede reflash di ogni vaso già pairato** prima che possa riconnettersi a
+  questo broker. Se cambia l'IP pubblico del server, va rigenerato solo il certificato server
+  (la CA resta valida, niente reflash — vedi `mosquitto/README.md`).
+- `mosquitto/README.md` nuovo: procedura completa di rigenerazione certificati/password.
+
+**A cosa serve**: rende il broker MQTT del server demo Oracle utilizzabile in sicurezza da
+Internet pubblico (niente LAN/Tailscale a proteggerlo come per lo staging Ubuntu), mantenendo
+lo stesso pattern di credenziale condivisa già usato con HiveMQ Cloud in dev/staging — non è
+ancora il modello per-vaso pianificato per la produzione (`docs/fiora-specifiche-tecniche.md`
+§6).
+
+**Non ancora fatto**: test end-to-end del pairing su hardware reale contro questo Mosquitto
+(il pairing BLE verificato in Fase 6, 2026-08-18, era solo contro HiveMQ) — reflash + retest
+del vaso fisico da fare alla prossima sessione con l'hardware a disposizione.
+
 ## Catalogo esteso — import grezzo CSV piante da giardino (2026-08-20)
 Punto di partenza per arricchire il catalogo Fase 9, in alternativa/complemento a
 Trefle. **Trefle rimosso dal codice** in questa sessione (`trefle.service.ts`,
